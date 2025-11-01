@@ -5,6 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useAuth } from "@/hooks/useAuth"
 import {
   LayoutDashboard,
   Building2,
@@ -34,6 +35,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [communicationsOpen, setCommunicationsOpen] = useState(false)
   const pathname = usePathname()
+  const { logout } = useAuth()
 
   const menuItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -164,6 +166,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+            onClick={logout}
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
             {sidebarOpen && <span className="truncate">Logout</span>}
