@@ -1,0 +1,26 @@
+import { Request, Response, NextFunction } from 'express';
+import pool from '../database';
+
+export const tenantMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  const tenantId = req.headers['x-tenant-id'] as string;
+
+  if (!tenantId) {
+    return res.status(400).json({ message: 'X-Tenant-ID header is required' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('SET search_path TO $1', [tenantId]);
+    req.dbClient = client;
+
+    res.on('finish', () => {
+      client.release();
+    });
+
+    next();
+  } catch (error) {
+    client.release();
+    res.status(500).json({ message: 'Failed to set tenant context' });
+  }
+};
