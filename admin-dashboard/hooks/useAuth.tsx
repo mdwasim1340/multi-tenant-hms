@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, ReactNode } from "react"
+import React, { createContext, useContext, ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import Cookies from "js-cookie"
 
@@ -11,7 +11,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+interface AuthProviderProps {
+  children: ReactNode
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const router = useRouter()
 
   const login = (token: string) => {
@@ -24,10 +28,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     router.push("/auth/signin")
   }
 
-  return (
-    <AuthContext.Provider value={{ login, logout }}>
-      {children}
-    </AuthContext.Provider>
+  const contextValue: AuthContextType = {
+    login,
+    logout
+  }
+
+  return React.createElement(
+    AuthContext.Provider,
+    { value: contextValue },
+    children
   )
 }
 

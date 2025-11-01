@@ -26,10 +26,13 @@ export default function SignInPage() {
     setError(null)
     try {
       const data = await signIn(email, password)
-      if (data.token) {
-        login(data.token)
+      if (data.AccessToken) {
+        login(data.AccessToken)
+      } else {
+        setError("Authentication failed. No access token received.")
       }
     } catch (err) {
+      console.error('Signin error:', err)
       setError("Failed to sign in. Please check your credentials.")
     } finally {
       setLoading(false)

@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import cors from 'cors';
 import dotenv from 'dotenv';
 import { tenantMiddleware } from './middleware/tenant';
 import authRouter from './routes/auth';
@@ -7,6 +8,19 @@ dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// CORS configuration for admin dashboard
+app.use(cors({
+  origin: [
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'http://10.66.66.8:3001',
+    'http://10.66.66.8:3002'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID']
+}));
 
 // Middleware to parse JSON bodies
 app.use(express.json());
