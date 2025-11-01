@@ -1,0 +1,26 @@
+{
+  "enabled": true,
+  "name": "Test & Doc File Organizer",
+  "description": "Automatically moves new test files to appropriate /tests directories and documentation files to appropriate /docs directories based on their location in the project structure. Ensures proper organization across backend, admin-dashboard, and hospital-management-system folders.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "**/*.test.js",
+      "**/*.test.ts",
+      "**/*.spec.js",
+      "**/*.spec.ts",
+      "**/test-*.js",
+      "**/test-*.ts",
+      "**/*.md",
+      "**/*.txt",
+      "**/*.doc",
+      "**/*.docx",
+      "**/*.pdf"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A new test or documentation file has been created. Please organize it according to these rules:\n\nFOR TEST FILES (*.test.js, *.test.ts, *.spec.js, *.spec.ts, test-*.js, test-*.ts):\n- If in backend/ folder → move to backend/tests/\n- If in admin-dashboard/ folder → move to admin-dashboard/tests/\n- If in hospital-management-system/ folder → move to hospital-management-system/tests/\n- If in root directory → move to backend/tests/ (as the main testing location)\n\nFOR DOCUMENTATION FILES (*.md, *.txt, *.doc, *.docx, *.pdf):\n- If in backend/ folder → move to backend/docs/\n- If in admin-dashboard/ folder → move to admin-dashboard/docs/\n- If in hospital-management-system/ folder → move to hospital-management-system/docs/\n- If in root directory → move to backend/docs/ (as the main documentation location)\n\nIMPORTANT REQUIREMENTS:\n1. Ensure the target /tests or /docs directory exists before moving the file\n2. Preserve the original filename exactly\n3. If the target directory doesn't exist, create it first\n4. Notify about the file organization action taken\n5. Do not move files that are already in the correct location\n\nPlease analyze the file location and move it to the appropriate directory following these rules."
+  }
+}

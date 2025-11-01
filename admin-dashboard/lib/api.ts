@@ -27,4 +27,23 @@ export const signIn = async (email: string, password: string) => {
   return response.data
 }
 
+export const signUp = async (email: string, password: string, name: string) => {
+  const response = await api.post("/auth/signup", { email, password, name })
+  return response.data
+}
+
+export const forgotPassword = async (email: string) => {
+  const response = await api.post("/auth/forgot-password", { email })
+  return response.data
+}
+
+export const resetPassword = async (email: string, code: string, newPassword: string) => {
+  const response = await api.post("/auth/reset-password", { 
+    email, 
+    code, 
+    newPassword 
+  })
+  return response.data
+}
+
 export default api

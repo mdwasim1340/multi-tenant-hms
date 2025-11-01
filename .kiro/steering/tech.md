@@ -6,7 +6,9 @@
 - **Database**: PostgreSQL with schema-based multi-tenancy
 - **Authentication**: AWS Cognito with JWT validation
 - **File Storage**: AWS S3 with presigned URLs
+- **Email Service**: AWS SES for notifications and password reset
 - **Migration Tool**: node-pg-migrate
+- **Testing**: Comprehensive test suite (25+ test files)
 
 ## Frontend Stack
 - **Framework**: Next.js 16.x with React 19
@@ -50,6 +52,8 @@ node tests/SYSTEM_STATUS_REPORT.js
 # Test specific components
 node tests/test-s3-direct.js
 node tests/test-cognito-direct.js
+node tests/test-forgot-password-complete.js
+node tests/test-admin-dashboard-ui-flow.js
 ```
 
 ### Frontend Development

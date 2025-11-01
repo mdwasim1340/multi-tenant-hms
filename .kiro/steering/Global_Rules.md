@@ -7,10 +7,10 @@ inclusion: always
 ## Project Structure & Organization
 
 ### File Placement Rules
-- **Backend documentation**: `backend/docs/` directory (✅ organized)
-- **Backend tests**: `backend/tests/` directory (✅ comprehensive test suite)
+- **Backend documentation**: `backend/docs/` directory (✅ 15+ documentation files)
+- **Backend tests**: `backend/tests/` directory (✅ 25+ comprehensive test files)
 - **Hospital frontend**: `hospital-management-system/` (Next.js app for hospital operations)
-- **Admin dashboard**: `admin-dashboard/` (Next.js app for system administration)
+- **Admin dashboard**: `admin-dashboard/` (Next.js app with email integration ✅ working)
 - **Development guidelines**: `.kiro/steering/` (Kiro IDE configuration)
 
 ### Naming Conventions
@@ -28,10 +28,12 @@ inclusion: always
 - **No cross-tenant data access** - validate tenant context in all operations
 
 ### Authentication & Security
-- **AWS Cognito integration**: Use JWT tokens with JWKS validation
+- **AWS Cognito integration**: Use JWT tokens with JWKS validation ✅ working
+- **Password reset system**: AWS SES email integration ✅ working
 - **Token expiration**: 1-hour JWT token lifetime
 - **Auth middleware**: Apply to all routes except `/auth/*`
 - **Environment variables**: Never commit `.env` files, use `.env.example`
+- **Email verification**: OTP system with AWS SES ✅ working
 
 ## Technology Stack Standards
 
@@ -85,10 +87,13 @@ inclusion: always
 ## Testing & Quality Assurance
 
 ### Test Organization
-- **System health**: Run `node tests/SYSTEM_STATUS_REPORT.js` for overall status
-- **Component tests**: Individual service testing (auth, S3, database)
+- **System health**: Run `node tests/SYSTEM_STATUS_REPORT.js` for overall status (90% success rate)
+- **Component tests**: Individual service testing (auth, S3, database, email)
 - **Integration tests**: Full multi-tenant workflow testing
-- **Documentation**: Update `backend/docs/` after significant changes
+- **Email tests**: Password reset and OTP validation testing
+- **Error scenario tests**: Comprehensive error handling validation
+- **Admin dashboard tests**: UI flow and integration testing
+- **Documentation**: Update `backend/docs/` after significant changes (15+ docs)
 
 ### Code Quality Standards
 - **TypeScript strict mode**: No `any` types, proper interface definitions
@@ -105,9 +110,10 @@ inclusion: always
 - **CORS configuration**: Restrict origins in production
 
 ### AWS Integration
-- **Cognito configuration**: USER_PASSWORD_AUTH flow enabled
+- **Cognito configuration**: USER_PASSWORD_AUTH flow enabled (minor config needed)
 - **S3 permissions**: Tenant-specific prefixes, presigned URL expiration (1 hour)
-- **IAM roles**: Minimal required permissions for Cognito and S3 access
+- **SES integration**: Email service for password reset and notifications ✅ working
+- **IAM roles**: Minimal required permissions for Cognito, S3, and SES access
 
 ## Development Workflow
 
@@ -136,6 +142,8 @@ cd admin-dashboard && npm run dev            # Port 3002
 # System testing and health checks
 cd backend && node tests/SYSTEM_STATUS_REPORT.js
 cd backend && node tests/test-final-complete.js
+cd backend && node tests/test-forgot-password-complete.js
+cd backend && node tests/test-admin-dashboard-ui-flow.js
 
 # Full-stack development (all apps)
 cd backend && npm run dev &

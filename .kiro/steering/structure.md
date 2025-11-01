@@ -35,14 +35,18 @@ backend/
 │   ├── types/              # TypeScript type definitions
 │   ├── database.ts         # Database connection utilities
 │   └── index.ts            # Main application entry point
-├── docs/                   # Documentation files
+├── docs/                   # Documentation files (15+ files)
 │   ├── README.md           # Project documentation
 │   ├── FINAL_SYSTEM_STATUS.md  # Current system status
-│   ├── AUTHENTICATION_AND_S3_TEST_RESULTS.md  # Test results
+│   ├── ADMIN_DASHBOARD_EMAIL_INTEGRATION_REPORT.md  # Email integration
+│   ├── FORGOT_PASSWORD_FIX.md  # Password reset documentation
+│   ├── OTP_UI_IMPLEMENTATION.md  # OTP system documentation
 │   └── *.md               # Other analysis and documentation
-├── tests/                  # Test scripts and utilities
+├── tests/                  # Test scripts and utilities (25+ files)
 │   ├── test-*.js          # API and integration tests
 │   ├── diagnose-*.js      # Diagnostic scripts
+│   ├── test-forgot-password-complete.js  # Password reset tests
+│   ├── test-admin-dashboard-ui-flow.js  # Admin UI tests
 │   └── SYSTEM_STATUS_REPORT.js  # System health checker
 ├── migrations/             # Database migration files
 ├── dist/                   # Compiled JavaScript output

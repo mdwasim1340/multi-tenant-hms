@@ -1,0 +1,9 @@
+{
+  "why": "To automatically organize test files by moving them to appropriate /tests directories in each main project folder",
+  "id": "test-auto-organizer",
+  "name": "Test Files Auto-Organizer",
+  "description": "Automatically moves newly created test files (.test.js, .test.ts, .spec.js, .spec.ts, test-*.js, test-*.ts, *.test.*, *.spec.*) to the appropriate /tests directory based on their location in the project structure",
+  "filePatterns": "**/*.test.js,**/*.test.ts,**/*.spec.js,**/*.spec.ts,**/test-*.js,**/test-*.ts,**/*.test.*,**/*.spec.*",
+  "debounceTime": "SHORT",
+  "outputPrompt": "A new test file has been created. Please move it to the appropriate /tests directory based on its location:\n\n- If in backend/ folder → move to backend/tests/\n- If in admin-dashboard/ folder → move to admin-dashboard/tests/\n- If in hospital-management-system/ folder → move to hospital-management-system/tests/\n- If in root directory → move to backend/tests/ (as the main testing location)\n\nEnsure the /tests directory exists before moving the file. Preserve the original filename and notify about the organization."
+}
