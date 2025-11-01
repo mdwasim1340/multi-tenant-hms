@@ -35,7 +35,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [communicationsOpen, setCommunicationsOpen] = useState(false)
   const pathname = usePathname()
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
+  const isAdmin = user?.signInUserSession?.accessToken?.payload['cognito:groups']?.includes('admin');
 
   const menuItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -86,7 +87,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
 
         <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-4 space-y-2 scrollbar-thin scrollbar-thumb-sidebar-accent scrollbar-track-sidebar">
-          {menuItems.map((item) => {
+          {menuItems.filter(item => item.href !== '/tenants' || isAdmin).map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
             return (

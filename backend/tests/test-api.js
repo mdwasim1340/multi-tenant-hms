@@ -6,10 +6,10 @@ const BASE_URL = 'http://localhost:3000';
 async function testCreateTenant(tenantId) {
   console.log(`\n🏢 Creating tenant: ${tenantId}`);
   try {
-    const response = await fetch(`${BASE_URL}/auth/tenants`, {
+    const response = await fetch(`${BASE_URL}/api/tenants`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tenantId })
+      body: JSON.stringify({ tenantId: tenantId })
     });
     const result = await response.json();
     console.log('✅ Tenant created:', result);

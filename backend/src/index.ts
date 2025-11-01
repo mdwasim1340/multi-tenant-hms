@@ -32,8 +32,10 @@ app.use('/auth', authRouter);
 app.use(tenantMiddleware);
 
 import filesRouter from './routes/files';
+import tenantsRouter from './routes/tenants';
 import { authMiddleware } from './middleware/auth';
 app.use('/files', authMiddleware, filesRouter);
+app.use('/api/tenants', tenantsRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {

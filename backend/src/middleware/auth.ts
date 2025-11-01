@@ -59,6 +59,12 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     if (err) {
       return res.status(401).json({ message: 'Invalid token' });
     }
+
+    const groups = (payload as any)['cognito:groups'];
+    if (!groups || !groups.includes('admin')) {
+      return res.status(403).json({ message: 'Forbidden: Admins only' });
+    }
+
     req.user = payload;
     next();
   });

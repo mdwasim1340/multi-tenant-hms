@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Plus } from "lucide-react"
+import { Search, Plus, Pencil, Trash } from "lucide-react"
 import { TenantCreationWizard } from "@/components/tenant-creation-wizard"
 import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation"
 import { TableSkeleton } from "@/components/skeleton-loader"
@@ -12,79 +12,115 @@ import { VirtualTable } from "@/components/virtual-table"
 import { AdvancedFilter } from "@/components/advanced-filter"
 import { BulkImportExport } from "@/components/bulk-import-export"
 
-const tenantsData = [
-  {
-    id: 1,
-    name: "Acme Corporation",
-    email: "admin@acme.com",
-    users: 245,
-    status: "active",
-    plan: "Enterprise",
-    joinDate: "2024-01-15",
-  },
-  {
-    id: 2,
-    name: "Tech Startup Inc",
-    email: "contact@techstartup.com",
-    users: 89,
-    status: "active",
-    plan: "Professional",
-    joinDate: "2024-02-20",
-  },
-  {
-    id: 3,
-    name: "Global Solutions Ltd",
-    email: "info@globalsol.com",
-    users: 156,
-    status: "active",
-    plan: "Professional",
-    joinDate: "2024-03-10",
-  },
-  {
-    id: 4,
-    name: "Innovation Labs",
-    email: "admin@innovlabs.com",
-    users: 42,
-    status: "inactive",
-    plan: "Starter",
-    joinDate: "2024-04-05",
-  },
-  {
-    id: 5,
-    name: "Digital Ventures",
-    email: "support@digventures.com",
-    users: 312,
-    status: "active",
-    plan: "Enterprise",
-    joinDate: "2024-01-22",
-  },
-  {
-    id: 6,
-    name: "Cloud Systems",
-    email: "hello@cloudsys.com",
-    users: 78,
-    status: "active",
-    plan: "Professional",
-    joinDate: "2024-05-01",
-  },
-]
-
 export function TenantsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [filters, setFilters] = useState<Record<string, any>>({})
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingTenant, setEditingTenant] = useState(null)
+  const [tenants, setTenants] = useState([])
 
-  const handleLoadingSimulation = () => {
-    setIsLoading(true)
-    setTimeout(() => setIsLoading(false), 1500)
-  }
+  useEffect(() => {
+    const fetchTenants = async () => {
+      setIsLoading(true)
+      try {
+        const response = await fetch("http://localhost:3000/api/tenants", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        })
+        const data = await response.json()
+        setTenants(data)
+      } catch (error) {
+        console.error("Failed to fetch tenants", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-  const handleAddTenant = () => {
-    // Placeholder for handleAddTenant logic
-  }
+    fetchTenants()
+  }, [])
 
-  const filteredTenants = tenantsData.filter((tenant) => {
+  const fetchTenants = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch("http://localhost:3000/api/tenants", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      const data = await response.json();
+      setTenants(data);
+    } catch (error) {
+      console.error("Failed to fetch tenants", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddTenant = async (tenantData) => {
+    try {
+      const response = await fetch("http://localhost:3000/api/tenants", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(tenantData),
+      });
+      if (response.ok) {
+        fetchTenants();
+        setIsModalOpen(false);
+      } else {
+        console.error("Failed to add tenant");
+      }
+    } catch (error) {
+      console.error("Failed to add tenant", error);
+    }
+  };
+
+  const handleUpdateTenant = async (tenantId, tenantData) => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/tenants/${tenantId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(tenantData),
+      });
+      if (response.ok) {
+        fetchTenants();
+      } else {
+        console.error("Failed to update tenant");
+      }
+    } catch (error) {
+      console.error("Failed to update tenant", error);
+    }
+  };
+
+  const handleDeleteTenant = async (tenantId) => {
+    if (window.confirm("Are you sure you want to delete this tenant?")) {
+      try {
+        const response = await fetch(`http://localhost:3000/api/tenants/${tenantId}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+        if (response.ok) {
+          fetchTenants();
+        } else {
+          console.error("Failed to delete tenant");
+        }
+      } catch (error) {
+        console.error("Failed to delete tenant", error);
+      }
+    }
+  };
+
+  const filteredTenants = tenants.filter((tenant) => {
     const matchesSearch =
       tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tenant.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -128,7 +164,21 @@ export function TenantsPage() {
       ),
     },
     { key: "joinDate" as const, label: "Join Date", sortable: true },
-  ]
+    {
+      key: "actions" as const,
+      label: "Actions",
+      render: (tenant) => (
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="sm" onClick={() => { setEditingTenant(tenant); setIsEditModalOpen(true); }}>
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button variant="destructive" size="sm" onClick={() => handleDeleteTenant(tenant.id)}>
+            <Trash className="w-4 h-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -204,6 +254,61 @@ export function TenantsPage() {
       </Card>
 
       <TenantCreationWizard isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleAddTenant} />
+      {editingTenant && (
+        <EditTenantModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          tenant={editingTenant}
+          onUpdate={handleUpdateTenant}
+        />
+      )}
     </div>
-  )
+  );
+}
+
+function EditTenantModal({ isOpen, onClose, tenant, onUpdate }) {
+  const [name, setName] = useState(tenant.name);
+  const [email, setEmail] = useState(tenant.email);
+  const [plan, setPlan] = useState(tenant.plan);
+  const [status, setStatus] = useState(tenant.status);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onUpdate(tenant.id, { name, email, plan, status });
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+      <div className="bg-card p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h2 className="text-2xl font-bold mb-4">Edit Tenant</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-muted-foreground">Name</label>
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-muted-foreground">Email</label>
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div>
+              <label htmlFor="plan" className="block text-sm font-medium text-muted-foreground">Plan</label>
+              <Input id="plan" value={plan} onChange={(e) => setPlan(e.target.value)} />
+            </div>
+            <div>
+              <label htmlFor="status" className="block text-sm font-medium text-muted-foreground">Status</label>
+              <Input id="status" value={status} onChange={(e) => setStatus(e.target.value)} />
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end space-x-4">
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit">Save Changes</Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
