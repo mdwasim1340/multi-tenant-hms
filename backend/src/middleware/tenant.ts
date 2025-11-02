@@ -11,7 +11,7 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
   const client = await pool.connect();
 
   try {
-    await client.query(`SET search_path TO "${tenantId}"`);
+    await client.query(`SET search_path TO "${tenantId}", public`);
     req.dbClient = client;
 
     res.on('finish', () => {
