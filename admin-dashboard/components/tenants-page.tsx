@@ -11,49 +11,68 @@ import { TableSkeleton } from "@/components/skeleton-loader"
 import { VirtualTable } from "@/components/virtual-table"
 import { AdvancedFilter } from "@/components/advanced-filter"
 import { BulkImportExport } from "@/components/bulk-import-export"
+import api from "@/lib/api"
+import Cookies from "js-cookie"
+import { useAuth } from "@/hooks/useAuth"
 
 export function TenantsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [filters, setFilters] = useState<Record<string, any>>({})
   const [isModalOpen, setIsModalOpen] = useState(false)
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingTenant, setEditingTenant] = useState(null)
   const [tenants, setTenants] = useState([])
+  const { user, login } = useAuth()
+
+  const handleQuickLogin = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/auth/signin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: 'auth-test@enterprise-corp.com',
+          password: 'AuthTest123!'
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (data.AccessToken) {
+        login(data.AccessToken)
+        // Force page refresh to ensure new token is loaded
+        setTimeout(() => {
+          window.location.reload()
+        }, 1000)
+      } else {
+        console.error('Login failed: No access token')
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+    }
+  }
 
   useEffect(() => {
-    const fetchTenants = async () => {
-      setIsLoading(true)
-      try {
-        const response = await fetch("http://localhost:3000/api/tenants", {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        })
-        const data = await response.json()
-        setTenants(data)
-      } catch (error) {
-        console.error("Failed to fetch tenants", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     fetchTenants()
   }, [])
 
   const fetchTenants = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("http://localhost:3000/api/tenants", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-      const data = await response.json();
-      setTenants(data);
+      console.log('Fetching tenants...');
+      const token = Cookies.get("token");
+      console.log('Token available:', token ? 'Yes' : 'No');
+      
+      const response = await api.get("/api/tenants");
+      console.log('Tenants response:', response.data);
+      setTenants(response.data);
     } catch (error) {
       console.error("Failed to fetch tenants", error);
+      console.error("Error details:", error.response?.data);
+      setTenants([]);
     } finally {
       setIsLoading(false);
     }
@@ -61,40 +80,43 @@ export function TenantsPage() {
 
   const handleAddTenant = async (tenantData) => {
     try {
-      const response = await fetch("http://localhost:3000/api/tenants", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify(tenantData),
-      });
-      if (response.ok) {
-        fetchTenants();
-        setIsModalOpen(false);
-      } else {
-        console.error("Failed to add tenant");
-      }
+      console.log('Tenant data from wizard:', tenantData);
+      
+      // Extract only the required fields for the backend
+      // All other fields from the wizard are optional and stored as metadata
+      const dataToSend = {
+        id: tenantData.id, // Optional - backend will generate if missing
+        name: tenantData.name,
+        email: tenantData.email,
+        plan: tenantData.plan || 'professional', // Default from wizard
+        status: tenantData.status || 'active'
+      };
+      
+      console.log('Sending to API (basic fields only):', dataToSend);
+      
+      await api.post("/api/tenants", dataToSend);
+      console.log('✅ Tenant created successfully');
+      
+      // TODO: In the future, we could store the additional wizard data 
+      // (auth settings, communications, storage, etc.) in a separate metadata table
+      
+      fetchTenants();
+      setIsModalOpen(false);
     } catch (error) {
       console.error("Failed to add tenant", error);
+      console.error("Error details:", error.response?.data);
+      
+      // Show user-friendly error message
+      const errorMessage = error.response?.data?.message || error.message;
+      alert(`Failed to add tenant: ${errorMessage}`);
     }
   };
 
   const handleUpdateTenant = async (tenantId, tenantData) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/tenants/${tenantId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify(tenantData),
-      });
-      if (response.ok) {
-        fetchTenants();
-      } else {
-        console.error("Failed to update tenant");
-      }
+      await api.put(`/api/tenants/${tenantId}`, tenantData);
+      fetchTenants();
+      setIsEditModalOpen(false);
     } catch (error) {
       console.error("Failed to update tenant", error);
     }
@@ -103,17 +125,8 @@ export function TenantsPage() {
   const handleDeleteTenant = async (tenantId) => {
     if (window.confirm("Are you sure you want to delete this tenant?")) {
       try {
-        const response = await fetch(`http://localhost:3000/api/tenants/${tenantId}`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        });
-        if (response.ok) {
-          fetchTenants();
-        } else {
-          console.error("Failed to delete tenant");
-        }
+        await api.delete(`/api/tenants/${tenantId}`);
+        fetchTenants();
       } catch (error) {
         console.error("Failed to delete tenant", error);
       }
@@ -180,19 +193,52 @@ export function TenantsPage() {
     },
   ];
 
+  const [mounted, setMounted] = useState(false)
+  const currentToken = typeof window !== 'undefined' ? Cookies.get("token") : null
+  const isAdmin = user?.signInUserSession?.accessToken?.payload['cognito:groups']?.includes('admin')
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   return (
     <div className="space-y-6">
       <BreadcrumbNavigation />
+      
+      {/* Debug Info */}
+      {process.env.NODE_ENV === 'development' && mounted && (
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardContent className="pt-4">
+            <div className="text-sm space-y-1">
+              <div><strong>Auth Status:</strong> {user ? 'Logged in' : 'Not logged in'}</div>
+              <div><strong>Is Admin:</strong> {isAdmin ? 'Yes' : 'No'}</div>
+              <div><strong>Token:</strong> {currentToken ? 'Present' : 'Missing'}</div>
+              <div><strong>Groups:</strong> {JSON.stringify(user?.signInUserSession?.accessToken?.payload['cognito:groups'] || 'None')}</div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Tenants Management</h1>
           <p className="text-muted-foreground mt-1">Manage all registered tenants and their configurations</p>
         </div>
-        <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setIsModalOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Tenant
-        </Button>
+        <div className="flex gap-2">
+          {!isAdmin && (
+            <Button variant="outline" onClick={handleQuickLogin}>
+              {user ? 'Re-login as Admin' : 'Login as Admin'}
+            </Button>
+          )}
+          <Button variant="outline" onClick={fetchTenants}>
+            Refresh
+          </Button>
+
+          <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setIsModalOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Tenant
+          </Button>
+        </div>
       </div>
 
       <Card className="bg-card border-border">
@@ -246,6 +292,13 @@ export function TenantsPage() {
 
             {isLoading ? (
               <TableSkeleton />
+            ) : tenants.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No tenants found.</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  {!isAdmin ? 'Please login as admin to view tenants.' : 'Click refresh to reload data.'}
+                </p>
+              </div>
             ) : (
               <VirtualTable data={filteredTenants} columns={columns} itemsPerPage={10} />
             )}
@@ -253,7 +306,11 @@ export function TenantsPage() {
         </CardContent>
       </Card>
 
-      <TenantCreationWizard isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleAddTenant} />
+      <TenantCreationWizard 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSubmit={handleAddTenant} 
+      />
       {editingTenant && (
         <EditTenantModal
           isOpen={isEditModalOpen}

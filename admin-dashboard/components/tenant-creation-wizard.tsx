@@ -43,11 +43,11 @@ interface TenantFormData {
 }
 
 const STEPS = [
-  { id: 1, title: "Basic Information", description: "Tenant name and plan" },
-  { id: 2, title: "Authentication", description: "Auth configuration" },
-  { id: 3, title: "Communications", description: "Email, SMS, Notifications" },
-  { id: 4, title: "Storage", description: "Storage settings" },
-  { id: 5, title: "Rate Limits", description: "API and request limits" },
+  { id: 1, title: "Basic Information", description: "Required: Tenant name and plan" },
+  { id: 2, title: "Authentication (Optional)", description: "Auth configuration" },
+  { id: 3, title: "Communications (Optional)", description: "Email, SMS, Notifications" },
+  { id: 4, title: "Storage (Optional)", description: "Storage settings" },
+  { id: 5, title: "Rate Limits (Optional)", description: "API and request limits" },
   { id: 6, title: "Review", description: "Confirm configuration" },
 ]
 
@@ -90,27 +90,30 @@ export function TenantCreationWizard({ isOpen, onClose, onSubmit }: TenantWizard
 
     switch (step) {
       case 1:
+        // Only step 1 (basic info) is required
         if (!formData.name.trim()) newErrors.name = "Tenant name is required"
         if (!formData.email.trim()) newErrors.email = "Email is required"
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = "Invalid email format"
         break
       case 2:
-        if (!formData.authProvider) newErrors.authProvider = "Auth provider is required"
+        // Authentication step - optional, but validate if filled
+        // No required fields - all optional
         break
       case 3:
-        if (!formData.emailProvider) newErrors.emailProvider = "Email provider is required"
-        if (!formData.smsProvider) newErrors.smsProvider = "SMS provider is required"
+        // Communications step - optional, but validate if filled
+        // No required fields - all optional
         break
       case 4:
-        if (!formData.storageProvider) newErrors.storageProvider = "Storage provider is required"
-        if (!formData.storageCapacity) newErrors.storageCapacity = "Storage capacity is required"
+        // Storage step - optional, but validate if filled
+        // No required fields - all optional
         break
       case 5:
-        if (!formData.apiRateLimit) newErrors.apiRateLimit = "API rate limit is required"
-        if (!formData.requestsPerMinute) newErrors.requestsPerMinute = "Requests per minute is required"
+        // Rate limits step - optional, but validate if filled
+        // No required fields - all optional
         break
       case 6:
-        if (!formData.agreedToTerms) newErrors.agreedToTerms = "You must agree to the terms"
+        // Review step - optional terms agreement
+        // No required fields - all optional
         break
     }
 
@@ -282,6 +285,24 @@ export function TenantCreationWizard({ isOpen, onClose, onSubmit }: TenantWizard
                     <option value="inactive">Inactive</option>
                     <option value="suspended">Suspended</option>
                   </select>
+                </div>
+              </div>
+              
+              {/* Quick Create Option */}
+              <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium text-foreground">Quick Create</h4>
+                    <p className="text-xs text-muted-foreground">Create tenant now with basic settings, or continue for advanced configuration</p>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={!formData.name.trim() || !formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    Create Now
+                  </Button>
                 </div>
               </div>
             </div>

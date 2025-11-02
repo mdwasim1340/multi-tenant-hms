@@ -1,22 +1,7 @@
 import { Request, Response } from 'express';
 import pool from '../database';
-const runner = require('node-pg-migrate');
-
-const runMigrations = async () => {
-  const dbClient = await pool.connect();
-  try {
-    await runner.default({
-      dbClient,
-      dir: 'migrations',
-      direction: 'up',
-      migrationsTable: 'pgmigrations',
-    });
-  } finally {
-    dbClient.release();
-  }
-};
-
-runMigrations();
+// Migration runner will be handled separately
+// const runner = require('node-pg-migrate');
 
 export const getAllTenants = async (req: Request, res: Response) => {
   try {
@@ -29,10 +14,16 @@ export const getAllTenants = async (req: Request, res: Response) => {
 };
 
 export const createTenant = async (req: Request, res: Response) => {
-  const { id, name, email, plan, status } = req.body;
+  let { id, name, email, plan, status } = req.body;
 
-  if (!id || !name || !email || !plan || !status) {
-    return res.status(400).json({ message: 'Missing required fields' });
+  // Auto-generate ID if not provided
+  if (!id) {
+    id = `tenant_${Date.now()}`;
+  }
+
+  // Validate required fields (id is now guaranteed to exist)
+  if (!name || !email || !plan || !status) {
+    return res.status(400).json({ message: 'Missing required fields: name, email, plan, and status are required' });
   }
 
   const client = await pool.connect();

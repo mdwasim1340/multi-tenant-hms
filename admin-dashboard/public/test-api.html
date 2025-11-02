@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenant API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; }
+        .button:hover { background: #0056b3; }
+        .result { margin: 10px 0; padding: 10px; border: 1px solid #ddd; background: #f9f9f9; }
+        .error { background: #ffe6e6; border-color: #ff9999; }
+        .success { background: #e6ffe6; border-color: #99ff99; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Tenant Management API Test</h1>
+        
+        <div>
+            <button class="button" onclick="testLogin()">1. Test Login</button>
+            <button class="button" onclick="testGetTenants()">2. Get Tenants</button>
+            <button class="button" onclick="testCreateTenant()">3. Create Tenant</button>
+            <button class="button" onclick="clearResults()">Clear Results</button>
+        </div>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let authToken = '';
+        
+        function addResult(message, isError = false) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${isError ? 'error' : 'success'}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            results.appendChild(div);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function testLogin() {
+            try {
+                addResult('Testing login...');
+                
+                const response = await fetch('http://localhost:3000/auth/signin', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'auth-test@enterprise-corp.com',
+                        password: 'AuthTest123!'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.AccessToken) {
+                    authToken = data.AccessToken;
+                    addResult('✅ Login successful! Token received.');
+                    
+                    // Decode token to show groups
+                    const payload = JSON.parse(atob(authToken.split('.')[1]));
+                    addResult(`👤 User: ${payload.username}, Groups: ${JSON.stringify(payload['cognito:groups'])}`);
+                } else {
+                    addResult('❌ Login failed: No token received', true);
+                }
+            } catch (error) {
+                addResult(`❌ Login error: ${error.message}`, true);
+            }
+        }
+        
+        async function testGetTenants() {
+            if (!authToken) {
+                addResult('❌ Please login first', true);
+                return;
+            }
+            
+            try {
+                addResult('Testing get tenants...');
+                
+                const response = await fetch('http://localhost:3000/api/tenants', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Tenant-ID': 'admin'
+                    }
+                });
+                
+                if (response.ok) {
+                    const tenants = await response.json();
+                    addResult(`✅ Get tenants successful! Found ${tenants.length} tenants:`);
+                    tenants.forEach(tenant => {
+                        addResult(`   • ${tenant.name} (${tenant.id}) - ${tenant.status}`);
+                    });
+                } else {
+                    const error = await response.text();
+                    addResult(`❌ Get tenants failed: ${response.status} ${error}`, true);
+                }
+            } catch (error) {
+                addResult(`❌ Get tenants error: ${error.message}`, true);
+            }
+        }
+        
+        async function testCreateTenant() {
+            if (!authToken) {
+                addResult('❌ Please login first', true);
+                return;
+            }
+            
+            try {
+                addResult('Testing create tenant...');
+                
+                const testTenant = {
+                    id: 'test_' + Date.now(),
+                    name: 'Test Hospital ' + Date.now(),
+                    email: 'test@hospital.com',
+                    plan: 'premium',
+                    status: 'active'
+                };
+                
+                const response = await fetch('http://localhost:3000/api/tenants', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Tenant-ID': 'admin',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testTenant)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    addResult(`✅ Create tenant successful: ${result.message}`);
+                } else {
+                    const error = await response.text();
+                    addResult(`❌ Create tenant failed: ${response.status} ${error}`, true);
+                }
+            } catch (error) {
+                addResult(`❌ Create tenant error: ${error.message}`, true);
+            }
+        }
+    </script>
+</body>
+</html>
