@@ -4,20 +4,7 @@
   "description": "Automatically moves new test files to appropriate /tests directories and documentation files to appropriate /docs directories based on their location in the project structure. Ensures proper organization across backend, admin-dashboard, and hospital-management-system folders.",
   "version": "1",
   "when": {
-    "type": "fileEdited",
-    "patterns": [
-      "**/*.test.js",
-      "**/*.test.ts",
-      "**/*.spec.js",
-      "**/*.spec.ts",
-      "**/test-*.js",
-      "**/test-*.ts",
-      "**/*.md",
-      "**/*.txt",
-      "**/*.doc",
-      "**/*.docx",
-      "**/*.pdf"
-    ]
+    "type": "userTriggered"
   },
   "then": {
     "type": "askAgent",

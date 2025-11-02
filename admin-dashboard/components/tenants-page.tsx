@@ -15,6 +15,35 @@ import api from "@/lib/api"
 import Cookies from "js-cookie"
 import { useAuth } from "@/hooks/useAuth"
 
+interface Tenant {
+  id: string
+  name: string
+  email: string
+  users: number
+  plan: string
+  status: string
+  joinDate: string
+}
+
+interface TenantWithActions extends Tenant {
+  actions?: any // For the actions column
+}
+
+interface TenantData {
+  id?: string
+  name: string
+  email: string
+  plan?: string
+  status?: string
+}
+
+interface EditTenantModalProps {
+  isOpen: boolean
+  onClose: () => void
+  tenant: Tenant
+  onUpdate: (tenantId: string, tenantData: TenantData) => void
+}
+
 export function TenantsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -22,12 +51,13 @@ export function TenantsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [editingTenant, setEditingTenant] = useState(null)
-  const [tenants, setTenants] = useState([])
+  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null)
+  const [tenants, setTenants] = useState<Tenant[]>([])
   const { user, login } = useAuth()
 
   const handleQuickLogin = async () => {
     try {
+      console.log('🔐 Attempting admin login...');
       const response = await fetch('http://localhost:3000/auth/signin', {
         method: 'POST',
         headers: {
@@ -42,20 +72,49 @@ export function TenantsPage() {
       const data = await response.json()
       
       if (data.AccessToken) {
+        console.log('✅ Login successful, setting new token');
         login(data.AccessToken)
-        // Force page refresh to ensure new token is loaded
+        
+        // Automatically fetch tenants after login
         setTimeout(() => {
-          window.location.reload()
-        }, 1000)
+          fetchTenants()
+        }, 500)
       } else {
-        console.error('Login failed: No access token')
+        console.error('❌ Login failed: No access token')
+        alert('Login failed: No access token received')
       }
     } catch (error) {
-      console.error('Login error:', error)
+      console.error('❌ Login error:', error)
+      alert('Login failed: ' + error.message)
     }
   }
 
   useEffect(() => {
+    // Check token expiration before fetching tenants
+    const token = Cookies.get("token");
+    if (token) {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        const payload = JSON.parse(jsonPayload);
+        const now = Math.floor(Date.now() / 1000);
+        const isExpired = payload.exp < now;
+        
+        if (isExpired) {
+          console.log('⚠️ Token expired on page load');
+          return; // Don't fetch tenants with expired token
+        }
+      } catch (error) {
+        console.error('Error checking token expiration:', error);
+      }
+    }
+    
     fetchTenants()
   }, [])
 
@@ -66,19 +125,64 @@ export function TenantsPage() {
       const token = Cookies.get("token");
       console.log('Token available:', token ? 'Yes' : 'No');
       
+      if (token) {
+        console.log('Token (first 50 chars):', token.substring(0, 50) + '...');
+        
+        // Decode token to check expiration
+        try {
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(
+            atob(base64)
+              .split('')
+              .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+              .join('')
+          );
+          const payload = JSON.parse(jsonPayload);
+          const now = Math.floor(Date.now() / 1000);
+          const isExpired = payload.exp < now;
+          console.log('Token expiration:', new Date(payload.exp * 1000));
+          console.log('Current time:', new Date(now * 1000));
+          console.log('Token expired:', isExpired);
+          
+          if (isExpired) {
+            console.log('⚠️ Token is expired, need to re-login');
+            alert('Your session has expired. Please login again.');
+            return;
+          }
+        } catch (decodeError) {
+          console.error('Error decoding token:', decodeError);
+        }
+      }
+      
       const response = await api.get("/api/tenants");
       console.log('Tenants response:', response.data);
       setTenants(response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to fetch tenants", error);
       console.error("Error details:", error.response?.data);
+      
+      // If 401 error, likely token expired
+      if (error.response?.status === 401) {
+        console.log('⚠️ 401 Unauthorized - Token likely expired');
+        
+        // Show a more user-friendly message with action
+        const shouldRelogin = window.confirm(
+          'Your session has expired. Would you like to login again automatically?'
+        );
+        
+        if (shouldRelogin) {
+          await handleQuickLogin();
+        }
+      }
+      
       setTenants([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleAddTenant = async (tenantData) => {
+  const handleAddTenant = async (tenantData: TenantData) => {
     try {
       console.log('Tenant data from wizard:', tenantData);
       
@@ -102,7 +206,7 @@ export function TenantsPage() {
       
       fetchTenants();
       setIsModalOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to add tenant", error);
       console.error("Error details:", error.response?.data);
       
@@ -112,23 +216,37 @@ export function TenantsPage() {
     }
   };
 
-  const handleUpdateTenant = async (tenantId, tenantData) => {
+  const handleUpdateTenant = async (tenantId: string, tenantData: TenantData) => {
     try {
+      console.log('Updating tenant:', tenantId, tenantData);
       await api.put(`/api/tenants/${tenantId}`, tenantData);
+      console.log('✅ Tenant updated successfully');
       fetchTenants();
       setIsEditModalOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to update tenant", error);
+      console.error("Error details:", error.response?.data);
+      
+      // Show user-friendly error message
+      const errorMessage = error.response?.data?.message || error.message;
+      alert(`Failed to update tenant: ${errorMessage}`);
     }
   };
 
-  const handleDeleteTenant = async (tenantId) => {
+  const handleDeleteTenant = async (tenantId: string) => {
     if (window.confirm("Are you sure you want to delete this tenant?")) {
       try {
+        console.log('Deleting tenant:', tenantId);
         await api.delete(`/api/tenants/${tenantId}`);
+        console.log('✅ Tenant deleted successfully');
         fetchTenants();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to delete tenant", error);
+        console.error("Error details:", error.response?.data);
+        
+        // Show user-friendly error message
+        const errorMessage = error.response?.data?.message || error.message;
+        alert(`Failed to delete tenant: ${errorMessage}`);
       }
     }
   };
@@ -149,11 +267,11 @@ export function TenantsPage() {
   })
 
   const columns = [
-    { key: "name" as const, label: "Tenant Name", sortable: true },
-    { key: "email" as const, label: "Email", sortable: true },
-    { key: "users" as const, label: "Users", sortable: true },
+    { key: "name" as keyof TenantWithActions, label: "Tenant Name", sortable: true },
+    { key: "email" as keyof TenantWithActions, label: "Email", sortable: true },
+    { key: "users" as keyof TenantWithActions, label: "Users", sortable: true },
     {
-      key: "plan" as const,
+      key: "plan" as keyof TenantWithActions,
       label: "Plan",
       sortable: true,
       render: (value: string) => (
@@ -161,7 +279,7 @@ export function TenantsPage() {
       ),
     },
     {
-      key: "status" as const,
+      key: "status" as keyof TenantWithActions,
       label: "Status",
       sortable: true,
       render: (value: string) => (
@@ -176,16 +294,31 @@ export function TenantsPage() {
         </span>
       ),
     },
-    { key: "joinDate" as const, label: "Join Date", sortable: true },
+    { key: "joinDate" as keyof TenantWithActions, label: "Join Date", sortable: true },
     {
-      key: "actions" as const,
+      key: "actions" as keyof TenantWithActions,
       label: "Actions",
-      render: (tenant) => (
+      render: (_value: any, tenant: TenantWithActions) => (
         <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm" onClick={() => { setEditingTenant(tenant); setIsEditModalOpen(true); }}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              setEditingTenant(tenant); 
+              setIsEditModalOpen(true); 
+            }}
+          >
             <Pencil className="w-4 h-4" />
           </Button>
-          <Button variant="destructive" size="sm" onClick={() => handleDeleteTenant(tenant.id)}>
+          <Button 
+            variant="destructive" 
+            size="sm" 
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              handleDeleteTenant(tenant.id); 
+            }}
+          >
             <Trash className="w-4 h-4" />
           </Button>
         </div>
@@ -214,6 +347,33 @@ export function TenantsPage() {
               <div><strong>Is Admin:</strong> {isAdmin ? 'Yes' : 'No'}</div>
               <div><strong>Token:</strong> {currentToken ? 'Present' : 'Missing'}</div>
               <div><strong>Groups:</strong> {JSON.stringify(user?.signInUserSession?.accessToken?.payload['cognito:groups'] || 'None')}</div>
+              {currentToken && (
+                <div>
+                  <strong>Token Status:</strong> 
+                  {(() => {
+                    try {
+                      const base64Url = currentToken.split('.')[1];
+                      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                      const jsonPayload = decodeURIComponent(
+                        atob(base64)
+                          .split('')
+                          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                          .join('')
+                      );
+                      const payload = JSON.parse(jsonPayload);
+                      const now = Math.floor(Date.now() / 1000);
+                      const isExpired = payload.exp < now;
+                      const minutesLeft = Math.floor((payload.exp - now) / 60);
+                      
+                      return isExpired ? 
+                        <span className="text-red-600">Expired</span> : 
+                        <span className="text-green-600">Valid ({minutesLeft}m left)</span>;
+                    } catch {
+                      return <span className="text-yellow-600">Invalid</span>;
+                    }
+                  })()}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -230,8 +390,8 @@ export function TenantsPage() {
               {user ? 'Re-login as Admin' : 'Login as Admin'}
             </Button>
           )}
-          <Button variant="outline" onClick={fetchTenants}>
-            Refresh
+          <Button variant="outline" onClick={fetchTenants} disabled={isLoading}>
+            {isLoading ? 'Loading...' : 'Refresh'}
           </Button>
 
           <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setIsModalOpen(true)}>
@@ -300,7 +460,7 @@ export function TenantsPage() {
                 </p>
               </div>
             ) : (
-              <VirtualTable data={filteredTenants} columns={columns} itemsPerPage={10} />
+              <VirtualTable data={filteredTenants as TenantWithActions[]} columns={columns} itemsPerPage={10} />
             )}
           </div>
         </CardContent>
@@ -323,13 +483,13 @@ export function TenantsPage() {
   );
 }
 
-function EditTenantModal({ isOpen, onClose, tenant, onUpdate }) {
+function EditTenantModal({ isOpen, onClose, tenant, onUpdate }: EditTenantModalProps) {
   const [name, setName] = useState(tenant.name);
   const [email, setEmail] = useState(tenant.email);
   const [plan, setPlan] = useState(tenant.plan);
   const [status, setStatus] = useState(tenant.status);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdate(tenant.id, { name, email, plan, status });
     onClose();

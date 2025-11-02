@@ -5,7 +5,8 @@ import pool from '../database';
 
 export const getAllTenants = async (req: Request, res: Response) => {
   try {
-    const result = await pool.query('SELECT * FROM tenants');
+    // Query the main database (public schema) for tenants table
+    const result = await pool.query('SELECT * FROM public.tenants ORDER BY name');
     res.status(200).json(result.rows);
   } catch (error) {
     console.error('Error fetching tenants:', error);
@@ -31,7 +32,7 @@ export const createTenant = async (req: Request, res: Response) => {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${id}"`);
     await client.query(
-      'INSERT INTO tenants (id, name, email, plan, status) VALUES ($1, $2, $3, $4, $5)',
+      'INSERT INTO public.tenants (id, name, email, plan, status) VALUES ($1, $2, $3, $4, $5)',
       [id, name, email, plan, status]
     );
     await client.query('COMMIT');
@@ -55,7 +56,7 @@ export const updateTenant = async (req: Request, res: Response) => {
 
   try {
     await pool.query(
-      'UPDATE tenants SET name = $1, email = $2, plan = $3, status = $4 WHERE id = $5',
+      'UPDATE public.tenants SET name = $1, email = $2, plan = $3, status = $4 WHERE id = $5',
       [name, email, plan, status, id]
     );
     res.status(200).json({ message: `Tenant ${name} updated successfully` });
@@ -72,7 +73,7 @@ export const deleteTenant = async (req: Request, res: Response) => {
   try {
     await client.query('BEGIN');
     await client.query(`DROP SCHEMA "${id}" CASCADE`);
-    await client.query('DELETE FROM tenants WHERE id = $1', [id]);
+    await client.query('DELETE FROM public.tenants WHERE id = $1', [id]);
     await client.query('COMMIT');
     res.status(200).json({ message: `Tenant ${id} deleted successfully` });
   } catch (error) {

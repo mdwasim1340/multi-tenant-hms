@@ -29,7 +29,7 @@ export default function DebugPage() {
       } else {
         alert('Login failed: No access token')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error)
       alert('Login error: ' + error.message)
     }

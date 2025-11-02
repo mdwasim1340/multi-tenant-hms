@@ -11,15 +11,34 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = Cookies.get("token")
+    const tenantId = getTenantId()
+    
+    console.log('API Request:', config.method?.toUpperCase(), config.url)
+    console.log('Token available:', token ? 'Yes' : 'No')
+    console.log('Tenant ID:', tenantId)
+    
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`
     }
-    config.headers["X-Tenant-ID"] = getTenantId()
+    config.headers["X-Tenant-ID"] = tenantId
+    
     return config
   },
   (error) => {
     return Promise.reject(error)
   },
+)
+
+api.interceptors.response.use(
+  (response) => {
+    console.log('API Response:', response.status, response.config.url)
+    return response
+  },
+  (error) => {
+    console.error('API Error:', error.response?.status, error.response?.statusText, error.config?.url)
+    console.error('Error details:', error.response?.data)
+    return Promise.reject(error)
+  }
 )
 
 export const signIn = async (email: string, password: string) => {

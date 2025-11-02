@@ -16,8 +16,10 @@ app.use(cors({
   origin: [
     'http://localhost:3001',
     'http://localhost:3002',
+    'http://localhost:3003',
     'http://10.66.66.8:3001',
-    'http://10.66.66.8:3002'
+    'http://10.66.66.8:3002',
+    'http://10.66.66.8:3003'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -30,14 +32,16 @@ app.use(express.json());
 // Auth routes are public and do not require tenant context
 app.use('/auth', authRouter);
 
-// Apply tenant middleware to all other routes
+// Tenant management routes should NOT use tenant middleware (they operate on main DB)
+import tenantsRouter from './routes/tenants';
+app.use('/api/tenants', tenantsRouter);
+
+// Apply tenant middleware to all other routes that need tenant context
 app.use(tenantMiddleware);
 
 import filesRouter from './routes/files';
-import tenantsRouter from './routes/tenants';
 import { authMiddleware } from './middleware/auth';
 app.use('/files', authMiddleware, filesRouter);
-app.use('/api/tenants', tenantsRouter);
 app.use('/users', authMiddleware, usersRouter);
 app.use('/roles', authMiddleware, rolesRouter);
 
