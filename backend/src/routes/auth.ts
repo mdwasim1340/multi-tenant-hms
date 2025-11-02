@@ -133,9 +133,29 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+import { eventService } from '../services/events';
+import { getUserByEmail } from '../services/userService';
+
 router.post('/signin', async (req, res) => {
   try {
     const result = await signIn(req.body);
+
+    // Get user details to publish the event
+    const user = await getUserByEmail(req.body.email);
+
+    if (user) {
+      await eventService.publishEvent({
+        type: 'user.login',
+        tenantId: user.tenant_id,
+        userId: user.id,
+        data: {
+          email: user.email,
+          name: user.name
+        },
+        timestamp: new Date()
+      });
+    }
+
     res.json(result.AuthenticationResult);
   } catch (error) {
     console.error(error);
