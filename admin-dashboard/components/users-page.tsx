@@ -64,10 +64,18 @@ export function UsersPage() {
       const response = await fetch(`/api/users?${params.toString()}`)
       const data = await response.json()
 
-      setUsers(data.users)
-      setTotalUsers(data.total)
-      setActiveUsers(data.active)
-      setAdmins(data.admins)
+      if (response.ok && data.users) {
+        setUsers(data.users || [])
+        setTotalUsers(data.total || 0)
+        setActiveUsers(data.active || 0)
+        setAdmins(data.admins || 0)
+      } else {
+        console.error("API Error:", data)
+        setUsers([])
+        setTotalUsers(0)
+        setActiveUsers(0)
+        setAdmins(0)
+      }
     } catch (error) {
       console.error("Failed to fetch users:", error)
     } finally {

@@ -29,7 +29,13 @@ export function RolesPage() {
     try {
       const response = await fetch("/api/roles")
       const data = await response.json()
-      setRoles(data)
+      
+      if (response.ok && Array.isArray(data)) {
+        setRoles(data)
+      } else {
+        console.error("API Error:", data)
+        setRoles([])
+      }
     } catch (error) {
       console.error("Failed to fetch roles:", error)
     } finally {
