@@ -1,113 +1,138 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Plus } from "lucide-react"
+import { Search, Plus, MoreHorizontal, Edit, Trash } from "lucide-react"
 import { AddUserModal } from "@/components/add-user-modal"
 import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation"
 import { TableSkeleton } from "@/components/skeleton-loader"
 import { VirtualTable } from "@/components/virtual-table"
 import { AdvancedFilter } from "@/components/advanced-filter"
 import { BulkImportExport } from "@/components/bulk-import-export"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
-const usersData = [
-  {
-    id: 1,
-    name: "John Doe",
-    email: "john@acme.com",
-    tenant: "Acme Corporation",
-    role: "Admin",
-    status: "active",
-    joinDate: "2024-01-15",
-  },
-  {
-    id: 2,
-    name: "Sarah Smith",
-    email: "sarah@techstartup.com",
-    tenant: "Tech Startup Inc",
-    role: "Manager",
-    status: "active",
-    joinDate: "2024-02-20",
-  },
-  {
-    id: 3,
-    name: "Mike Johnson",
-    email: "mike@globalsol.com",
-    tenant: "Global Solutions Ltd",
-    role: "User",
-    status: "active",
-    joinDate: "2024-03-10",
-  },
-  {
-    id: 4,
-    name: "Emily Brown",
-    email: "emily@innovlabs.com",
-    tenant: "Innovation Labs",
-    role: "User",
-    status: "inactive",
-    joinDate: "2024-04-05",
-  },
-  {
-    id: 5,
-    name: "David Wilson",
-    email: "david@digventures.com",
-    tenant: "Digital Ventures",
-    role: "Admin",
-    status: "active",
-    joinDate: "2024-01-22",
-  },
-  {
-    id: 6,
-    name: "Lisa Anderson",
-    email: "lisa@cloudsys.com",
-    tenant: "Cloud Systems",
-    role: "Manager",
-    status: "active",
-    joinDate: "2024-05-01",
-  },
-  {
-    id: 7,
-    name: "James Taylor",
-    email: "james@acme.com",
-    tenant: "Acme Corporation",
-    role: "User",
-    status: "active",
-    joinDate: "2024-05-15",
-  },
-  {
-    id: 8,
-    name: "Rachel Green",
-    email: "rachel@techstartup.com",
-    tenant: "Tech Startup Inc",
-    role: "User",
-    status: "active",
-    joinDate: "2024-06-01",
-  },
-]
+interface User {
+  id: number
+  name: string
+  email: string
+  tenant: string
+  role: string
+  status: string
+  joinDate: string
+}
 
 export function UsersPage() {
+  const [users, setUsers] = useState<User[]>([])
   const [searchTerm, setSearchTerm] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [filters, setFilters] = useState<Record<string, any>>({})
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [totalUsers, setTotalUsers] = useState(0)
+  const [activeUsers, setActiveUsers] = useState(0)
+  const [admins, setAdmins] = useState(0)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+  const [sortBy, setSortBy] = useState("joinDate")
+  const [order, setOrder] = useState("desc")
 
-  const filteredUsers = usersData.filter((user) => {
-    const matchesSearch =
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.tenant.toLowerCase().includes(searchTerm.toLowerCase())
+  useEffect(() => {
+    fetchUsers()
+  }, [page, limit, sortBy, order, filters, searchTerm])
 
-    const matchesFilters = Object.entries(filters).every(([key, value]) => {
-      if (!value) return true
-      if (key === "status") return user.status === value
-      if (key === "role") return user.role === value
-      return true
-    })
+  const fetchUsers = async () => {
+    setIsLoading(true)
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        sortBy,
+        order,
+        ...filters,
+      })
+      if (searchTerm) {
+        params.append("q", searchTerm)
+      }
 
-    return matchesSearch && matchesFilters
-  })
+      const response = await fetch(`/api/users?${params.toString()}`)
+      const data = await response.json()
+
+      if (response.ok && data.users) {
+        setUsers(data.users || [])
+        setTotalUsers(data.total || 0)
+        setActiveUsers(data.active || 0)
+        setAdmins(data.admins || 0)
+      } else {
+        console.error("API Error:", data)
+        setUsers([])
+        setTotalUsers(0)
+        setActiveUsers(0)
+        setAdmins(0)
+      }
+    } catch (error) {
+      console.error("Failed to fetch users:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleAddUser = async (data: any) => {
+    try {
+      await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      fetchUsers()
+      setIsModalOpen(false)
+    } catch (error) {
+      console.error("Failed to add user:", error)
+    }
+  }
+
+  const handleUpdateUser = async (data: any) => {
+    if (!editingUser) return;
+    try {
+      await fetch(`/api/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      fetchUsers();
+      setEditingUser(null);
+    } catch (error) {
+      console.error("Failed to update user:", error);
+    }
+  }
+
+  const handleDeleteUser = async (userId: number) => {
+    if (window.confirm("Are you sure you want to delete this user?")) {
+      try {
+        await fetch(`/api/users/${userId}`, { method: 'DELETE' });
+        fetchUsers()
+      } catch (error) {
+        console.error("Failed to delete user:", error)
+      }
+    }
+  }
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case "Admin":
+        return "bg-red-500/20 text-red-400 dark:text-red-300"
+      case "Manager":
+        return "bg-blue-500/20 text-blue-400 dark:text-blue-300"
+      default:
+        return "bg-gray-500/20 text-gray-400 dark:text-gray-300"
+    }
+  }
 
   const columns = [
     { key: "name" as const, label: "Name", sortable: true },
@@ -138,23 +163,31 @@ export function UsersPage() {
       ),
     },
     { key: "joinDate" as const, label: "Join Date", sortable: true },
+    {
+        key: "actions" as const,
+        label: "Actions",
+        render: (_: any, user: User) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setEditingUser(user)}>
+                <Edit className="mr-2 h-4 w-4" />
+                <span>Edit</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDeleteUser(user.id)} className="text-destructive">
+                <Trash className="mr-2 h-4 w-4" />
+                <span>Delete</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
   ]
-
-  const handleAddUser = (data: any) => {
-    console.log("New user:", data)
-    setIsModalOpen(false)
-  }
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "Admin":
-        return "bg-red-500/20 text-red-400 dark:text-red-300"
-      case "Manager":
-        return "bg-blue-500/20 text-blue-400 dark:text-blue-300"
-      default:
-        return "bg-gray-500/20 text-gray-400 dark:text-gray-300"
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -177,7 +210,7 @@ export function UsersPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{usersData.length}</div>
+            <div className="text-2xl font-bold text-foreground">{totalUsers}</div>
             <p className="text-xs text-muted-foreground mt-1">Across all tenants</p>
           </CardContent>
         </Card>
@@ -187,7 +220,7 @@ export function UsersPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {usersData.filter((u) => u.status === "active").length}
+              {activeUsers}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Currently active</p>
           </CardContent>
@@ -198,7 +231,7 @@ export function UsersPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {usersData.filter((u) => u.role === "Admin").length}
+              {admins}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Admin accounts</p>
           </CardContent>
@@ -223,7 +256,7 @@ export function UsersPage() {
                 />
               </div>
               <BulkImportExport
-                data={filteredUsers}
+                data={users}
                 filename="users"
                 columns={["name", "email", "tenant", "role", "status", "joinDate"]}
               />
@@ -254,12 +287,20 @@ export function UsersPage() {
               ]}
             />
 
-            {isLoading ? <TableSkeleton /> : <VirtualTable data={filteredUsers} columns={columns} itemsPerPage={10} />}
+            {isLoading ? <TableSkeleton /> : <VirtualTable data={users} columns={columns} itemsPerPage={limit} />}
           </div>
         </CardContent>
       </Card>
 
       <AddUserModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleAddUser} />
+      {editingUser && (
+        <AddUserModal
+          isOpen={!!editingUser}
+          onClose={() => setEditingUser(null)}
+          onSubmit={handleUpdateUser}
+          user={editingUser}
+        />
+      )}
     </div>
   )
 }

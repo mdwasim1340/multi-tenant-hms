@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { tenantMiddleware } from './middleware/tenant';
 import authRouter from './routes/auth';
+import usersRouter from './routes/users';
+import rolesRouter from './routes/roles';
 
 dotenv.config();
 
@@ -36,6 +38,8 @@ import tenantsRouter from './routes/tenants';
 import { authMiddleware } from './middleware/auth';
 app.use('/files', authMiddleware, filesRouter);
 app.use('/api/tenants', tenantsRouter);
+app.use('/users', authMiddleware, usersRouter);
+app.use('/roles', authMiddleware, rolesRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {
