@@ -96,6 +96,30 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
 };
 ```
 
+## 🛡️ Backend Security Requirements
+
+### CRITICAL: No Direct Backend Access
+- **NEVER create Next.js API routes** that proxy to backend
+- **ALL frontend calls** must go directly to backend API
+- **Backend must be protected** against direct browser access
+- **Only authorized applications** can access backend endpoints
+
+### App Authentication Headers
+```typescript
+// REQUIRED headers for all API calls from frontend apps
+headers: {
+  'Authorization': 'Bearer jwt_token',
+  'X-Tenant-ID': 'tenant_id',
+  'X-App-ID': 'admin-dashboard', // Identifies the calling application
+  'X-API-Key': 'app-specific-api-key' // App-specific authentication
+}
+```
+
+### Allowed Applications
+- **Hospital Management System**: `http://localhost:3001` (X-App-ID: 'hospital-management')
+- **Admin Dashboard**: `http://localhost:3002` (X-App-ID: 'admin-dashboard')
+- **Mobile App**: Future implementation (X-App-ID: 'mobile-app')
+
 ## 🏥 Hospital Management API Patterns
 
 ### Patient Management Endpoints
@@ -391,7 +415,61 @@ describe('Patient API Tenant Isolation', () => {
 }
 ```
 
-## 🚨 API Security Rules
+## 🚨 CRITICAL Frontend-Backend Integration Rules
+
+### Data Contract Validation
+- **ALWAYS verify API response structure** matches frontend expectations
+- **NEVER assume fields exist** without checking API documentation or testing
+- **ALWAYS handle missing optional fields** gracefully in frontend components
+- **MANDATORY**: Test actual API responses before implementing frontend logic
+
+### Common Integration Mistakes to Avoid
+```typescript
+// ❌ WRONG: Assuming field exists without checking
+{role.permissions.map(p => <div>{p}</div>)}
+
+// ✅ CORRECT: Safe access with fallback
+{(role.permissions || []).map(p => <div>{p}</div>)}
+
+// ❌ WRONG: Using fetch API patterns with axios
+if (response.ok && data.users) { ... }
+
+// ✅ CORRECT: Axios doesn't have 'ok' property
+if (data && data.users) { ... }
+
+// ❌ WRONG: Frontend field names not matching database
+sortBy: 'joinDate' // Database has 'created_at'
+
+// ✅ CORRECT: Map frontend fields to database fields
+const fieldMap = { joinDate: 'created_at' };
+```
+
+### Mandatory Pre-Implementation Checks
+1. **API Response Verification**: Always test API endpoints and document actual response structure
+2. **Field Mapping**: Ensure frontend field names match backend/database field names
+3. **Optional Field Handling**: Make TypeScript interfaces reflect actual API responses
+4. **Error Boundaries**: Implement proper error handling for missing data
+
+## 🚨 CRITICAL API Security Rules
+
+### Application-Level Security
+- **MANDATORY**: All API endpoints must use `apiAppAuthMiddleware`
+- **FORBIDDEN**: Creating Next.js API routes that proxy to backend
+- **REQUIRED**: Frontend apps must include X-App-ID and X-API-Key headers
+- **ENFORCED**: Backend rejects direct browser access and unauthorized apps
+
+### Backend Protection Middleware
+```typescript
+// ALWAYS apply this to /api routes
+import { apiAppAuthMiddleware } from './middleware/appAuth';
+app.use('/api', apiAppAuthMiddleware);
+
+// This middleware:
+// 1. Blocks direct browser access
+// 2. Validates app origin/referer
+// 3. Requires valid X-App-ID and X-API-Key for programmatic access
+// 4. Only allows requests from authorized applications
+```
 
 ### Input Validation
 - **ALWAYS validate** all input parameters
@@ -410,6 +488,30 @@ describe('Patient API Tenant Isolation', () => {
 - **DIFFERENT limits** for different endpoint types
 - **TENANT-SPECIFIC** rate limiting if needed
 - **GRACEFUL degradation** when limits exceeded
+
+## 📋 Frontend-Backend Integration Checklist
+
+### Before Implementing Frontend Components
+- [ ] Test actual API endpoints and document response structure
+- [ ] Verify all expected fields exist in API responses
+- [ ] Create TypeScript interfaces that match actual API responses (not assumptions)
+- [ ] Implement safe property access for optional fields
+- [ ] Test with real data, not mock data
+- [ ] Handle loading, error, and empty states properly
+
+### Before Creating Backend Endpoints
+- [ ] Document expected request/response structure
+- [ ] Ensure field names match frontend expectations
+- [ ] Implement proper error responses with consistent structure
+- [ ] Test endpoints with realistic data
+- [ ] Validate that database queries return expected fields
+
+### Integration Testing Requirements
+- [ ] Test complete frontend-backend flow with real data
+- [ ] Verify error handling works for missing/malformed data
+- [ ] Test pagination, sorting, and filtering parameters
+- [ ] Ensure TypeScript types match runtime data structures
+- [ ] Test with different user roles and permissions
 
 ## 🔧 API Development Checklist
 

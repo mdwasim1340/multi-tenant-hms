@@ -22,6 +22,10 @@ api.interceptors.request.use(
     }
     config.headers["X-Tenant-ID"] = tenantId
     
+    // Add app identification headers for backend security
+    config.headers["X-App-ID"] = "admin-dashboard"
+    config.headers["X-API-Key"] = process.env.NEXT_PUBLIC_API_KEY || "admin-dev-key-456"
+    
     return config
   },
   (error) => {

@@ -5,14 +5,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Plus, Edit2, Trash2, Users, Lock } from "lucide-react"
 import { CreateRoleModal } from "@/components/create-role-modal"
+import api from "@/lib/api"
 
 interface Role {
   id: number
   name: string
   description: string
-  permissions: string[]
+  permissions?: string[]
   users: number
 }
+
+// Default permissions based on role names
+const getDefaultPermissions = (roleName: string): string[] => {
+  const permissionsMap: { [key: string]: string[] } = {
+    'Admin': ['User Management', 'System Settings', 'Reports', 'All Access'],
+    'Doctor': ['Patient Records', 'Medical Reports', 'Prescriptions', 'Appointments'],
+    'Nurse': ['Patient Care', 'Medical Records', 'Medication', 'Schedules'],
+    'Receptionist': ['Appointments', 'Patient Check-in', 'Basic Records', 'Phone Support'],
+    'Lab Technician': ['Lab Tests', 'Test Results', 'Equipment', 'Reports'],
+    'Pharmacist': ['Prescriptions', 'Medication', 'Inventory', 'Drug Information'],
+    'Manager': ['Staff Management', 'Reports', 'Scheduling', 'Operations']
+  };
+  
+  return permissionsMap[roleName] || ['Basic Access'];
+};
 
 export function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([])
@@ -27,13 +43,18 @@ export function RolesPage() {
   const fetchRoles = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch("/api/roles")
-      const data = await response.json()
+      const response = await api.get("/api/roles")
+      const data = response.data
       
-      if (response.ok && Array.isArray(data)) {
-        setRoles(data)
+      if (Array.isArray(data)) {
+        // Add default permissions to each role
+        const rolesWithPermissions = data.map(role => ({
+          ...role,
+          permissions: role.permissions || getDefaultPermissions(role.name)
+        }));
+        setRoles(rolesWithPermissions)
       } else {
-        console.error("API Error:", data)
+        console.error("API Error: Expected array but got", typeof data, data)
         setRoles([])
       }
     } catch (error) {
@@ -45,11 +66,7 @@ export function RolesPage() {
 
   const handleCreateRole = async (data: any) => {
     try {
-      await fetch('/api/roles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
+      await api.post('/api/roles', data);
       fetchRoles()
       setIsModalOpen(false)
     } catch (error) {
@@ -60,11 +77,7 @@ export function RolesPage() {
   const handleUpdateRole = async (data: any) => {
     if (!editingRole) return;
     try {
-      await fetch(`/api/roles/${editingRole.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
+      await api.put(`/api/roles/${editingRole.id}`, data);
       fetchRoles()
       setEditingRole(null)
     } catch (error) {
@@ -75,7 +88,7 @@ export function RolesPage() {
   const handleDeleteRole = async (roleId: number) => {
     if (window.confirm("Are you sure you want to delete this role?")) {
       try {
-        await fetch(`/api/roles/${roleId}`, { method: 'DELETE' });
+        await api.delete(`/api/roles/${roleId}`);
         fetchRoles()
       } catch (error) {
         console.error("Failed to delete role:", error)
@@ -144,7 +157,7 @@ export function RolesPage() {
                     Permissions
                   </h4>
                   <div className="space-y-2">
-                    {role.permissions.map((permission, idx) => (
+                    {(role.permissions || []).map((permission, idx) => (
                       <div key={idx} className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-primary" />
                         <span className="text-sm text-muted-foreground">{permission}</span>

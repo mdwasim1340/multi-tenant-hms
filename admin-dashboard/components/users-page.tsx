@@ -11,6 +11,7 @@ import { TableSkeleton } from "@/components/skeleton-loader"
 import { VirtualTable } from "@/components/virtual-table"
 import { AdvancedFilter } from "@/components/advanced-filter"
 import { BulkImportExport } from "@/components/bulk-import-export"
+import api from "@/lib/api"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,16 +62,16 @@ export function UsersPage() {
         params.append("q", searchTerm)
       }
 
-      const response = await fetch(`/api/users?${params.toString()}`)
-      const data = await response.json()
+      const response = await api.get(`/api/users?${params.toString()}`)
+      const data = response.data
 
-      if (response.ok && data.users) {
+      if (data && data.users) {
         setUsers(data.users || [])
         setTotalUsers(data.total || 0)
         setActiveUsers(data.active || 0)
         setAdmins(data.admins || 0)
       } else {
-        console.error("API Error:", data)
+        console.error("API Error: Invalid data structure", data)
         setUsers([])
         setTotalUsers(0)
         setActiveUsers(0)
@@ -85,11 +86,7 @@ export function UsersPage() {
 
   const handleAddUser = async (data: any) => {
     try {
-      await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
+      await api.post('/api/users', data);
       fetchUsers()
       setIsModalOpen(false)
     } catch (error) {
@@ -100,11 +97,7 @@ export function UsersPage() {
   const handleUpdateUser = async (data: any) => {
     if (!editingUser) return;
     try {
-      await fetch(`/api/users/${editingUser.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
+      await api.put(`/api/users/${editingUser.id}`, data);
       fetchUsers();
       setEditingUser(null);
     } catch (error) {
@@ -115,7 +108,7 @@ export function UsersPage() {
   const handleDeleteUser = async (userId: number) => {
     if (window.confirm("Are you sure you want to delete this user?")) {
       try {
-        await fetch(`/api/users/${userId}`, { method: 'DELETE' });
+        await api.delete(`/api/users/${userId}`);
         fetchUsers()
       } catch (error) {
         console.error("Failed to delete user:", error)

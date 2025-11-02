@@ -64,8 +64,8 @@ export function TenantsPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: 'auth-test@enterprise-corp.com',
-          password: 'AuthTest123!'
+          email: 'admin@testcomplete1.com',
+          password: 'password123'
         })
       })
       

@@ -59,6 +59,27 @@ This steering system provides comprehensive guidelines for AI agents working on 
 
 ## 🚨 Critical Rules for All AI Agents
 
+### Backend Security (NEW - MANDATORY)
+1. **NEVER create Next.js API routes** that proxy to backend
+   - All frontend calls must go directly to backend API
+   - Backend is protected against direct browser access
+   - Only authorized applications can access backend
+
+2. **ALWAYS include app authentication headers**
+   ```typescript
+   headers: {
+     'Authorization': 'Bearer jwt_token',
+     'X-Tenant-ID': 'tenant_id',
+     'X-App-ID': 'admin-dashboard',
+     'X-API-Key': 'app-specific-key'
+   }
+   ```
+
+3. **ALWAYS use appAuthMiddleware on /api routes**
+   ```typescript
+   app.use('/api', apiAppAuthMiddleware);
+   ```
+
 ### Database Operations
 1. **ALWAYS verify current state first**
    ```bash

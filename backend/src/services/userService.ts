@@ -16,7 +16,20 @@ export const getUsers = async (queryParams: any) => {
     throw new Error(`Invalid order direction: ${order}`);
   }
 
-  let query = 'SELECT u.*, r.name as role, t.name as tenant FROM users u LEFT JOIN user_roles ur ON u.id = ur.user_id LEFT JOIN roles r ON ur.role_id = r.id LEFT JOIN tenants t ON u.tenant_id = t.id';
+  // Map frontend field names to database column names
+  const sortFieldMap: { [key: string]: string } = {
+    'joinDate': 'created_at',
+    'created_at': 'created_at',
+    'name': 'name',
+    'email': 'email',
+    'tenant': 'tenant',
+    'role': 'role',
+    'status': 'status'
+  };
+  
+  const dbSortField = sortFieldMap[sortBy] || sortBy;
+
+  let query = 'SELECT u.*, r.name as role, t.name as tenant, u.created_at as joinDate FROM users u LEFT JOIN user_roles ur ON u.id = ur.user_id LEFT JOIN roles r ON ur.role_id = r.id LEFT JOIN tenants t ON u.tenant_id = t.id';
   const queryParamsArray: any[] = [];
 
   if (Object.keys(filters).length > 0) {
@@ -37,7 +50,7 @@ export const getUsers = async (queryParams: any) => {
   const adminsResult = await pool.query(`SELECT COUNT(*) FROM users u JOIN user_roles ur ON u.id = ur.user_id JOIN roles r ON ur.role_id = r.id WHERE r.name = 'Admin'`, []);
   const admins = parseInt(adminsResult.rows[0].count, 10);
 
-  query += ` ORDER BY u.${sortBy} ${order} LIMIT $${queryParamsArray.length + 1} OFFSET $${queryParamsArray.length + 2}`;
+  query += ` ORDER BY u.${dbSortField} ${order} LIMIT $${queryParamsArray.length + 1} OFFSET $${queryParamsArray.length + 2}`;
   queryParamsArray.push(limit, offset);
 
   const { rows } = await pool.query(query, queryParamsArray);

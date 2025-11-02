@@ -85,6 +85,9 @@ export const tenantMiddleware = async (req, res, next) => {
 3. **Shared Resources**: Never share tenant-specific resources
 4. **Direct Schema References**: Never hardcode schema names in queries
 5. **Missing Tenant Context**: Never process requests without tenant validation
+6. **Next.js API Proxies**: Never create Next.js API routes that proxy to backend
+7. **Unprotected Backend**: Never allow direct browser access to backend APIs
+8. **Missing App Auth**: Never skip app-level authentication headers
 
 ### ALWAYS Do These Things
 1. **Validate Tenant ID**: Always verify tenant exists before operations
@@ -92,6 +95,9 @@ export const tenantMiddleware = async (req, res, next) => {
 3. **Isolate Data**: Always ensure data stays within tenant boundaries
 4. **Test Isolation**: Always verify no cross-tenant data leakage
 5. **Document Tenant Tables**: Always update docs when creating tenant tables
+6. **Direct Backend Calls**: Always call backend API directly from frontend
+7. **App Authentication**: Always include X-App-ID and X-API-Key headers
+8. **Protect Backend**: Always use appAuthMiddleware on API routes
 
 ## 🏥 Hospital Management Schema Design
 
