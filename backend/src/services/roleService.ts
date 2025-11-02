@@ -1,4 +1,4 @@
-import { db } from '../database';
+import pool from '../database';
 
 const ALLOWED_SORT_FIELDS = ['name', 'description', 'created_at'];
 const ALLOWED_ORDER_DIRECTIONS = ['asc', 'desc'];
@@ -30,18 +30,18 @@ export const getRoles = async (queryParams: any) => {
   query += ` ORDER BY r.${sortBy} ${order} LIMIT $${queryParamsArray.length + 1} OFFSET $${queryParamsArray.length + 2}`;
   queryParamsArray.push(limit, offset);
 
-  const { rows } = await db..query(query, queryParamsArray);
+  const { rows } = await pool.query(query, queryParamsArray);
   return rows;
 };
 
 export const getRole = async (id: string) => {
-  const { rows } = await db.query('SELECT * FROM roles WHERE id = $1', [id]);
+  const { rows } = await pool.query('SELECT * FROM roles WHERE id = $1', [id]);
   return rows[0];
 };
 
 export const createRole = async (roleData: any) => {
   const { name, description } = roleData;
-  const { rows } = await db.query(
+  const { rows } = await pool.query(
     'INSERT INTO roles (name, description) VALUES ($1, $2) RETURNING *',
     [name, description]
   );
@@ -50,7 +50,7 @@ export const createRole = async (roleData: any) => {
 
 export const updateRole = async (id: string, roleData: any) => {
   const { name, description } = roleData;
-  const { rows } = await db.query(
+  const { rows } = await pool.query(
     'UPDATE roles SET name = $1, description = $2 WHERE id = $3 RETURNING *',
     [name, description, id]
   );
@@ -58,6 +58,6 @@ export const updateRole = async (id: string, roleData: any) => {
 };
 
 export const deleteRole = async (id: string) => {
-  await db.query('DELETE FROM user_roles WHERE role_id = $1', [id]);
-  await db.query('DELETE FROM roles WHERE id = $1', [id]);
+  await pool.query('DELETE FROM user_roles WHERE role_id = $1', [id]);
+  await pool.query('DELETE FROM roles WHERE id = $1', [id]);
 };

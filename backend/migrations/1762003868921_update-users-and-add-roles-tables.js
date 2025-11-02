@@ -1,4 +1,5 @@
 exports.up = (pgm) => {
+  // Create roles table
   pgm.createTable('roles', {
     id: 'id',
     name: { type: 'varchar(255)', notNull: true },
@@ -10,6 +11,7 @@ exports.up = (pgm) => {
     },
   });
 
+  // Create tenants table
   pgm.createTable('tenants', {
     id: 'id',
     name: { type: 'varchar(255)', notNull: true },
@@ -20,6 +22,9 @@ exports.up = (pgm) => {
     },
   });
 
+  // Drop existing users table and recreate with new structure
+  pgm.dropTable('users');
+  
   pgm.createTable('users', {
     id: 'id',
     name: { type: 'varchar(255)', notNull: true },
@@ -42,6 +47,7 @@ exports.up = (pgm) => {
     },
   });
 
+  // Create user_roles junction table
   pgm.createTable('user_roles', {
     id: 'id',
     user_id: {
@@ -63,6 +69,7 @@ exports.up = (pgm) => {
     },
   });
 
+  // Create indexes
   pgm.createIndex('users', 'tenant_id');
   pgm.createIndex('user_roles', 'user_id');
   pgm.createIndex('user_roles', 'role_id');
@@ -73,4 +80,11 @@ exports.down = (pgm) => {
   pgm.dropTable('users');
   pgm.dropTable('tenants');
   pgm.dropTable('roles');
+  
+  // Recreate original users table
+  pgm.createTable('users', {
+    id: { type: 'uuid', primaryKey: true, default: pgm.func('gen_random_uuid()') },
+    email: { type: 'varchar(255)', notNull: true, unique: true },
+    created_at: { type: 'timestamp', notNull: true, default: pgm.func('current_timestamp') },
+  });
 };
