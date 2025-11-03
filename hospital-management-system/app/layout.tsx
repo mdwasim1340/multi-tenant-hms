@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { SubscriptionProvider } from "@/hooks/use-subscription"
 import { ChatWidget } from "@/components/chat-widget"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -24,8 +25,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          {children}
-          <ChatWidget />
+          <SubscriptionProvider>
+            {children}
+            <ChatWidget />
+          </SubscriptionProvider>
         </ThemeProvider>
         <Analytics />
       </body>

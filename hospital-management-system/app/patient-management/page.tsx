@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, AlertCircle, TrendingUp, Activity, ChevronRight } from "lucide-react"
+import { UsageWarning } from "@/components/subscription/usage-warning"
+import { FeatureGate } from "@/components/subscription/feature-gate"
 
 export default function PatientManagement() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -73,6 +75,7 @@ export default function PatientManagement() {
 
         <main className="flex-1 overflow-auto pt-20 pb-8">
           <div className="max-w-7xl mx-auto px-6 space-y-8">
+            <UsageWarning limit="max_patients" />
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-foreground">Patient Management</h1>
@@ -217,9 +220,10 @@ export default function PatientManagement() {
 
               {/* AI Analytics Tab */}
               <TabsContent value="analytics" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card className="border-border/50">
-                    <CardHeader>
+                <FeatureGate feature="medical_records">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card className="border-border/50">
+                      <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <TrendingUp className="w-5 h-5 text-accent" />
                         Risk Stratification
@@ -283,6 +287,7 @@ export default function PatientManagement() {
                     </CardContent>
                   </Card>
                 </div>
+                </FeatureGate>
               </TabsContent>
             </Tabs>
           </div>
