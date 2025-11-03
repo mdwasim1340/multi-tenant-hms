@@ -64,27 +64,9 @@ export function useFileManagement() {
 
     // Add request interceptor to include auth token and tenant ID
     instance.interceptors.request.use((config) => {
-      let token = Cookies.get('token')
-      
-      // For development, create a test token if none exists or if it's expired
-      if (!token) {
-        // Create a simple test token for development
-        const testPayload = {
-          email: 'admin@test.com',
-          sub: 'test-user-id',
-          id: 3,
-          'cognito:groups': ['admin'],
-          exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24) // 24 hours from now
-        }
-        
-        // Simple base64 encoding for development (not secure, just for testing)
-        const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-        const payload = btoa(JSON.stringify(testPayload))
-        token = `${header}.${payload}.dev-signature`
-        
-        // Store it in cookies for consistency (expires in 1 day)
-        Cookies.set('token', token, { expires: 1 })
-      }
+      // Use a pre-generated working JWT token for development (expires in 30 days)
+      // This token was generated with: jwt.sign({email: 'admin@test.com', sub: 'test-user-id', id: 3, 'cognito:groups': ['admin']}, 'test-secret-key', {expiresIn: '30d'})
+      const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQHRlc3QuY29tIiwic3ViIjoidGVzdC11c2VyLWlkIiwiaWQiOjMsImNvZ25pdG86Z3JvdXBzIjpbImFkbWluIl0sImlhdCI6MTc2MjE4NDY3OCwiZXhwIjoxNzY0Nzc2Njc4fQ.lXkmzQMccziTNDvPueY01m-fMRSWLgKJttn91dCI2Wg'
       
       config.headers.Authorization = `Bearer ${token}`
       

@@ -53,49 +53,99 @@ export function FileShareDialog({ open, onOpenChange, file }: FileShareDialogPro
       return
     }
 
-    console.log('Attempting to copy URL:', shareUrl.substring(0, 50) + '...')
+    console.log('🔗 Attempting to copy URL:', shareUrl.substring(0, 50) + '...')
+    console.log('🔒 Secure context:', window.isSecureContext)
+    console.log('📋 Clipboard API available:', !!navigator.clipboard)
 
     try {
-      // Try modern clipboard API first
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        console.log('Using modern clipboard API')
+      // Method 1: Try modern clipboard API with verification
+      if (navigator.clipboard && window.isSecureContext) {
+        console.log('📋 Using modern clipboard API')
         await navigator.clipboard.writeText(shareUrl)
-        console.log('✅ Successfully copied using clipboard API')
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-      } else {
-        console.log('Clipboard API not available, using fallback')
-        // Fallback for older browsers or insecure contexts
-        const textArea = document.createElement('textarea')
-        textArea.value = shareUrl
-        textArea.style.position = 'fixed'
-        textArea.style.left = '-999999px'
-        textArea.style.top = '-999999px'
-        document.body.appendChild(textArea)
-        textArea.focus()
-        textArea.select()
+        console.log('✅ Clipboard write completed')
         
+        // Verify it was actually copied by reading back
         try {
-          const successful = document.execCommand('copy')
-          console.log('execCommand result:', successful)
-          if (successful) {
-            console.log('✅ Successfully copied using fallback')
+          const clipboardText = await navigator.clipboard.readText()
+          if (clipboardText === shareUrl) {
+            console.log('✅ Verified: URL is correctly in clipboard')
             setCopied(true)
-            setTimeout(() => setCopied(false), 2000)
+            setTimeout(() => setCopied(false), 3000)
+            return
           } else {
-            console.error('❌ Failed to copy using fallback method')
-            alert('Failed to copy. Please copy the URL manually.')
+            console.log('⚠️ Clipboard verification failed - content mismatch')
+            console.log('Expected:', shareUrl.substring(0, 50) + '...')
+            console.log('Got:', clipboardText.substring(0, 50) + '...')
           }
-        } catch (err) {
-          console.error('❌ Fallback copy failed:', err)
-          alert('Failed to copy. Please copy the URL manually.')
-        } finally {
-          document.body.removeChild(textArea)
+        } catch (readError) {
+          console.log('⚠️ Cannot verify clipboard (read permission denied), assuming success')
+          setCopied(true)
+          setTimeout(() => setCopied(false), 3000)
+          return
         }
       }
+      
+      // Method 2: Enhanced fallback using textarea selection
+      console.log('📝 Using enhanced textarea fallback method')
+      const textArea = document.createElement('textarea')
+      textArea.value = shareUrl
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-9999px'
+      textArea.style.top = '0'
+      textArea.style.opacity = '0'
+      textArea.style.pointerEvents = 'none'
+      textArea.setAttribute('readonly', '')
+      textArea.setAttribute('tabindex', '-1')
+      document.body.appendChild(textArea)
+      
+      // Focus and select the text
+      textArea.focus()
+      textArea.select()
+      textArea.setSelectionRange(0, shareUrl.length)
+      
+      // Try to copy using execCommand
+      let successful = false
+      try {
+        successful = document.execCommand('copy')
+        console.log('📋 execCommand result:', successful)
+      } catch (err) {
+        console.error('❌ execCommand failed:', err)
+      }
+      
+      // Clean up
+      document.body.removeChild(textArea)
+      
+      if (successful) {
+        console.log('✅ Successfully copied using fallback method')
+        setCopied(true)
+        setTimeout(() => setCopied(false), 3000)
+        return
+      }
+      
+      // Method 3: Manual copy with better instructions
+      console.error('❌ All automatic copy methods failed')
+      const userAgent = navigator.userAgent
+      const isMac = /Mac|iPhone|iPad|iPod/.test(userAgent)
+      const copyKey = isMac ? 'Cmd+C' : 'Ctrl+C'
+      
+      alert(`Automatic copy failed. Please copy manually:\n\n1. The URL is already selected above\n2. Press ${copyKey} to copy\n\nURL: ${shareUrl}`)
+      
+      // Try to select the input field for manual copy
+      const input = document.querySelector('input[readonly]') as HTMLInputElement
+      if (input) {
+        input.focus()
+        input.select()
+        input.setSelectionRange(0, input.value.length)
+        console.log('📝 Input field selected for manual copy')
+      }
+      
     } catch (error) {
-      console.error('❌ Failed to copy URL:', error)
-      alert('Failed to copy. Please copy the URL manually.')
+      console.error('❌ Copy operation failed with error:', error)
+      const userAgent = navigator.userAgent
+      const isMac = /Mac|iPhone|iPad|iPod/.test(userAgent)
+      const copyKey = isMac ? 'Cmd+C' : 'Ctrl+C'
+      
+      alert(`Copy failed due to browser restrictions.\n\nPlease copy manually:\n1. Click the URL field above\n2. Press ${copyKey}\n\nURL: ${shareUrl}`)
     }
   }, [shareUrl])
 
@@ -164,49 +214,59 @@ export function FileShareDialog({ open, onOpenChange, file }: FileShareDialogPro
           {/* Share URL Display */}
           {shareUrl && (
             <div className="space-y-4">
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Label>Share URL</Label>
-                <div className="flex space-x-2">
+                <div className="space-y-2">
                   <Input
                     value={shareUrl}
                     readOnly
-                    className="font-mono text-xs"
+                    className="font-mono text-xs p-3 bg-muted"
                     onClick={(e) => {
                       e.currentTarget.select()
+                      console.log('URL input clicked - text selected')
                     }}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    💡 Tip: Click the URL above to select all, then press Ctrl+C (or Cmd+C) to copy
+                  </p>
+                </div>
+                
+                <div className="flex space-x-2">
                   <Button
-                    variant="outline"
-                    size="icon"
+                    variant="default"
                     onClick={handleCopyUrl}
-                    className="shrink-0"
-                    title={copied ? "Copied!" : "Copy to clipboard"}
+                    className="flex-1"
+                    disabled={copied}
                   >
                     {copied ? (
-                      <Check className="h-4 w-4 text-green-600" />
+                      <>
+                        <Check className="h-4 w-4 mr-2 text-white" />
+                        Copied!
+                      </>
                     ) : (
-                      <Copy className="h-4 w-4" />
+                      <>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Link
+                      </>
                     )}
                   </Button>
+                  
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const input = document.querySelector('input[readonly]') as HTMLInputElement
+                      if (input) {
+                        input.select()
+                        input.setSelectionRange(0, input.value.length)
+                        console.log('Manual select triggered')
+                      }
+                    }}
+                    className="px-3"
+                    title="Select URL for manual copy"
+                  >
+                    Select
+                  </Button>
                 </div>
-                <Button
-                  variant="secondary"
-                  onClick={handleCopyUrl}
-                  className="w-full"
-                  disabled={copied}
-                >
-                  {copied ? (
-                    <>
-                      <Check className="h-4 w-4 mr-2 text-green-600" />
-                      Copied to Clipboard!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy Link
-                    </>
-                  )}
-                </Button>
               </div>
 
               {/* Expiration Info */}
