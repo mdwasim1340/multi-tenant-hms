@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import pool from '../database';
+import { subscriptionService } from './subscription';
 // Migration runner will be handled separately
 // const runner = require('node-pg-migrate');
 
@@ -30,13 +31,37 @@ export const createTenant = async (req: Request, res: Response) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query(`CREATE SCHEMA "${id}"`);
+    
+    // First, insert the tenant record
     await client.query(
       'INSERT INTO public.tenants (id, name, email, plan, status) VALUES ($1, $2, $3, $4, $5)',
       [id, name, email, plan, status]
     );
+    
+    // Then create the schema
+    await client.query(`CREATE SCHEMA "${id}"`);
+    
+    // Finally, assign default subscription (Basic tier) - now that tenant exists
+    // Create subscription directly in the same transaction
+    await client.query(`
+      INSERT INTO tenant_subscriptions (
+        tenant_id, tier_id, usage_limits, billing_cycle, status
+      )
+      VALUES ($1, $2, $3, $4, $5)
+    `, [
+      id, 
+      'basic', 
+      JSON.stringify({ max_patients: 500, max_users: 5, storage_gb: 10, api_calls_per_day: 1000 }),
+      'monthly',
+      'active'
+    ]);
+    
     await client.query('COMMIT');
-    res.status(201).json({ message: `Tenant ${name} created successfully` });
+    res.status(201).json({ 
+      message: `Tenant ${name} created successfully`,
+      tenant_id: id,
+      subscription: 'basic'
+    });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error creating tenant:', error);

@@ -1,0 +1,388 @@
+import express from 'express';
+import { billingService } from '../services/billing';
+import { razorpayService } from '../services/razorpay';
+import { authMiddleware } from '../middleware/auth';
+
+const router = express.Router();
+
+// Generate invoice for tenant
+router.post('/generate-invoice', authMiddleware, async (req, res) => {
+  try {
+    const { tenant_id, period_start, period_end, include_overage_charges, custom_line_items, notes, due_days } = req.body;
+    
+    if (!tenant_id || !period_start || !period_end) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: tenant_id, period_start, period_end',
+        code: 'MISSING_REQUIRED_FIELDS'
+      });
+    }
+    
+    const invoice = await billingService.generateInvoice(
+      tenant_id,
+      new Date(period_start),
+      new Date(period_end),
+      {
+        include_overage_charges,
+        custom_line_items,
+        notes,
+        due_days
+      }
+    );
+
+    res.json({ 
+      success: true,
+      message: 'Invoice generated successfully', 
+      invoice 
+    });
+  } catch (error: any) {
+    console.error('Error generating invoice:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'INVOICE_GENERATION_ERROR'
+    });
+  }
+});
+
+// Get all invoices (admin)
+router.get('/invoices', authMiddleware, async (req, res) => {
+  try {
+    const { limit = 50, offset = 0 } = req.query;
+    
+    const invoices = await billingService.getAllInvoices(
+      parseInt(limit as string),
+      parseInt(offset as string)
+    );
+    
+    res.json({ 
+      success: true,
+      invoices,
+      pagination: {
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string),
+        total: invoices.length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching invoices:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch invoices',
+      code: 'FETCH_INVOICES_ERROR'
+    });
+  }
+});
+
+// Get invoices for specific tenant
+router.get('/invoices/:tenantId', authMiddleware, async (req, res) => {
+  try {
+    const { tenantId } = req.params;
+    const { limit = 50, offset = 0 } = req.query;
+    
+    // Verify user has access to this tenant
+    const userTenantId = req.headers['x-tenant-id'] as string;
+    if (userTenantId && userTenantId !== tenantId) {
+      return res.status(403).json({ 
+        error: 'Access denied to this tenant',
+        code: 'TENANT_ACCESS_DENIED'
+      });
+    }
+    
+    const invoices = await billingService.getInvoices(
+      tenantId,
+      parseInt(limit as string),
+      parseInt(offset as string)
+    );
+    
+    res.json({ 
+      success: true,
+      invoices,
+      pagination: {
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string),
+        total: invoices.length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching invoices:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch invoices',
+      code: 'FETCH_INVOICES_ERROR'
+    });
+  }
+});
+
+// Get specific invoice details
+router.get('/invoice/:invoiceId', authMiddleware, async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    
+    const invoice = await billingService.getInvoiceById(parseInt(invoiceId));
+    
+    if (!invoice) {
+      return res.status(404).json({ 
+        error: 'Invoice not found',
+        code: 'INVOICE_NOT_FOUND'
+      });
+    }
+    
+    // Get payments for this invoice
+    const payments = await billingService.getPaymentsForInvoice(parseInt(invoiceId));
+    
+    res.json({ 
+      success: true,
+      invoice,
+      payments
+    });
+  } catch (error) {
+    console.error('Error fetching invoice:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch invoice',
+      code: 'FETCH_INVOICE_ERROR'
+    });
+  }
+});
+
+// Create Razorpay payment order
+router.post('/create-order', authMiddleware, async (req, res) => {
+  try {
+    const { invoice_id } = req.body;
+    
+    if (!invoice_id) {
+      return res.status(400).json({ 
+        error: 'invoice_id is required',
+        code: 'MISSING_INVOICE_ID'
+      });
+    }
+    
+    const orderData = await billingService.createPaymentOrder(invoice_id);
+    
+    res.json({ 
+      success: true,
+      ...orderData,
+      demo_mode: razorpayService.isDemoMode()
+    });
+  } catch (error: any) {
+    console.error('Error creating order:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'CREATE_ORDER_ERROR'
+    });
+  }
+});
+
+// Verify and process Razorpay payment
+router.post('/verify-payment', authMiddleware, async (req, res) => {
+  try {
+    const {
+      invoice_id,
+      razorpay_payment_id,
+      razorpay_order_id,
+      razorpay_signature
+    } = req.body;
+
+    if (!invoice_id || !razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
+      return res.status(400).json({ 
+        error: 'Missing required payment verification fields',
+        code: 'MISSING_PAYMENT_FIELDS'
+      });
+    }
+
+    const result = await billingService.processPayment(
+      invoice_id,
+      razorpay_payment_id,
+      razorpay_order_id,
+      razorpay_signature
+    );
+
+    res.json({ 
+      ...result,
+      demo_mode: razorpayService.isDemoMode()
+    });
+  } catch (error: any) {
+    console.error('Error verifying payment:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'PAYMENT_VERIFICATION_ERROR'
+    });
+  }
+});
+
+// Record manual payment
+router.post('/manual-payment', authMiddleware, async (req, res) => {
+  try {
+    const { invoice_id, amount, payment_method, notes } = req.body;
+    
+    if (!invoice_id || !amount || !payment_method) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: invoice_id, amount, payment_method',
+        code: 'MISSING_PAYMENT_FIELDS'
+      });
+    }
+
+    // Validate payment method
+    const validMethods = ['manual', 'bank_transfer', 'cash', 'cheque'];
+    if (!validMethods.includes(payment_method)) {
+      return res.status(400).json({ 
+        error: `Invalid payment method. Valid methods: ${validMethods.join(', ')}`,
+        code: 'INVALID_PAYMENT_METHOD'
+      });
+    }
+    
+    const result = await billingService.recordManualPayment(
+      invoice_id,
+      parseFloat(amount),
+      payment_method,
+      notes
+    );
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('Error recording payment:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'MANUAL_PAYMENT_ERROR'
+    });
+  }
+});
+
+// Get all payments (admin)
+router.get('/payments', authMiddleware, async (req, res) => {
+  try {
+    const { limit = 50, offset = 0 } = req.query;
+    
+    const payments = await billingService.getAllPayments(
+      parseInt(limit as string),
+      parseInt(offset as string)
+    );
+    
+    res.json({ 
+      success: true,
+      payments,
+      pagination: {
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string),
+        total: payments.length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching payments:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch payments',
+      code: 'FETCH_PAYMENTS_ERROR'
+    });
+  }
+});
+
+// Get billing report (admin)
+router.get('/report', authMiddleware, async (req, res) => {
+  try {
+    const report = await billingService.generateBillingReport();
+    
+    res.json({ 
+      success: true,
+      report
+    });
+  } catch (error) {
+    console.error('Error generating billing report:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate billing report',
+      code: 'BILLING_REPORT_ERROR'
+    });
+  }
+});
+
+// Update overdue invoices (admin/cron job)
+router.post('/update-overdue', authMiddleware, async (req, res) => {
+  try {
+    const updatedCount = await billingService.updateOverdueInvoices();
+    
+    res.json({ 
+      success: true,
+      message: `Updated ${updatedCount} overdue invoices`,
+      updated_count: updatedCount
+    });
+  } catch (error) {
+    console.error('Error updating overdue invoices:', error);
+    res.status(500).json({ 
+      error: 'Failed to update overdue invoices',
+      code: 'UPDATE_OVERDUE_ERROR'
+    });
+  }
+});
+
+// Razorpay webhook endpoint
+router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const signature = req.headers['x-razorpay-signature'] as string;
+    const body = req.body.toString();
+
+    // Verify webhook signature
+    const isValid = razorpayService.verifyWebhookSignature(body, signature);
+    
+    if (!isValid && !razorpayService.isDemoMode()) {
+      return res.status(400).json({ 
+        error: 'Invalid webhook signature',
+        code: 'INVALID_WEBHOOK_SIGNATURE'
+      });
+    }
+
+    const event = JSON.parse(body);
+    
+    console.log('Received Razorpay webhook:', event.event);
+    
+    // Handle different webhook events
+    switch (event.event) {
+      case 'payment.captured':
+        console.log('Payment captured:', event.payload.payment.entity.id);
+        // Additional processing can be added here
+        break;
+        
+      case 'payment.failed':
+        console.log('Payment failed:', event.payload.payment.entity.id);
+        // Handle failed payment - maybe send notification
+        break;
+        
+      case 'order.paid':
+        console.log('Order paid:', event.payload.order.entity.id);
+        break;
+        
+      default:
+        console.log('Unhandled webhook event:', event.event);
+    }
+
+    res.json({ 
+      success: true,
+      status: 'webhook_processed',
+      event: event.event
+    });
+  } catch (error) {
+    console.error('Webhook processing error:', error);
+    res.status(500).json({ 
+      error: 'Webhook processing failed',
+      code: 'WEBHOOK_ERROR'
+    });
+  }
+});
+
+// Get Razorpay configuration (for frontend)
+router.get('/razorpay-config', async (req, res) => {
+  try {
+    const config = razorpayService.getConfig();
+    
+    res.json({ 
+      success: true,
+      config: {
+        ...config,
+        demo_mode: razorpayService.isDemoMode(),
+        configured: razorpayService.isConfigured()
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching Razorpay config:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch Razorpay configuration',
+      code: 'RAZORPAY_CONFIG_ERROR'
+    });
+  }
+});
+
+export default router;

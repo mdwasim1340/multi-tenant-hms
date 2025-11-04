@@ -5,6 +5,10 @@ import { tenantMiddleware } from './middleware/tenant';
 import authRouter from './routes/auth';
 import usersRouter from './routes/users';
 import rolesRouter from './routes/roles';
+import subscriptionsRouter from './routes/subscriptions';
+import usageRouter from './routes/usage';
+import billingRouter from './routes/billing';
+import { trackApiCall } from './middleware/usageTracking';
 
 dotenv.config();
 
@@ -33,6 +37,9 @@ app.use(express.json());
 import { apiAppAuthMiddleware } from './middleware/appAuth';
 app.use('/api', apiAppAuthMiddleware);
 
+// Usage tracking middleware - track API calls
+app.use('/api', trackApiCall);
+
 // Auth routes are public and do not require tenant context
 app.use('/auth', authRouter);
 
@@ -42,6 +49,9 @@ import { authMiddleware } from './middleware/auth';
 app.use('/api/tenants', tenantsRouter);
 app.use('/api/users', authMiddleware, usersRouter);
 app.use('/api/roles', authMiddleware, rolesRouter);
+app.use('/api/subscriptions', subscriptionsRouter);
+app.use('/api/usage', usageRouter);
+app.use('/api/billing', billingRouter);
 
 // Apply tenant middleware to routes that need tenant context
 app.use(tenantMiddleware);

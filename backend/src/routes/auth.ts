@@ -4,21 +4,7 @@ import { createTenant } from '../services/tenant';
 
 const router = Router();
 
-router.post('/tenants', async (req, res) => {
-  const { tenantId } = req.body;
-
-  if (!tenantId) {
-    return res.status(400).json({ message: 'Tenant ID is required' });
-  }
-
-  try {
-    await createTenant(tenantId);
-    res.status(201).json({ message: 'Tenant created successfully' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Failed to create tenant' });
-  }
-});
+router.post('/tenants', createTenant);
 
 router.post('/signup', async (req, res) => {
   try {
