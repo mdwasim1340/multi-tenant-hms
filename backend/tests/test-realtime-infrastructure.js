@@ -42,7 +42,12 @@ async function testRealtimeInfrastructure() {
         data: { message: 'Test alert' }
       },
       {
-        headers: { 'Authorization': 'Bearer test_token' }
+        headers: { 
+          'Authorization': 'Bearer test_token',
+          'X-App-ID': 'test-app',
+          'X-API-Key': 'test-key',
+          'Origin': 'http://localhost:3002'
+        }
       }
     );
     console.log('✅ Event published');
@@ -55,7 +60,12 @@ async function testRealtimeInfrastructure() {
     const eventsResponse = await axios.get(
       `${API_URL}/api/realtime/events/${TENANT_ID}`,
       {
-        headers: { 'Authorization': 'Bearer test_token' }
+        headers: { 
+          'Authorization': 'Bearer test_token',
+          'X-App-ID': 'test-app',
+          'X-API-Key': 'test-key',
+          'Origin': 'http://localhost:3002'
+        }
       }
     );
     console.log('✅ Events fetched:', eventsResponse.data.events.length);
@@ -65,7 +75,12 @@ async function testRealtimeInfrastructure() {
     const statsResponse = await axios.get(
       `${API_URL}/api/realtime/stats`,
       {
-        headers: { 'Authorization': 'Bearer test_token' }
+        headers: { 
+          'Authorization': 'Bearer test_token',
+          'X-App-ID': 'test-app',
+          'X-API-Key': 'test-key',
+          'Origin': 'http://localhost:3002'
+        }
       }
     );
     console.log('✅ Stats:', statsResponse.data);

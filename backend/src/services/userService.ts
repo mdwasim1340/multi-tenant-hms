@@ -62,6 +62,11 @@ export const getUser = async (id: string) => {
   return rows[0];
 };
 
+export const getUserByEmail = async (email: string) => {
+  const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+  return rows[0];
+};
+
 export const createUser = async (userData: any) => {
   const { name, email, password, status, phone_number, last_login_date, profile_picture_url, role_id, tenant_id } = userData;
   const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
