@@ -1,4 +1,4 @@
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { IncomingMessage } from 'http';
 import { parse } from 'url';
 import jwt from 'jsonwebtoken';
@@ -56,7 +56,7 @@ export class AnalyticsWebSocketServer {
 
     console.log(`WebSocket client connected for tenant: ${tenantId}`);
 
-    ws.on('message', (data) => {
+    ws.on('message', (data: any) => {
       try {
         const message = JSON.parse(data.toString());
         this.handleMessage(ws, message);

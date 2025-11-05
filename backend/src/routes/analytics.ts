@@ -117,7 +117,13 @@ router.get('/tenants-usage', authMiddleware, async (req, res) => {
         WHERE t.status = 'active'
         ORDER BY us.patients_count DESC NULLS LAST
       `);
-      tenantsWithUsage = usageResult.rows;
+      tenantsWithUsage = usageResult.rows.map(row => ({
+        ...row,
+        patients_count: parseInt(row.patients_count) || 0,
+        users_count: parseInt(row.users_count) || 0,
+        storage_used_gb: parseFloat(row.storage_used_gb) || 0,
+        api_calls_count: parseInt(row.api_calls_count) || 0
+      }));
     } catch (error) {
       console.log('usage_summary table not found, using basic tenant data');
     }

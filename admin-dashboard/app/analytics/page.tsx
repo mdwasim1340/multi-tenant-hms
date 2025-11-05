@@ -143,13 +143,15 @@ export default function AnalyticsPage() {
                   <div>
                     <p className="font-medium">{tenant.tenant_name}</p>
                     <p className="text-sm text-gray-500">
-                      {tenant.patients_count} patients • {tenant.users_count} users
+                      {tenant.patients_count || 0} patients • {tenant.users_count || 0} users
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium">{tenant.tier_id}</p>
                     <p className="text-xs text-gray-500">
-                      {tenant.storage_used_gb.toFixed(2)} GB
+                      {typeof tenant.storage_used_gb === 'number' 
+                        ? tenant.storage_used_gb.toFixed(2) 
+                        : '0.00'} GB
                     </p>
                   </div>
                 </div>
