@@ -5,6 +5,19 @@
 ### Core Principle: Zero Direct Access
 The backend API must NEVER be accessible directly through browsers or unauthorized applications. All access must be through verified, authorized frontend applications only.
 
+## 🚨 ANTI-DUPLICATION RULES FOR SECURITY IMPLEMENTATION
+
+### Before Creating Security Components
+1. **Check existing middleware**: Review `/src/middleware/` for existing security implementations
+2. **Verify no legacy security**: Ensure old security patterns are removed
+3. **Use established patterns**: Follow existing app authentication and tenant validation
+4. **Single security model**: Never create duplicate authentication or authorization systems
+
+### Legacy Cleanup Impact on Security
+- ✅ **Clean Security Architecture**: Single app authentication system
+- ✅ **Modern Tenant Security**: Subscription-based tenant validation
+- ✅ **No Duplicate Middleware**: Legacy security middleware removed
+
 ## 🛡️ Application-Level Security Architecture
 
 ### Allowed Applications Registry

@@ -1,8 +1,21 @@
 # Frontend-Backend Integration - Critical Guidelines
 
+## 🚨 ANTI-DUPLICATION RULES FOR FRONTEND-BACKEND INTEGRATION
+
+### Before Creating New Frontend Components
+1. **Search existing components**: Check all frontend directories for similar functionality
+2. **Review legacy cleanup**: Check `LEGACY_CLEANUP_SUMMARY.md` for removed components
+3. **Use modern APIs**: Integrate with subscription-based tenant system
+4. **Single implementation**: Never create duplicate screens or forms for same function
+
+### Recent Legacy Cleanup (Nov 4, 2025)
+- ✅ **Tenant Components**: 4 legacy tenant components removed (739 lines)
+- ✅ **Single System**: Only `/components/tenants/` directory contains tenant management
+- ✅ **Modern Integration**: All components use subscription-based backend APIs
+
 ## 🚨 MAJOR ISSUES TO PREVENT
 
-Based on recent debugging sessions, these are the most critical issues that cause runtime errors and integration failures:
+Based on recent debugging sessions and legacy cleanup, these are the most critical issues:
 
 ### 1. Data Contract Mismatches
 **Problem**: Frontend expects fields that backend doesn't provide

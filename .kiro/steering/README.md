@@ -2,7 +2,22 @@
 
 ## 🎯 Overview
 
-This steering system provides comprehensive guidelines for AI agents working on the multi-tenant hospital management system. It ensures consistent, secure, and coordinated development while preventing common mistakes and conflicts.
+This steering system provides comprehensive guidelines for AI agents working on the multi-tenant hospital management system. It ensures consistent, secure, and coordinated development while preventing common mistakes, conflicts, and duplicate implementations.
+
+## 🚨 CRITICAL: Anti-Duplication Rules
+
+### Before Creating ANY New Component, Screen, or Model
+1. **ALWAYS search existing codebase** for similar functionality
+2. **NEVER create duplicate implementations** of the same feature
+3. **IF replacement is needed**, FIRST remove/archive the old implementation
+4. **DOCUMENT all removals** in cleanup summary files
+5. **UPDATE all references** to point to new implementation
+
+### Component/Screen Creation Rules
+- **Search Pattern**: `find . -name "*component-name*" -type f` before creating
+- **Naming Convention**: Use descriptive, unique names that won't conflict
+- **Location Verification**: Check if similar components exist in different directories
+- **Legacy Cleanup**: Remove old implementations when creating new ones
 
 ## 📚 Steering Files Overview
 
@@ -30,17 +45,21 @@ This steering system provides comprehensive guidelines for AI agents working on 
 - ✅ Use consistent error response formats
 - ✅ Implement proper input validation and security
 
-## 🗃️ Current System State (Verified Nov 2, 2025 - 13:25 UTC - AGENT A COMPLETE)
+## 🗃️ Current System State (Updated Nov 4, 2025 - LEGACY CLEANUP COMPLETE)
 
-### ✅ What Exists and Works (CORE INFRASTRUCTURE 100% COMPLETE)
+### ✅ What Exists and Works (CORE INFRASTRUCTURE 100% COMPLETE + LEGACY CLEANUP)
 ```
-✅ Database: PostgreSQL running in Docker with optimized performance
-✅ Core Tables: ALL tables exist (tenants, users, roles, user_roles, user_verification)
-✅ Tenant Schemas: 6 tenant schemas created and ready for hospital tables
-✅ User Management: 6 admin users created with proper tenant relationships
+✅ Database: PostgreSQL with subscription-based tenant management
+✅ Core Tables: tenants, tenant_subscriptions, subscription_tiers, usage_tracking
+✅ Tenant Management: Modern
+```
+✅ Database: PostgreSQL with subscription-based tenant management
+✅ Core Tables: tenants, tenant_subscriptions, subscription_tiers, usage_tracking
+✅ Tenant Management: Modern subscription-based system (legacy components removed)
+✅ User Management: 6 admin users with proper tenant relationships
 ✅ Role System: 7 hospital roles defined (Admin, Doctor, Nurse, etc.)
-✅ Migrations: Migration system restored and fully functional
-✅ Authentication: JWT-based auth with AWS Cognito integration (90% working)
+✅ Authentication: JWT-based auth with AWS Cognito integration
+✅ S3 Integration: Pre-based auth with AWS Cognito integration (90% working)
 ✅ S3 Integration: Presigned URLs working with tenant isolation
 ✅ API Endpoints: /auth/*, /api/tenants, /api/users fully operational
 ✅ Middleware: Auth and tenant middleware implemented and tested

@@ -14,7 +14,20 @@
 - **Coordinate with other agents** working on database simultaneously
 - **Update documentation immediately** after any database changes
 
-## 🗃️ Current Database State (Verified Nov 2, 2025 - 13:25 UTC - AGENT A COMPLETE)
+## 🗃️ Current Database State (Updated Nov 4, 2025 - LEGACY CLEANUP COMPLETE)
+
+## 🚨 ANTI-DUPLICATION RULES FOR DATABASE OPERATIONS
+
+### Before Creating New Tables or Schemas
+1. **Verify current state**: Use `backend/check-tenant-schema.js` to check existing tables
+2. **Check for legacy tables**: Review cleanup summaries for removed/renamed tables
+3. **Use modern schema**: Follow subscription-based tenant model
+4. **Document changes**: Update cleanup summaries when modifying database
+
+### Database Schema Evolution
+- ✅ **Modern Tenant Tables**: `tenants`, `tenant_subscriptions`, `subscription_tiers`, `usage_tracking`
+- ✅ **Legacy Cleanup**: Old simple tenant tables replaced with subscription model
+- ✅ **Clean Architecture**: Single source of truth for tenant data
 
 ### ✅ Existing Tables (Public Schema) - 100% COMPLETE
 ```sql

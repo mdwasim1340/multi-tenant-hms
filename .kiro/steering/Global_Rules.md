@@ -6,7 +6,21 @@ inclusion: always
 
 ## Project Structure & Organization
 
-### File Placement Rules (Updated Nov 2, 2025 - Core Infrastructure Complete)
+### File Placement Rules (Updated Nov 4, 2025 - LEGACY CLEANUP COMPLETE)
+
+## 🚨 CRITICAL: Anti-Duplication Rules
+
+### Before Creating ANY New File or Component
+1. **MANDATORY SEARCH**: Use `find . -name "*component-name*" -type f` to check for existing implementations
+2. **LEGACY VERIFICATION**: Review `backend/docs/LEGACY_CLEANUP_SUMMARY.md` for removed components
+3. **SINGLE SOURCE OF TRUTH**: Never create duplicate implementations of the same functionality
+4. **CLEANUP FIRST**: If replacement is needed, remove old implementation before creating new one
+5. **DOCUMENT CHANGES**: Update cleanup summaries when removing or replacing components
+
+### Recent Legacy Cleanup (Nov 4, 2025)
+- ✅ **Tenant Management**: 4 duplicate components removed (739 lines of code)
+- ✅ **Clean Architecture**: Single tenant management system in `/components/tenants/`
+- ✅ **Modern Database**: Subscription-based tenant model (old simple model removed)
 - **Backend documentation**: `backend/docs/` directory (✅ 15+ documentation files)
 - **Backend tests**: `backend/tests/` directory (✅ 25+ comprehensive test files, 90% success rate)
 - **Hospital frontend**: `hospital-management-system/` (Next.js app for hospital operations)

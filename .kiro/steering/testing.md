@@ -102,7 +102,20 @@ All documentation is properly organized in `backend/docs/` directory:
 - `TEST_RESULTS.md` - Historical test results and benchmarks
 - `ANALYSIS.md` - System analysis and architectural recommendations
 
-### System Status Summary (Updated Nov 2, 2025 - 13:25 UTC)
+### System Status Summary (Updated Nov 4, 2025 - LEGACY CLEANUP COMPLETE)
+
+## 🚨 ANTI-DUPLICATION RULES FOR TESTING
+
+### Before Creating New Tests
+1. **Check existing tests**: Search `/backend/tests/` for similar test scenarios
+2. **Review test cleanup**: Ensure tests reflect current system (not legacy)
+3. **Use modern APIs**: Test subscription-based tenant system, not old simple model
+4. **Update test data**: Ensure test data matches current database schema
+
+### Legacy Cleanup Impact on Testing
+- ✅ **Tenant Tests**: Now test subscription-based tenant management
+- ✅ **Clean Test Suite**: No tests for removed legacy components
+- ✅ **Modern Integration**: Tests use current API endpoints and data models
 - **Authentication System**: ✅ Fully operational with AWS Cognito (minor signin config needed)
 - **S3 File Operations**: ✅ Presigned URLs working with tenant isolation
 - **Multi-Tenant Architecture**: ✅ Complete schema isolation (6 tenants operational)

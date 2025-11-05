@@ -112,6 +112,19 @@ cd admin-dashboard && npm run build
 - **Token Expiration**: 1-hour token lifetime
 - **Protected Routes**: All non-auth endpoints require valid tokens
 
+## 🚨 ANTI-DUPLICATION RULES FOR MULTI-APP DEVELOPMENT
+
+### Before Creating New App Components
+1. **Cross-app search**: Check all three applications for similar components
+2. **Shared component verification**: Ensure no duplicate UI components across apps
+3. **API consistency**: Use same backend APIs, don't create app-specific duplicates
+4. **Legacy cleanup awareness**: Review cleanup summaries before creating new features
+
+### Recent Multi-App Cleanup (Nov 4, 2025)
+- ✅ **Admin Dashboard**: Legacy tenant components removed, modern system in place
+- ✅ **Consistent APIs**: All apps use same subscription-based tenant endpoints
+- ✅ **Clean Architecture**: No duplicate implementations across applications
+
 ## 📊 Current System Status
 
 ### ✅ Fully Operational Components

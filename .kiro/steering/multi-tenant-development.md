@@ -5,13 +5,22 @@
 ### Core Principle: Complete Data Isolation
 Every tenant must have completely isolated data with no possibility of cross-tenant access or data leakage.
 
-### Current Multi-Tenant Status (Updated Nov 2, 2025 - Agent A Complete)
-- ✅ **Global Tables**: ALL core tables exist in public schema (100% complete)
-- ✅ **Tenant Schemas**: 6 tenant schemas exist and ready for hospital tables
-- ✅ **User Management**: 6 admin users created with proper tenant relationships
+### Current Multi-Tenant Status (Updated Nov 4, 2025 - LEGACY CLEANUP COMPLETE)
+- ✅ **Global Tables**: Modern subscription-based tenant system (legacy removed)
+- ✅ **Tenant Management**: Single clean implementation in `/components/tenants/`
+- ✅ **Subscription System**: Integrated billing, usage tracking, and tier management
+- ✅ **User Management**: 6 admin users with proper tenant relationships
 - ✅ **Role System**: 7 hospital roles defined with RBAC foundation
-- ❌ **Tenant Tables**: Hospital management tables ready to be created (Agent B)
+- ✅ **Legacy Cleanup**: 739 lines of duplicate tenant code removed
 - ✅ **Isolation Mechanism**: PostgreSQL schema-based isolation fully operational
+
+## 🚨 ANTI-DUPLICATION RULES FOR MULTI-TENANT DEVELOPMENT
+
+### Before Creating Tenant-Related Components
+1. **Check existing tenant components**: All tenant management is in `/components/tenants/`
+2. **Verify no legacy exists**: Review `LEGACY_CLEANUP_SUMMARY.md` for removed components
+3. **Use subscription model**: Integrate with existing subscription and usage tracking
+4. **Single source of truth**: Never create duplicate tenant management systems
 
 ## 🗂️ Schema Distribution Rules
 

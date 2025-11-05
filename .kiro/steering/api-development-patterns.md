@@ -8,7 +8,20 @@
 - **ALWAYS set database schema context** for tenant operations
 - **NEVER allow cross-tenant data access** in any API endpoint
 
-### Current API Status (Updated Nov 2, 2025 - 90% Operational)
+### Current API Status (Updated Nov 4, 2025 - LEGACY CLEANUP COMPLETE)
+
+## 🚨 ANTI-DUPLICATION RULES FOR API DEVELOPMENT
+
+### Before Creating New API Endpoints
+1. **Check existing routes**: Search `/src/routes/` for similar endpoints
+2. **Verify no legacy APIs**: Review cleanup summaries for removed endpoints
+3. **Use modern tenant service**: Integrate with subscription-based tenant system
+4. **Follow single pattern**: Use established middleware chain and response formats
+
+### Legacy Cleanup Impact on APIs
+- ✅ **Tenant APIs**: Now use subscription-based model (old simple tenant APIs removed)
+- ✅ **Clean Architecture**: Single tenant service with subscription integration
+- ✅ **No Duplicates**: Legacy tenant management endpoints removed
 - ✅ **Authentication endpoints**: /auth/* routes exist and function (signup working)
 - ✅ **Tenant management**: /api/tenants endpoints exist and operational
 - ✅ **User management**: /api/users endpoints exist (with tenant context)

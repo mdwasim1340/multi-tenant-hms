@@ -25,7 +25,13 @@
     └── steering/              # Development guidelines (UPDATED NOV 2025)
 ```
 
-## Backend Structure (`backend/`) - ✅ PRODUCTION READY
+## Backend Structure (`backend/`) - ✅ PRODUCTION READY + LEGACY CLEANUP COMPLETE
+
+### 🚨 Anti-Duplication Rules for Backend
+- **Before creating new services**: Check existing services in `/src/services/`
+- **Before adding routes**: Verify no duplicate endpoints in `/src/routes/`
+- **Before database changes**: Check current schema with verification scripts
+- **Document all removals**: Update cleanup summaries in `/docs/`
 ```
 backend/
 ├── src/                    # TypeScript source code (✅ COMPLETE)
