@@ -29,10 +29,27 @@ services:
       - DB_PASSWORD=password
       - DB_NAME=multitenant_db
       - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     command: npm run dev
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
+
+  redis:
+    image: redis:7-alpine
+    container_name: backend-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - default
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+  redis-data:

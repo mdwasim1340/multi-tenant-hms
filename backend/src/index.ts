@@ -9,8 +9,14 @@ import subscriptionsRouter from './routes/subscriptions';
 import usageRouter from './routes/usage';
 import billingRouter from './routes/billing';
 import { trackApiCall } from './middleware/usageTracking';
+import { connectRedis } from './config/redis';
 
 dotenv.config();
+
+connectRedis().catch(err => {
+  console.error('Failed to connect to Redis:', err);
+  process.exit(1);
+});
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -59,6 +65,9 @@ app.use(tenantMiddleware);
 import filesRouter from './routes/files';
 app.use('/files', authMiddleware, filesRouter);
 
+import realtimeRouter from './routes/realtime';
+app.use('/api/realtime', authMiddleware, realtimeRouter);
+
 app.get('/', async (req: Request, res: Response) => {
   try {
     const result = await req.dbClient!.query('SELECT NOW()');
@@ -73,8 +82,11 @@ app.get('/', async (req: Request, res: Response) => {
 });
 
 import { errorMiddleware } from './middleware/error';
+import { initializeWebSocketServer } from './websocket/server';
 app.use(errorMiddleware);
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
+
+initializeWebSocketServer(server);
