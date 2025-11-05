@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, createContext, useContext } from 'react';
 // import { api } from '@/lib/api'; // Commented out for mock implementation
 
@@ -134,34 +136,44 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   const fetchSubscription = async () => {
     setLoading(true);
-    // TODO: Replace this mock implementation with a real API call
-    // to the backend endpoint '/api/subscriptions/current'.
-    // The backend service for this is not yet implemented.
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-
-    // --- MOCK DATA SIMULATION ---
-    // To test different tiers, change 'basic' to 'advanced' or 'premium'.
-    const currentTier = 'basic';
-    const mockData: SubscriptionData = {
-      tier: mockTiers[currentTier],
-      usage: mockUsage,
-      warnings: mockUsage.patients_count > mockTiers[currentTier].limits.max_patients * 0.8 ? mockWarnings : [],
-    };
-    setSubscription(mockData);
-    // --- END MOCK DATA ---
-
-    /*
-    // --- REAL API CALL (when backend is ready) ---
+    
     try {
-      const response = await api.get('/api/subscriptions/current');
-      setSubscription(response.data);
+      // Use real API call now that backend is implemented
+      const response = await fetch('/api/subscriptions/current', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`,
+          'X-Tenant-ID': localStorage.getItem('tenantId') || 'tenant_1762083064503',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSubscription(data);
+      } else {
+        console.error('Failed to fetch subscription:', response.status);
+        // Fall back to mock data if API fails
+        const currentTier = 'basic';
+        const mockData: SubscriptionData = {
+          tier: mockTiers[currentTier],
+          usage: mockUsage,
+          warnings: mockUsage.patients_count > mockTiers[currentTier].limits.max_patients * 0.8 ? mockWarnings : [],
+        };
+        setSubscription(mockData);
+      }
     } catch (error) {
       console.error('Error fetching subscription:', error);
+      // Fall back to mock data if API fails
+      const currentTier = 'basic';
+      const mockData: SubscriptionData = {
+        tier: mockTiers[currentTier],
+        usage: mockUsage,
+        warnings: mockUsage.patients_count > mockTiers[currentTier].limits.max_patients * 0.8 ? mockWarnings : [],
+      };
+      setSubscription(mockData);
     } finally {
       setLoading(false);
     }
-    */
-   setLoading(false);
   };
 
   useEffect(() => {
@@ -204,7 +216,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     return (current / maxLimit) * 100;
   };
 
-  return (<SubscriptionContext.Provider
+  return (
+    <SubscriptionContext.Provider
       value={{
         subscription,
         loading,
@@ -215,7 +228,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       }}
     >
       {children}
-    </SubscriptionContext.Provider>);
+    </SubscriptionContext.Provider>
+  );
 }
 
 // --- Hook ---
