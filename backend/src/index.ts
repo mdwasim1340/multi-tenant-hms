@@ -8,6 +8,7 @@ import rolesRouter from './routes/roles';
 import subscriptionsRouter from './routes/subscriptions';
 import usageRouter from './routes/usage';
 import billingRouter from './routes/billing';
+import backupRouter from './routes/backup';
 import { trackApiCall } from './middleware/usageTracking';
 import { connectRedis } from './config/redis';
 
@@ -49,7 +50,7 @@ app.use('/api', trackApiCall);
 // Auth routes are public and do not require tenant context
 app.use('/auth', authRouter);
 
-// Admin routes that operate on global data (no tenant context needed)
+// Global admin routes that operate on global data (no tenant context needed)
 import tenantsRouter from './routes/tenants';
 import { authMiddleware } from './middleware/auth';
 app.use('/api/tenants', tenantsRouter);
@@ -58,18 +59,16 @@ app.use('/api/roles', authMiddleware, rolesRouter);
 app.use('/api/subscriptions', subscriptionsRouter);
 app.use('/api/usage', usageRouter);
 app.use('/api/billing', billingRouter);
+app.use('/api/backups', backupRouter);
 
-// Apply tenant middleware to routes that need tenant context
-app.use(tenantMiddleware);
-
+// Routes that need tenant context - apply tenant middleware first
 import filesRouter from './routes/files';
-app.use('/files', authMiddleware, filesRouter);
-
 import realtimeRouter from './routes/realtime';
-app.use('/api/realtime', authMiddleware, realtimeRouter);
-
 import customFieldsRouter from './routes/customFields';
-app.use('/api/custom-fields', authMiddleware, customFieldsRouter);
+
+app.use('/files', tenantMiddleware, authMiddleware, filesRouter);
+app.use('/api/realtime', tenantMiddleware, authMiddleware, realtimeRouter);
+app.use('/api/custom-fields', tenantMiddleware, authMiddleware, customFieldsRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {
