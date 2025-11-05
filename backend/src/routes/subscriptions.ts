@@ -5,6 +5,51 @@ import { addSubscriptionInfo } from '../middleware/featureAccess';
 
 const router = express.Router();
 
+// Get current tenant's subscription (H1 frontend compatibility endpoint)
+router.get('/current', authMiddleware, async (req, res) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    
+    if (!tenantId) {
+      return res.status(400).json({ 
+        error: 'X-Tenant-ID header is required',
+        code: 'MISSING_TENANT_ID'
+      });
+    }
+    
+    const usageStats = await subscriptionService.getUsageStats(tenantId);
+    
+    if (!usageStats) {
+      return res.status(404).json({ 
+        error: 'Subscription not found for this tenant',
+        code: 'SUBSCRIPTION_NOT_FOUND'
+      });
+    }
+    
+    // Generate warnings based on usage thresholds
+    const warnings: string[] = [];
+    Object.entries(usageStats.limits).forEach(([limitType, limitResult]) => {
+      if (limitResult.percentage >= 80) {
+        const limitLabel = limitType.replace('max_', '').replace('_', ' ');
+        warnings.push(`Approaching ${limitLabel} limit`);
+      }
+    });
+    
+    // Format response to match H1 frontend expectations
+    res.json({
+      tier: usageStats.subscription.tier,
+      usage: usageStats.usage,
+      warnings
+    });
+  } catch (error) {
+    console.error('Error fetching current subscription:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch subscription',
+      code: 'FETCH_SUBSCRIPTION_ERROR'
+    });
+  }
+});
+
 // Get all available subscription tiers (public endpoint)
 router.get('/tiers', async (req, res) => {
   try {
