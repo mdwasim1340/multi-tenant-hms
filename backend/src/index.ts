@@ -38,10 +38,12 @@ app.use('/auth', authRouter);
 
 // Admin routes that operate on global data (no tenant context needed)
 import tenantsRouter from './routes/tenants';
+import analyticsRoutes from './routes/analytics';
 import { authMiddleware } from './middleware/auth';
 app.use('/api/tenants', tenantsRouter);
 app.use('/api/users', authMiddleware, usersRouter);
 app.use('/api/roles', authMiddleware, rolesRouter);
+app.use('/api/analytics', authMiddleware, analyticsRoutes);
 
 // Apply tenant middleware to routes that need tenant context
 app.use(tenantMiddleware);
