@@ -45,25 +45,28 @@ export function useWebSocket({
         }
       };
 
-      ws.onclose = () => {
-        console.log('WebSocket disconnected');
+      ws.onclose = (event) => {
+        console.log('WebSocket disconnected', event.code, event.reason);
         setIsConnected(false);
         if (onDisconnect) onDisconnect();
 
-        // Attempt to reconnect
-        reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('Attempting to reconnect...');
-          connect();
-        }, reconnectInterval);
+        // Only attempt to reconnect if it wasn't a manual close
+        if (event.code !== 1000) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            console.log('Attempting to reconnect...');
+            connect();
+          }, reconnectInterval);
+        }
       };
 
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.warn('WebSocket connection failed - this is expected if no WebSocket server is running');
+        // Don't log error details as it's expected when WS server is not available
       };
 
       wsRef.current = ws;
     } catch (error) {
-      console.error('Error creating WebSocket:', error);
+      console.warn('WebSocket not available - falling back to polling mode');
     }
   }, [url, token, tenantId, onMessage, onConnect, onDisconnect, reconnectInterval]);
 

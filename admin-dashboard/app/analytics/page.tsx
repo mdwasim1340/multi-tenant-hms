@@ -23,27 +23,37 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [wsConnected, setWsConnected] = useState(false);
 
-  // WebSocket connection for real-time updates
-  const { isConnected, lastMessage } = useWebSocket({
+  // WebSocket connection for real-time updates (optional - fallback to polling if not available)
+  const wsEnabled = process.env.NEXT_PUBLIC_WS_ENABLED === 'true';
+  const { isConnected } = wsEnabled ? useWebSocket({
     url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000/ws',
-    token: Cookies.get("token") || 'admin_token', // TODO: Get from auth context
+    token: Cookies.get("token") || 'admin_token',
     tenantId: 'admin',
     onMessage: (data) => {
       if (data.type === 'event') {
         // Add new event to the top of the list
         setEvents(prev => [data.event, ...prev].slice(0, 50));
-
         // Refresh stats
         fetchStats();
       }
     },
     onConnect: () => setWsConnected(true),
     onDisconnect: () => setWsConnected(false)
-  });
+  }) : { isConnected: false };
 
   useEffect(() => {
     fetchData();
-  }, []);
+    
+    // Set up polling for real-time updates if WebSocket is not available
+    if (!wsEnabled) {
+      const interval = setInterval(() => {
+        fetchStats();
+        fetchEvents();
+      }, 30000); // Poll every 30 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [wsEnabled]);
 
   const fetchData = async () => {
     try {
@@ -80,9 +90,12 @@ export default function AnalyticsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
         <div className="flex items-center space-x-2">
-          <div className={`h-2 w-2 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+          <div className={`h-2 w-2 rounded-full ${
+            wsEnabled && wsConnected ? 'bg-green-500' : 
+            wsEnabled ? 'bg-red-500' : 'bg-yellow-500'
+          }`} />
           <span className="text-sm text-gray-600">
-            {wsConnected ? 'Live' : 'Disconnected'}
+            {wsEnabled ? (wsConnected ? 'Live' : 'Connecting...') : 'Polling Mode'}
           </span>
         </div>
       </div>
