@@ -160,6 +160,18 @@ export function FieldRenderer({ field, value, onChange, error }: FieldRendererPr
           </div>
         );
 
+      case 'rich_text':
+        return (
+          <Textarea
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={field.help_text || 'Enter rich text content...'}
+            required={field.is_required}
+            rows={6}
+            className="font-mono text-sm"
+          />
+        );
+
       default:
         return <div>Unsupported field type: {field.field_type}</div>;
     }
