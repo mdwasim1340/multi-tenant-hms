@@ -32,7 +32,7 @@ async function testFrontendIntegration() {
     console.log('- Admin Dashboard: http://localhost:3002');
     console.log('- Hospital System: http://localhost:3001');
     console.log('\n🔧 Custom Fields Management:');
-    console.log('- Admin Dashboard Custom Fields: http://localhost:3002/test-custom-fields');
+    console.log('- Admin Dashboard Custom Fields: http://localhost:3002/custom-fields');
     console.log('- Now available in sidebar under "Custom Fields"');
 
   } catch (error) {

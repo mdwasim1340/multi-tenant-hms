@@ -48,7 +48,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: "/tenants", label: "Tenants", icon: Building2 },
     { href: "/users", label: "Users", icon: Users },
     { href: "/roles", label: "Roles", icon: Shield },
-    { href: "/test-custom-fields", label: "Custom Fields", icon: FormInput },
+    { href: "/custom-fields", label: "Custom Fields", icon: FormInput },
     { href: "/notifications", label: "Notifications", icon: Bell },
     { href: "/storage", label: "File Storage", icon: HardDrive },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
