@@ -9,6 +9,8 @@
 - **Email Service**: AWS SES for notifications and password reset
 - **Migration Tool**: node-pg-migrate
 - **Testing**: Comprehensive test suite (25+ test files)
+- **Security**: App-level authentication with middleware protection
+- **Backup**: S3-based backup system with compression
 
 ## Frontend Stack
 - **Framework**: Next.js 16.x with React 19
@@ -16,6 +18,9 @@
 - **Styling**: Tailwind CSS 4.x
 - **Forms**: React Hook Form with Zod validation
 - **Charts**: Recharts
+- **State Management**: React hooks with custom field management
+- **Real-time**: WebSocket ready with polling fallback
+- **File Upload**: Direct S3 integration with presigned URLs
 
 ## Development Tools
 - **TypeScript**: Strict mode enabled
