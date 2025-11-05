@@ -38,7 +38,8 @@ export function FieldBuilder({ entityType, onSuccess }: FieldBuilderProps) {
     { value: 'boolean', label: 'Yes/No' },
     { value: 'dropdown', label: 'Dropdown' },
     { value: 'multi_select', label: 'Multi-Select' },
-    { value: 'file_upload', label: 'File Upload' }
+    { value: 'file_upload', label: 'File Upload' },
+    { value: 'rich_text', label: 'Rich Text' }
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
