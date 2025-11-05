@@ -17,11 +17,7 @@ export function useCustomFields(entityType: EntityType) {
       const response = await api.get(`/api/custom-fields/${entityType}`);
       setFields(response.data.fields || []);
       setError(null);
-    } catch (err: any) from 'axios';
-
-export const api = axios.create({
-  baseURL: '/api',
-});
+    } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to fetch custom fields');
       console.error('Error fetching custom fields:', err);
     } finally {
