@@ -69,4 +69,5 @@ export const resetPassword = async (email: string, code: string, newPassword: st
   return response.data
 }
 
+export { api }
 export default api

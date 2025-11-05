@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Backend Connection</title>
+</head>
+<body>
+    <h1>Backend Connection Test</h1>
+    <button onclick="testConnection()">Test Connection</button>
+    <div id="result"></div>
+
+    <script>
+        async function testConnection() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                console.log('Testing connection to backend...');
+                
+                const response = await fetch('http://localhost:3000/auth/signin', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Tenant-ID': 'admin',
+                        'X-App-ID': 'admin-dashboard',
+                        'X-API-Key': 'admin-dev-key-456'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@testcomplete2.com',
+                        password: 'password123'
+                    })
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Response data:', data);
+                    resultDiv.innerHTML = `
+                        <h2>✅ Success!</h2>
+                        <p>Status: ${response.status}</p>
+                        <p>Has AccessToken: ${!!data.AccessToken}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    const errorData = await response.text();
+                    console.log('Error response:', errorData);
+                    resultDiv.innerHTML = `
+                        <h2>❌ Failed</h2>
+                        <p>Status: ${response.status}</p>
+                        <p>Error: ${errorData}</p>
+                    `;
+                }
+            } catch (error) {
+                console.error('Network error:', error);
+                resultDiv.innerHTML = `
+                    <h2>❌ Network Error</h2>
+                    <p>Error: ${error.message}</p>
+                    <p>This might be a CORS issue or the backend is not running.</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
