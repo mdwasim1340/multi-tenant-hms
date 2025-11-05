@@ -68,6 +68,9 @@ app.use('/files', authMiddleware, filesRouter);
 import realtimeRouter from './routes/realtime';
 app.use('/api/realtime', authMiddleware, realtimeRouter);
 
+import customFieldsRouter from './routes/customFields';
+app.use('/api/custom-fields', authMiddleware, customFieldsRouter);
+
 app.get('/', async (req: Request, res: Response) => {
   try {
     const result = await req.dbClient!.query('SELECT NOW()');
