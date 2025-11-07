@@ -3,6 +3,7 @@ import { PatientService } from '../services/patient.service';
 import {
   PatientSearchSchema,
   CreatePatientSchema,
+  UpdatePatientSchema,
 } from '../validation/patient.validation';
 import { asyncHandler } from '../middleware/errorHandler';
 import { NotFoundError, ValidationError } from '../errors/AppError';
@@ -225,6 +226,36 @@ export const getPatientById = asyncHandler(
     res.json({
       success: true,
       data: { patient },
+    });
+  }
+);
+
+
+export const updatePatient = asyncHandler(
+  async (req: Request, res: Response) => {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const patientId = parseInt(req.params.id);
+    const userId = (req as any).user?.id;
+
+    if (isNaN(patientId)) {
+      throw new ValidationError('Invalid patient ID');
+    }
+
+    // Validate request body
+    const validatedData = UpdatePatientSchema.parse(req.body);
+
+    // Update patient
+    const patient = await patientService.updatePatient(
+      patientId,
+      validatedData,
+      tenantId,
+      userId
+    );
+
+    res.json({
+      success: true,
+      data: { patient },
+      message: 'Patient updated successfully',
     });
   }
 );
