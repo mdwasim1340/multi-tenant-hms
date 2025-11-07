@@ -68,11 +68,13 @@ import filesRouter from './routes/files';
 import realtimeRouter from './routes/realtime';
 import customFieldsRouter from './routes/customFields';
 import patientsRouter from './routes/patients.routes';
+import appointmentsRouter from './routes/appointments.routes';
 
 app.use('/files', tenantMiddleware, authMiddleware, filesRouter);
 app.use('/api/realtime', tenantMiddleware, authMiddleware, realtimeRouter);
 app.use('/api/custom-fields', tenantMiddleware, authMiddleware, customFieldsRouter);
 app.use('/api/patients', tenantMiddleware, authMiddleware, patientsRouter);
+app.use('/api/appointments', tenantMiddleware, authMiddleware, appointmentsRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {
