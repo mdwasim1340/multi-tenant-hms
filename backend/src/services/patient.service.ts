@@ -5,6 +5,7 @@ import {
   UpdatePatientData,
   PatientSearchQuery,
 } from '../types/patient';
+import { NotFoundError, DuplicateError } from '../errors/AppError';
 
 export class PatientService {
   private pool: Pool;
@@ -30,7 +31,7 @@ export class PatientService {
       );
 
       if (existingPatient.rows.length > 0) {
-        throw new Error('DUPLICATE_PATIENT_NUMBER');
+        throw new DuplicateError('Patient', 'patient_number');
       }
 
       // Separate custom fields from patient data
@@ -130,7 +131,7 @@ export class PatientService {
       // Check patient exists
       const existing = await this.getPatientById(patientId, tenantId, client);
       if (!existing) {
-        throw new Error('PATIENT_NOT_FOUND');
+        throw new NotFoundError('Patient');
       }
 
       // Separate custom fields
@@ -195,7 +196,7 @@ export class PatientService {
 
       const patient = await this.getPatientById(patientId, tenantId, client);
       if (!patient) {
-        throw new Error('PATIENT_NOT_FOUND');
+        throw new NotFoundError('Patient');
       }
 
       // Soft delete
