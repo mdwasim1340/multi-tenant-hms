@@ -67,10 +67,12 @@ app.use('/api/analytics', authMiddleware, analyticsRoutes);
 import filesRouter from './routes/files';
 import realtimeRouter from './routes/realtime';
 import customFieldsRouter from './routes/customFields';
+import patientsRouter from './routes/patients.routes';
 
 app.use('/files', tenantMiddleware, authMiddleware, filesRouter);
 app.use('/api/realtime', tenantMiddleware, authMiddleware, realtimeRouter);
 app.use('/api/custom-fields', tenantMiddleware, authMiddleware, customFieldsRouter);
+app.use('/api/patients', tenantMiddleware, authMiddleware, patientsRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {
