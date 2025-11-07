@@ -4,6 +4,7 @@ import {
   createPatient,
   getPatientById,
   updatePatient,
+  deletePatient,
 } from '../controllers/patient.controller';
 
 const router = express.Router();
@@ -19,5 +20,8 @@ router.get('/:id', getPatientById);
 
 // PUT /api/patients/:id - Update patient
 router.put('/:id', updatePatient);
+
+// DELETE /api/patients/:id - Soft delete patient
+router.delete('/:id', deletePatient);
 
 export default router;

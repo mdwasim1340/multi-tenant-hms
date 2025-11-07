@@ -259,3 +259,29 @@ export const updatePatient = asyncHandler(
     });
   }
 );
+
+
+export const deletePatient = asyncHandler(
+  async (req: Request, res: Response) => {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const patientId = parseInt(req.params.id);
+    const userId = (req as any).user?.id;
+
+    if (isNaN(patientId)) {
+      throw new ValidationError('Invalid patient ID');
+    }
+
+    // Soft delete patient
+    const patient = await patientService.deletePatient(
+      patientId,
+      tenantId,
+      userId
+    );
+
+    res.json({
+      success: true,
+      data: { patient },
+      message: 'Patient deactivated successfully',
+    });
+  }
+);
