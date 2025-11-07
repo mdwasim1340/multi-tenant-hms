@@ -72,6 +72,9 @@ import appointmentsRouter from './routes/appointments.routes';
 import medicalRecordsRouter from './routes/medical-records.routes';
 import prescriptionsRouter from './routes/prescriptions.routes';
 import diagnosisTreatmentRouter from './routes/diagnosis-treatment.routes';
+import labTestsRouter from './routes/lab-tests.routes';
+import imagingRouter from './routes/imaging.routes';
+import labPanelsRouter from './routes/lab-panels.routes';
 
 app.use('/files', tenantMiddleware, authMiddleware, filesRouter);
 app.use('/api/realtime', tenantMiddleware, authMiddleware, realtimeRouter);
@@ -81,6 +84,9 @@ app.use('/api/appointments', tenantMiddleware, authMiddleware, appointmentsRoute
 app.use('/api/medical-records', tenantMiddleware, authMiddleware, medicalRecordsRouter);
 app.use('/api/prescriptions', tenantMiddleware, authMiddleware, prescriptionsRouter);
 app.use('/api/medical-records', tenantMiddleware, authMiddleware, diagnosisTreatmentRouter);
+app.use('/api/lab-tests', tenantMiddleware, authMiddleware, labTestsRouter);
+app.use('/api/imaging', tenantMiddleware, authMiddleware, imagingRouter);
+app.use('/api/lab-panels', tenantMiddleware, authMiddleware, labPanelsRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {
