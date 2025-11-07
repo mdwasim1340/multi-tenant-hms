@@ -4,7 +4,7 @@
 
 This steering system provides comprehensive guidelines for AI agents working on the multi-tenant hospital management system. It ensures consistent, secure, and coordinated development while preventing common mistakes, conflicts, and duplicate implementations.
 
-**Current System Status (November 2025)**: ✅ **PRODUCTION READY** with complete multi-tenant architecture, authentication, file management, custom fields UI, and analytics dashboard.
+**Current System Status (November 2025)**: ✅ **PHASE 1 COMPLETE** - Production-ready infrastructure with multi-tenant architecture, authentication, file management, custom fields UI, and analytics dashboard. **PHASE 2 IN PROGRESS** - Hospital operations implementation (patients, appointments, medical records) with AI-agent-ready task breakdown.
 
 ## 🚨 CRITICAL: Anti-Duplication Rules
 
@@ -70,13 +70,22 @@ This steering system provides comprehensive guidelines for AI agents working on 
 ✅ Build System: All applications build successfully (100+ routes total)
 ```
 
-### 🎯 Ready for Next Phase (HOSPITAL OPERATIONS)
+### 🚀 Phase 2: Hospital Operations (IN PROGRESS)
 ```
-🟡 Hospital Tables: patients, appointments, medical_records (ready to create in tenant schemas)
-🟡 Hospital APIs: Patient/appointment management endpoints (foundation ready)
-🟡 Custom Fields Integration: Connect custom fields with patient/appointment workflows
-🟡 Sample Data: Test data for development and testing
-🟡 Advanced Features: Rich text editor, field permissions, role-based access
+📋 Implementation Structure: 250+ AI-agent-ready tasks organized by team and day
+🏥 Patient Management: Backend API + Frontend UI (Week 1 - Team A & B)
+📅 Appointment Management: Scheduling system + Calendar UI (Week 2 - Team A & B)
+📝 Medical Records: Clinical documentation system (Week 3 - Team A & B)
+🔬 Lab Tests: Laboratory management + Results tracking (Week 4 - Team A)
+🔐 RBAC System: Role-based access control + Audit logging (Week 1-2 - Team C)
+📊 Analytics: Advanced reporting + Real-time dashboards (Week 2-3 - Team C)
+🔔 Notifications: Email/SMS alerts + In-app notifications (Week 3 - Team C)
+🔍 Search: Full-text search + Advanced filtering (Week 4 - Team C)
+🧪 Testing: E2E tests + Performance + Security + UAT (Weeks 1-4 - Team D)
+
+📁 Task Location: implementation-plans/phase-2/
+📖 Master Index: implementation-plans/phase-2/DAILY_TASK_BREAKDOWN.md
+🎯 Task Size: 1-3 hours each, fully executable by AI agents
 ```
 
 ## 🚨 Critical Rules for All AI Agents
@@ -163,20 +172,32 @@ This steering system provides comprehensive guidelines for AI agents working on 
 
 ## 🔄 Agent Coordination Guidelines
 
-### Work Division
-- **Agent A (Core Infrastructure)**: Focus on global schema, authentication, user management
-- **Agent B (Multi-Tenant Data)**: Focus on tenant schemas, hospital management tables
-- **Coordination**: Share progress, coordinate on dependencies
+### Phase 2 Team Structure
+- **Team A (Backend)**: Hospital management APIs (patients, appointments, medical records, lab tests)
+- **Team B (Frontend)**: Hospital management UIs (patient forms, appointment calendar, medical records)
+- **Team C (Advanced)**: RBAC, analytics, notifications, search functionality
+- **Team D (Testing)**: E2E testing, performance testing, security testing, UAT
+
+### AI-Agent Task Execution
+1. **Pick Task**: Read `implementation-plans/phase-2/DAILY_TASK_BREAKDOWN.md`
+2. **Execute**: Follow step-by-step instructions in task file
+3. **Verify**: Run built-in verification commands
+4. **Commit**: Use provided commit message
+5. **Next Task**: Move to next task in sequence
+
+### Task Characteristics
+- **Size**: 1-3 hours per task
+- **Independence**: Can be executed alone
+- **Verification**: Built-in success checks
+- **Documentation**: Complete code examples included
+- **Dependencies**: Clearly marked when present
 
 ### Communication Protocol
-1. **Status Updates**: Update progress every 30 minutes
-2. **Blocking Issues**: Document problems immediately
-3. **Success Confirmation**: Verify work before marking complete
-
-### Shared Resources
-- **Database**: Coordinate access to avoid conflicts
-- **Documentation**: Update shared docs as work progresses
-- **Testing**: Joint validation of complete system
+1. **Task Selection**: Announce which task you're starting
+2. **Progress Updates**: Commit changes with provided messages
+3. **Blocking Issues**: Document in task file or create issue
+4. **Completion**: Mark task complete in tracking document
+5. **Handoffs**: Coordinate at integration points between teams
 
 ## 📋 Quick Reference Commands
 
@@ -231,26 +252,36 @@ curl -X GET http://localhost:3000/api/tenants \
 
 ## 🎯 Success Criteria
 
-### Database Implementation Complete When:
-- [ ] All core tables exist and function (users, roles, etc.)
-- [ ] All tenant schemas have hospital management tables
-- [ ] Foreign key relationships work correctly
-- [ ] Sample data exists for testing
-- [ ] Documentation is updated and accurate
+### Phase 1 Infrastructure Complete ✅
+- [x] All core tables exist and function (users, roles, tenants, custom fields)
+- [x] Multi-tenant architecture with schema isolation
+- [x] Authentication system with AWS Cognito
+- [x] S3 file management with presigned URLs
+- [x] Custom fields system with conditional logic
+- [x] Analytics dashboard with real-time monitoring
+- [x] Backup system with S3 integration
+- [x] Admin dashboard (21 routes)
+- [x] Hospital management frontend shell (81 routes)
 
-### API Implementation Complete When:
-- [ ] All hospital management endpoints exist
-- [ ] Tenant isolation is properly enforced
-- [ ] Input validation and error handling work
-- [ ] API documentation is complete
-- [ ] Integration tests pass
+### Phase 2 Hospital Operations (IN PROGRESS)
+- [ ] Patient Management: Database schema, API endpoints, Frontend UI
+- [ ] Appointment Management: Scheduling system, Calendar UI, Doctor assignment
+- [ ] Medical Records: Clinical documentation, Diagnosis tracking, Treatment plans
+- [ ] Lab Tests: Laboratory orders, Results management, Clinical data
+- [ ] RBAC System: Role-based permissions, Audit logging, Access control
+- [ ] Analytics: Advanced reporting, Usage tracking, Performance metrics
+- [ ] Notifications: Email/SMS alerts, In-app notifications, Event triggers
+- [ ] Search: Full-text search, Advanced filtering, Quick lookup
+- [ ] Testing: E2E tests, Performance tests, Security tests, UAT
 
-### System Integration Complete When:
-- [ ] Frontend can connect to all backend APIs
-- [ ] Multi-tenant workflows function end-to-end
-- [ ] Cross-tenant isolation is verified
-- [ ] Performance is acceptable
-- [ ] Security requirements are met
+### Phase 2 Complete When:
+- [ ] All 250+ AI-agent tasks executed successfully
+- [ ] All hospital management features operational
+- [ ] Frontend-backend integration complete
+- [ ] Comprehensive test coverage achieved
+- [ ] Performance benchmarks met
+- [ ] Security audit passed
+- [ ] UAT completed with stakeholders
 
 ## 🚨 Emergency Procedures
 
@@ -295,4 +326,13 @@ curl -X GET http://localhost:3000/api/tenants \
 - **System Health**: `backend/tests/SYSTEM_STATUS_REPORT.js`
 - **Integration Tests**: `backend/tests/test-final-complete.js`
 
-This steering system ensures AI agents work efficiently, safely, and coordinately to implement the complete multi-tenant hospital management system while maintaining data integrity, security, and proper documentation.
+### Phase 2 Implementation Resources
+- **Master Task Index**: `implementation-plans/phase-2/DAILY_TASK_BREAKDOWN.md`
+- **Quick Start Guide**: `implementation-plans/phase-2/QUICK_START_GUIDE.md`
+- **Team Coordination**: `implementation-plans/phase-2/TEAM_COORDINATION.md`
+- **Team A Tasks**: `implementation-plans/phase-2/team-a-backend/`
+- **Team B Tasks**: `implementation-plans/phase-2/team-b-frontend/`
+- **Team C Tasks**: `implementation-plans/phase-2/team-c-advanced/`
+- **Team D Tasks**: `implementation-plans/phase-2/team-d-testing/`
+
+This steering system ensures AI agents work efficiently, safely, and coordinately to implement the complete multi-tenant hospital management system while maintaining data integrity, security, and proper documentation. Phase 2 provides 250+ small, executable tasks (1-3 hours each) that AI agents can complete independently with built-in verification.
