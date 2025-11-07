@@ -69,12 +69,18 @@ import realtimeRouter from './routes/realtime';
 import customFieldsRouter from './routes/customFields';
 import patientsRouter from './routes/patients.routes';
 import appointmentsRouter from './routes/appointments.routes';
+import medicalRecordsRouter from './routes/medical-records.routes';
+import prescriptionsRouter from './routes/prescriptions.routes';
+import diagnosisTreatmentRouter from './routes/diagnosis-treatment.routes';
 
 app.use('/files', tenantMiddleware, authMiddleware, filesRouter);
 app.use('/api/realtime', tenantMiddleware, authMiddleware, realtimeRouter);
 app.use('/api/custom-fields', tenantMiddleware, authMiddleware, customFieldsRouter);
 app.use('/api/patients', tenantMiddleware, authMiddleware, patientsRouter);
 app.use('/api/appointments', tenantMiddleware, authMiddleware, appointmentsRouter);
+app.use('/api/medical-records', tenantMiddleware, authMiddleware, medicalRecordsRouter);
+app.use('/api/prescriptions', tenantMiddleware, authMiddleware, prescriptionsRouter);
+app.use('/api/medical-records', tenantMiddleware, authMiddleware, diagnosisTreatmentRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {
