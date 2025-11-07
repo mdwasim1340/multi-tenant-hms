@@ -5,6 +5,7 @@ import {
   CreatePatientSchema,
 } from '../validation/patient.validation';
 import { asyncHandler } from '../middleware/errorHandler';
+import { NotFoundError, ValidationError } from '../errors/AppError';
 import { Pool } from 'pg';
 
 const pool = new Pool({
@@ -201,6 +202,29 @@ export const createPatient = asyncHandler(
       success: true,
       data: { patient },
       message: 'Patient created successfully',
+    });
+  }
+);
+
+
+export const getPatientById = asyncHandler(
+  async (req: Request, res: Response) => {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const patientId = parseInt(req.params.id);
+
+    if (isNaN(patientId)) {
+      throw new ValidationError('Invalid patient ID');
+    }
+
+    const patient = await patientService.getPatientById(patientId, tenantId);
+
+    if (!patient) {
+      throw new NotFoundError('Patient');
+    }
+
+    res.json({
+      success: true,
+      data: { patient },
     });
   }
 );
