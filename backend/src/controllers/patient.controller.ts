@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import { PatientService } from '../services/patient.service';
-import { PatientSearchSchema } from '../validation/patient.validation';
+import {
+  PatientSearchSchema,
+  CreatePatientSchema,
+} from '../validation/patient.validation';
 import { asyncHandler } from '../middleware/errorHandler';
 import { Pool } from 'pg';
 
@@ -175,5 +178,29 @@ export const getPatients = asyncHandler(
     } finally {
       client.release();
     }
+  }
+);
+
+
+export const createPatient = asyncHandler(
+  async (req: Request, res: Response) => {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const userId = (req as any).user?.id; // From auth middleware
+
+    // Validate request body
+    const validatedData = CreatePatientSchema.parse(req.body);
+
+    // Create patient
+    const patient = await patientService.createPatient(
+      validatedData,
+      tenantId,
+      userId
+    );
+
+    res.status(201).json({
+      success: true,
+      data: { patient },
+      message: 'Patient created successfully',
+    });
   }
 );
