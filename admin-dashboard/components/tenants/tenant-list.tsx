@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import api from '@/lib/api';
 import { Plus, Search, Building2, Users, Calendar, Activity } from 'lucide-react';
 import Link from 'next/link';
+import { SubdomainDisplay } from '@/components/subdomain/subdomain-display';
 
 interface Tenant {
   id: string;
@@ -19,6 +20,7 @@ interface Tenant {
   user_count?: number;
   patient_count?: number;
   subscription_tier?: string;
+  subdomain?: string;
 }
 
 export function TenantList() {
@@ -145,6 +147,17 @@ export function TenantList() {
                   {tenant.email}
                 </span>
               </div>
+
+              {tenant.subdomain && (
+                <div className="text-sm border-t pt-2">
+                  <span className="text-gray-600 text-xs block mb-1">Subdomain</span>
+                  <SubdomainDisplay 
+                    subdomain={tenant.subdomain} 
+                    variant="badge"
+                    showCopyButton={true}
+                  />
+                </div>
+              )}
 
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center space-x-1">

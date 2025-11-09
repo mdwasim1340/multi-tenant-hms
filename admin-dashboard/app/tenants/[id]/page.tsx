@@ -18,9 +18,12 @@ import {
   Phone,
   MapPin,
   CreditCard,
-  BarChart3
+  BarChart3,
+  Globe,
+  Edit2
 } from 'lucide-react';
 import Link from 'next/link';
+import { SubdomainDisplay } from '@/components/subdomain/subdomain-display';
 
 interface TenantDetails {
   id: string;
@@ -31,6 +34,7 @@ interface TenantDetails {
   joindate: string;
   phone?: string;
   address?: string;
+  subdomain?: string;
   subscription?: {
     tier_id: string;
     tier_name: string;
@@ -190,6 +194,11 @@ export default function TenantDetailsPage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="usage">Usage & Analytics</TabsTrigger>
           <TabsTrigger value="subscription">Subscription</TabsTrigger>
+          <TabsTrigger value="branding">
+            <Link href={`/tenants/${tenant.id}/branding`} className="flex items-center">
+              Branding
+            </Link>
+          </TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -242,6 +251,32 @@ export default function TenantDetailsPage() {
                         day: 'numeric'
                       })}
                     </p>
+                  </div>
+                </div>
+                
+                <div className="border-t pt-3 mt-3">
+                  <div className="flex items-start space-x-3">
+                    <Globe className="h-4 w-4 text-gray-400 mt-1" />
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-600 mb-2">Subdomain URL</p>
+                      {tenant.subdomain ? (
+                        <SubdomainDisplay 
+                          subdomain={tenant.subdomain}
+                          variant="card"
+                          showCopyButton={true}
+                          showExternalLink={true}
+                        />
+                      ) : (
+                        <div className="bg-muted/50 border rounded-lg p-3">
+                          <p className="text-sm text-muted-foreground italic">
+                            No subdomain configured
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Contact support to set up a subdomain for this hospital
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>

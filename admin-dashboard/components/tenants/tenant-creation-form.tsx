@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import api from '@/lib/api';
 import { toast } from 'sonner';
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, CheckCircle2, XCircle, Globe } from 'lucide-react';
+import { 
+  validateSubdomainFormat, 
+  sanitizeSubdomain,
+  generateSubdomainUrl,
+  generateSubdomainFromName 
+} from '@/lib/subdomain-validator';
+import { checkSubdomainAvailability } from '@/lib/subdomain-api';
 
 interface TenantFormData {
   name: string;
@@ -21,6 +28,7 @@ interface TenantFormData {
   admin_password: string;
   phone?: string;
   address?: string;
+  subdomain: string;
 }
 
 interface SubscriptionTier {
@@ -45,8 +53,14 @@ export function TenantCreationForm() {
     admin_email: '',
     admin_password: '',
     phone: '',
-    address: ''
+    address: '',
+    subdomain: ''
   });
+  
+  // Subdomain validation states
+  const [subdomainStatus, setSubdomainStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
+  const [subdomainError, setSubdomainError] = useState<string | null>(null);
+  const [subdomainCheckTimeout, setSubdomainCheckTimeout] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetchSubscriptionTiers();
@@ -92,7 +106,75 @@ export function TenantCreationForm() {
 
   const updateField = (field: keyof TenantFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Auto-generate subdomain from hospital name
+    if (field === 'name' && !formData.subdomain) {
+      const suggested = generateSubdomainFromName(value);
+      if (suggested) {
+        setFormData(prev => ({ ...prev, subdomain: suggested }));
+        // Trigger validation for auto-generated subdomain
+        checkSubdomainDebounced(suggested);
+      }
+    }
   };
+  
+  /**
+   * Handle subdomain input change with sanitization
+   */
+  const handleSubdomainChange = (value: string) => {
+    const sanitized = sanitizeSubdomain(value);
+    updateField('subdomain', sanitized);
+    checkSubdomainDebounced(sanitized);
+  };
+  
+  /**
+   * Check subdomain availability with debouncing (500ms delay)
+   */
+  const checkSubdomainDebounced = useCallback((subdomain: string) => {
+    // Clear previous timeout
+    if (subdomainCheckTimeout) {
+      clearTimeout(subdomainCheckTimeout);
+    }
+    
+    // Reset status
+    setSubdomainStatus('idle');
+    setSubdomainError(null);
+    
+    // Don't check if empty
+    if (!subdomain || subdomain.trim().length === 0) {
+      return;
+    }
+    
+    // First, validate format client-side
+    const validation = validateSubdomainFormat(subdomain);
+    if (!validation.isValid) {
+      setSubdomainStatus('invalid');
+      setSubdomainError(validation.error || 'Invalid subdomain');
+      return;
+    }
+    
+    // Set checking status
+    setSubdomainStatus('checking');
+    
+    // Debounce the API call
+    const timeout = setTimeout(async () => {
+      try {
+        const result = await checkSubdomainAvailability(subdomain);
+        if (result.available) {
+          setSubdomainStatus('available');
+          setSubdomainError(null);
+        } else {
+          setSubdomainStatus('taken');
+          setSubdomainError(result.message || 'Subdomain is already taken');
+        }
+      } catch (error: any) {
+        setSubdomainStatus('invalid');
+        setSubdomainError(error.message || 'Failed to check subdomain availability');
+      }
+    }, 500);
+    
+    setSubdomainCheckTimeout(timeout);
+  }, [subdomainCheckTimeout]);
 
   const validateStep1 = () => {
     if (!formData.name || !formData.email) {
@@ -104,6 +186,33 @@ export function TenantCreationForm() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       toast.error('Please enter a valid email address');
+      return false;
+    }
+    
+    // Subdomain validation
+    if (!formData.subdomain || formData.subdomain.trim().length === 0) {
+      toast.error('Subdomain is required');
+      return false;
+    }
+    
+    const subdomainValidation = validateSubdomainFormat(formData.subdomain);
+    if (!subdomainValidation.isValid) {
+      toast.error(subdomainValidation.error || 'Invalid subdomain');
+      return false;
+    }
+    
+    if (subdomainStatus === 'taken') {
+      toast.error('This subdomain is already taken. Please choose another.');
+      return false;
+    }
+    
+    if (subdomainStatus === 'checking') {
+      toast.error('Please wait while we check subdomain availability');
+      return false;
+    }
+    
+    if (subdomainStatus !== 'available') {
+      toast.error('Please enter a valid and available subdomain');
       return false;
     }
     
@@ -149,13 +258,14 @@ export function TenantCreationForm() {
     try {
       setLoading(true);
       
-      // Create tenant using existing backend endpoint
+      // Create tenant using existing backend endpoint with subdomain
       const response = await api.post('/api/tenants', {
         id: `tenant_${Date.now()}`,
         name: formData.name,
         email: formData.email,
         plan: formData.plan,
-        status: 'active'
+        status: 'active',
+        subdomain: formData.subdomain
       });
       
       toast.success('Tenant created successfully!');
@@ -263,6 +373,84 @@ export function TenantCreationForm() {
                     placeholder="Hospital address"
                     rows={3}
                   />
+                </div>
+
+                {/* Subdomain Field */}
+                <div className="border-t pt-4 mt-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <Globe className="h-4 w-4 text-gray-500" />
+                    <Label htmlFor="subdomain" className="text-base font-semibold">Subdomain *</Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Choose a unique subdomain for this hospital. Users will access the system at this URL.
+                  </p>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <div className="relative flex-1">
+                        <Input
+                          id="subdomain"
+                          value={formData.subdomain}
+                          onChange={(e) => handleSubdomainChange(e.target.value)}
+                          placeholder="e.g., cityhospital"
+                          required
+                          className={`pr-10 ${
+                            subdomainStatus === 'available' ? 'border-green-500 focus:border-green-500' :
+                            subdomainStatus === 'taken' || subdomainStatus === 'invalid' ? 'border-red-500 focus:border-red-500' :
+                            ''
+                          }`}
+                        />
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          {subdomainStatus === 'checking' && (
+                            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                          )}
+                          {subdomainStatus === 'available' && (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          )}
+                          {(subdomainStatus === 'taken' || subdomainStatus === 'invalid') && (
+                            <XCircle className="h-4 w-4 text-red-500" />
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">
+                        .yourhospitalsystem.com
+                      </span>
+                    </div>
+                    
+                    {/* Status Messages */}
+                    {subdomainStatus === 'checking' && (
+                      <p className="text-xs text-gray-500 flex items-center space-x-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>Checking availability...</span>
+                      </p>
+                    )}
+                    {subdomainStatus === 'available' && (
+                      <p className="text-xs text-green-600 flex items-center space-x-1">
+                        <CheckCircle2 className="h-3 w-3" />
+                        <span>Subdomain is available!</span>
+                      </p>
+                    )}
+                    {(subdomainStatus === 'taken' || subdomainStatus === 'invalid') && subdomainError && (
+                      <p className="text-xs text-red-600 flex items-center space-x-1">
+                        <XCircle className="h-3 w-3" />
+                        <span>{subdomainError}</span>
+                      </p>
+                    )}
+                    
+                    {/* URL Preview */}
+                    {formData.subdomain && subdomainStatus === 'available' && (
+                      <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Hospital URL:</p>
+                        <p className="text-sm font-mono text-blue-700 dark:text-blue-300 break-all">
+                          {generateSubdomainUrl(formData.subdomain)}
+                        </p>
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-muted-foreground">
+                      Must be 3-63 characters. Only lowercase letters, numbers, and hyphens allowed.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}

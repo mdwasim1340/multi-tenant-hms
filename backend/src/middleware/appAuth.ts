@@ -70,5 +70,10 @@ export const apiAppAuthMiddleware = (req: Request, res: Response, next: NextFunc
     return next();
   }
 
+  // Skip app auth for subdomain resolution (public endpoint needed for tenant detection)
+  if (req.path.startsWith('/tenants/by-subdomain/')) {
+    return next();
+  }
+
   return appAuthMiddleware(req, res, next);
 };

@@ -11,12 +11,19 @@ import billingRouter from './routes/billing';
 import backupRouter from './routes/backup';
 import { trackApiCall } from './middleware/usageTracking';
 import { connectRedis } from './config/redis';
+import { subdomainCache } from './services/subdomain-cache';
 
 dotenv.config();
 
 connectRedis().catch(err => {
   console.error('Failed to connect to Redis:', err);
   process.exit(1);
+});
+
+// Initialize subdomain cache
+subdomainCache.connect().catch(err => {
+  console.warn('⚠️  Subdomain cache (Redis) not available:', err.message);
+  console.warn('⚠️  Subdomain resolution will work without caching');
 });
 
 const app = express();
@@ -52,9 +59,11 @@ app.use('/auth', authRouter);
 
 // Global admin routes that operate on global data (no tenant context needed)
 import tenantsRouter from './routes/tenants';
+import brandingRouter from './routes/branding';
 import analyticsRoutes from './routes/analytics';
 import { authMiddleware } from './middleware/auth';
 app.use('/api/tenants', tenantsRouter);
+app.use('/api/tenants', brandingRouter); // Branding routes (/:id/branding)
 app.use('/api/users', authMiddleware, usersRouter);
 app.use('/api/roles', authMiddleware, rolesRouter);
 app.use('/api/subscriptions', subscriptionsRouter);

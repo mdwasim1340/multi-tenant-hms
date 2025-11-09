@@ -19,6 +19,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import Link from 'next/link';
+import { SubdomainDisplay } from '@/components/subdomain/subdomain-display';
 
 interface Tenant {
   id: string;
@@ -26,6 +27,7 @@ interface Tenant {
   email: string;
   status: string;
   joindate: string;
+  subdomain?: string;
   subscription?: {
     tier_id: string;
     tier_name: string;
@@ -117,7 +119,8 @@ export function EnhancedTenantList() {
   const filteredTenants = tenants.filter(tenant =>
     tenant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     tenant.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tenant.id.toLowerCase().includes(searchQuery.toLowerCase())
+    tenant.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (tenant.subdomain && tenant.subdomain.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const getStatusColor = (status: string) => {
@@ -168,7 +171,7 @@ export function EnhancedTenantList() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Search tenants..."
+            placeholder="Search tenants (name, email, subdomain)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -197,6 +200,15 @@ export function EnhancedTenantList() {
                   <div>
                     <CardTitle className="text-lg">{tenant.name}</CardTitle>
                     <p className="text-sm text-gray-600">{tenant.email}</p>
+                    {tenant.subdomain && (
+                      <div className="mt-1">
+                        <SubdomainDisplay 
+                          subdomain={tenant.subdomain}
+                          variant="badge"
+                          showCopyButton={false}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-col items-end space-y-1">

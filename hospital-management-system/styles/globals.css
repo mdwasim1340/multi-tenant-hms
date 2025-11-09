@@ -123,3 +123,55 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom Branding Variables */
+/* These variables can be dynamically updated by the branding system */
+:root {
+  /* Branding colors (hex format) - will be set dynamically */
+  --brand-primary: #1e40af;
+  --brand-primary-rgb: 30, 64, 175;
+  --brand-secondary: #3b82f6;
+  --brand-secondary-rgb: 59, 130, 246;
+  --brand-accent: #60a5fa;
+  --brand-accent-rgb: 96, 165, 250;
+  
+  /* Smooth color transitions */
+  --transition-colors: color 0.2s ease-in-out, background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+/* Apply branding colors to components */
+.brand-primary {
+  background-color: var(--brand-primary);
+  color: white;
+}
+
+.brand-secondary {
+  background-color: var(--brand-secondary);
+  color: white;
+}
+
+.brand-accent {
+  background-color: var(--brand-accent);
+  color: white;
+}
+
+.brand-text-primary {
+  color: var(--brand-primary);
+}
+
+.brand-text-secondary {
+  color: var(--brand-secondary);
+}
+
+.brand-text-accent {
+  color: var(--brand-accent);
+}
+
+.brand-border-primary {
+  border-color: var(--brand-primary);
+}
+
+/* Smooth transitions for branding changes */
+.brand-transition {
+  transition: var(--transition-colors);
+}
