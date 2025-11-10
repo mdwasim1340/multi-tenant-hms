@@ -54,6 +54,10 @@ app.use('/api', apiAppAuthMiddleware);
 // Usage tracking middleware - track API calls
 app.use('/api', trackApiCall);
 
+// Health check routes - public, no authentication required
+import healthRouter from './routes/health';
+app.use('/health', healthRouter);
+
 // Auth routes are public and do not require tenant context
 app.use('/auth', authRouter);
 

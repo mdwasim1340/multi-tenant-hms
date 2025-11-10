@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { SubdomainDisplay } from '@/components/subdomain/subdomain-display';
+import { SubdomainEditDialog } from '@/components/subdomain/subdomain-edit-dialog';
 
 interface TenantDetails {
   id: string;
@@ -60,6 +61,7 @@ export default function TenantDetailsPage() {
   const [tenant, setTenant] = useState<TenantDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showSubdomainDialog, setShowSubdomainDialog] = useState(false);
 
   useEffect(() => {
     fetchTenantDetails();
@@ -165,8 +167,21 @@ export default function TenantDetailsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <>
+      {/* Subdomain Edit Dialog */}
+      {tenant && (
+        <SubdomainEditDialog
+          open={showSubdomainDialog}
+          onOpenChange={setShowSubdomainDialog}
+          tenantId={tenant.id}
+          tenantName={tenant.name}
+          currentSubdomain={tenant.subdomain || null}
+          onSuccess={fetchTenantDetails}
+        />
+      )}
+
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Link href="/tenants">
             <Button variant="ghost" size="sm">
@@ -258,7 +273,18 @@ export default function TenantDetailsPage() {
                   <div className="flex items-start space-x-3">
                     <Globe className="h-4 w-4 text-gray-400 mt-1" />
                     <div className="flex-1">
-                      <p className="text-sm text-gray-600 mb-2">Subdomain URL</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm text-gray-600">Subdomain URL</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowSubdomainDialog(true)}
+                          className="h-7 px-2"
+                        >
+                          <Edit2 className="h-3 w-3 mr-1" />
+                          Edit
+                        </Button>
+                      </div>
                       {tenant.subdomain ? (
                         <SubdomainDisplay 
                           subdomain={tenant.subdomain}
@@ -272,7 +298,7 @@ export default function TenantDetailsPage() {
                             No subdomain configured
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Contact support to set up a subdomain for this hospital
+                            Click "Edit" to set up a subdomain for this hospital
                           </p>
                         </div>
                       )}
@@ -464,6 +490,7 @@ export default function TenantDetailsPage() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </>
   );
 }

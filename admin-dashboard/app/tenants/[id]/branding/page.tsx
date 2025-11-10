@@ -17,11 +17,14 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { LogoUpload } from '@/components/branding/logo-upload';
 import { ColorPicker, ColorValues } from '@/components/branding/color-picker';
+import { PreviewPanel } from '@/components/branding/preview-panel';
+import { CSSEditor } from '@/components/branding/css-editor';
 import {
   fetchBranding,
   updateBrandingColors,
   uploadLogo,
   deleteLogo,
+  updateBranding,
   BrandingConfig,
 } from '@/lib/branding-api';
 
@@ -42,6 +45,8 @@ export default function BrandingManagementPage() {
     secondary_color: '#3b82f6',
     accent_color: '#60a5fa',
   });
+  const [customCSS, setCustomCSS] = useState<string>('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
   /**
@@ -61,6 +66,8 @@ export default function BrandingManagementPage() {
         secondary_color: data.secondary_color,
         accent_color: data.accent_color,
       });
+      setCustomCSS(data.custom_css || '');
+      setShowAdvanced(!!data.custom_css);
       setHasChanges(false);
     } catch (error: any) {
       console.error('Error loading branding:', error);
@@ -75,6 +82,14 @@ export default function BrandingManagementPage() {
    */
   const handleColorChange = (newColors: ColorValues) => {
     setColors(newColors);
+    setHasChanges(true);
+  };
+
+  /**
+   * Handle custom CSS changes
+   */
+  const handleCSSChange = (newCSS: string) => {
+    setCustomCSS(newCSS);
     setHasChanges(true);
   };
 
@@ -129,8 +144,11 @@ export default function BrandingManagementPage() {
     try {
       setSaving(true);
 
-      // Update colors
-      await updateBrandingColors(tenantId, colors);
+      // Update colors and custom CSS
+      await updateBranding(tenantId, {
+        ...colors,
+        custom_css: customCSS || undefined
+      });
 
       toast.success('Branding updated successfully!');
       setHasChanges(false);
@@ -155,6 +173,7 @@ export default function BrandingManagementPage() {
         secondary_color: branding.secondary_color,
         accent_color: branding.accent_color,
       });
+      setCustomCSS(branding.custom_css || '');
       setHasChanges(false);
       toast.info('Changes reset');
     }
@@ -233,25 +252,56 @@ export default function BrandingManagementPage() {
       </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column - Logo */}
-        <div>
-          <LogoUpload
-            currentLogoUrl={branding.logo_url}
-            onUpload={handleLogoUpload}
-            onRemove={handleLogoRemove}
-            disabled={saving}
-          />
+      <div className="space-y-6">
+        {/* Logo and Colors Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column - Logo */}
+          <div>
+            <LogoUpload
+              currentLogoUrl={branding.logo_url}
+              onUpload={handleLogoUpload}
+              onRemove={handleLogoRemove}
+              disabled={saving}
+            />
+          </div>
+
+          {/* Right Column - Colors */}
+          <div>
+            <ColorPicker
+              colors={colors}
+              onChange={handleColorChange}
+              disabled={saving}
+            />
+          </div>
         </div>
 
-        {/* Right Column - Colors */}
-        <div>
-          <ColorPicker
-            colors={colors}
-            onChange={handleColorChange}
+        {/* Preview Panel - Full Width */}
+        <PreviewPanel
+          logoUrl={branding.logo_url}
+          primaryColor={colors.primary_color}
+          secondaryColor={colors.secondary_color}
+          accentColor={colors.accent_color}
+        />
+
+        {/* Advanced Features Toggle */}
+        <div className="flex items-center justify-center">
+          <Button
+            variant="outline"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            disabled={saving}
+          >
+            {showAdvanced ? 'Hide' : 'Show'} Advanced Options
+          </Button>
+        </div>
+
+        {/* Custom CSS Editor - Advanced */}
+        {showAdvanced && (
+          <CSSEditor
+            value={customCSS}
+            onChange={handleCSSChange}
             disabled={saving}
           />
-        </div>
+        )}
       </div>
 
       {/* Save Reminder */}
