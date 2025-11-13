@@ -10,6 +10,18 @@ const ALLOWED_ORIGINS = [
   'http://10.66.66.8:3003', // Future apps (network)
 ];
 
+// Check if origin is a valid subdomain
+const isValidSubdomainOrigin = (origin: string): boolean => {
+  try {
+    const url = new URL(origin);
+    // Allow *.localhost:3001, *.localhost:3002, *.localhost:3003
+    return url.hostname.endsWith('.localhost') && 
+           (url.port === '3001' || url.port === '3002' || url.port === '3003');
+  } catch {
+    return false;
+  }
+};
+
 // API keys for different applications (in production, use environment variables)
 const APP_API_KEYS: Record<string, string> = {
   'hospital-management': process.env.HOSPITAL_APP_API_KEY || 'hospital-dev-key-123',
@@ -30,6 +42,11 @@ export const appAuthMiddleware = (req: Request, res: Response, next: NextFunctio
 
   // Allow requests from allowed origins
   if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    return next();
+  }
+
+  // Allow requests from subdomain origins (e.g., aajminpolyclinic.localhost:3001)
+  if (origin && isValidSubdomainOrigin(origin)) {
     return next();
   }
 

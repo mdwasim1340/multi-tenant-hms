@@ -19,10 +19,14 @@ export function getSubdomain(): string | null {
   }
 
   const hostname = window.location.hostname;
-
-  // For localhost development, check for subdomain in format: subdomain.localhost
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return null; // No subdomain on localhost
+  
+  // For localhost development, support subdomain.localhost (e.g., aajminpolyclinic.localhost)
+  if (hostname.endsWith('.localhost')) {
+    const parts = hostname.split('.');
+    if (parts.length >= 2) {
+      return parts[0];
+    }
+    return null;
   }
 
   // Split hostname by dots

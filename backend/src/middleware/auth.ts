@@ -36,7 +36,7 @@ const fetchJWKS = async () => {
 
 fetchJWKS();
 
-export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+export const adminAuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const token = req.headers.authorization?.split(' ')[1];
 
   if (!token) {
@@ -44,23 +44,8 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
   }
 
   const decodedToken = jwt.decode(token, { complete: true }) as jwt.Jwt | null;
-  
-  // Check if this is a local test token (no kid in header)
   if (!decodedToken || !decodedToken.header.kid) {
-    // Try to verify as local test token
-    try {
-      const payload = jwt.verify(token, 'test-secret-key') as any;
-      
-      // For local admin tokens, check if email contains admin
-      if (payload.email && payload.email.includes('admin@')) {
-        req.user = payload;
-        return next();
-      } else {
-        return res.status(403).json({ message: 'Forbidden: Admins only' });
-      }
-    } catch (err) {
-      return res.status(401).json({ message: 'Invalid token' });
-    }
+    return res.status(401).json({ message: 'Invalid token' });
   }
 
   // Handle Cognito tokens
@@ -77,7 +62,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     }
 
     const groups = (payload as any)['cognito:groups'];
-    if (!groups || !groups.includes('admin')) {
+    if (!groups || !(groups.includes('system-admin') || groups.includes('admin'))) {
       return res.status(403).json({ message: 'Forbidden: Admins only' });
     }
 
@@ -85,3 +70,39 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     next();
   });
 };
+
+export const hospitalAuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  const token = req.headers.authorization?.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization token is required' });
+  }
+
+  const decodedToken = jwt.decode(token, { complete: true }) as jwt.Jwt | null;
+  if (!decodedToken || !decodedToken.header.kid) {
+    return res.status(401).json({ message: 'Invalid token' });
+  }
+
+  const kid = decodedToken.header.kid;
+  const pem = pems[kid];
+
+  if (!pem) {
+    return res.status(401).json({ message: 'Invalid token' });
+  }
+
+  jwt.verify(token, pem, { algorithms: ['RS256'] }, (err, payload) => {
+    if (err) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+
+    const groups = (payload as any)['cognito:groups'];
+    if (!groups || (!groups.includes('hospital-admin') && !groups.includes('system-admin') && !groups.includes('admin'))) {
+      return res.status(403).json({ message: 'Forbidden: Hospital admins only' });
+    }
+
+    req.user = payload;
+    next();
+  });
+};
+
+export const authMiddleware = adminAuthMiddleware;

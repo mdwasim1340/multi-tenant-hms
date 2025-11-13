@@ -235,3 +235,24 @@ By the end of Phase 2, we will have:
 5. **Scalable Architecture**: Ready to handle multiple hospitals with thousands of patients
 
 The system will transform from infrastructure-ready to fully operational hospital management platform, ready for real-world deployment and use by hospital staff.
+## 🔁 Backward Compatibility Plan
+
+- API Versioning: introduce versioned routes as needed; avoid breaking changes
+- Feature Flags: tier-based flags to guard new features across tenants
+- Database Migrations: per-tenant schema migrations with validation and rollback
+- Rollback Procedures: reference `implementation-plans/phase-4/LAUNCH_CHECKLIST.md`
+- UAT Coverage: ensure legacy Phase 1 workflows remain functional
+
+## ✅ Test Cases & Validation Procedures
+
+- Index of canonical test documents:
+  - End-to-End: `implementation-plans/phase-2/team-d-testing/week-1-e2e-testing/`
+  - Performance: `implementation-plans/phase-2/team-d-testing/week-2-performance/`
+  - Security: `implementation-plans/phase-2/team-d-testing/week-3-security/`
+  - UAT & Production: `implementation-plans/phase-2/team-d-testing/week-4-uat-production/`
+- Validation Focus:
+  - Multi-tenant isolation (`X-Tenant-ID` required, schema scoping)
+  - RBAC enforcement across all new endpoints and UI flows
+  - Audit trail verification for access/changes
+  - Cognito JWT validation and session expiry behaviors
+  - S3 file isolation with tenant prefixes

@@ -2,9 +2,12 @@ import {
   CognitoIdentityProviderClient,
   SignUpCommand,
   InitiateAuthCommand,
+  RespondToAuthChallengeCommand,
   AdminConfirmSignUpCommand,
   AdminSetUserPasswordCommand,
   AdminGetUserCommand,
+  AdminAddUserToGroupCommand,
+  CreateGroupCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { createHmac, randomBytes } from 'crypto';
 import { SignUpRequest, SignInRequest } from '../types/auth';
@@ -221,56 +224,9 @@ export const forgotPassword = async (email: string, tenantId: string) => {
 };
 
 export const signIn = async (user: SignInRequest) => {
-  // For admin users, try local database authentication first
-  if (user.email.includes('admin@') || user.email.includes('@testcomplete') || user.email.includes('@autoid') || user.email.includes('@complexform') || user.email.includes('@mdwasim') || user.email.includes('@cityhospital')) {
-    const client = await pool.connect();
-    try {
-      const result = await client.query(
-        'SELECT id, name, email, password, status FROM users WHERE email = $1',
-        [user.email]
-      );
-      
-      if (result.rows.length === 0) {
-        throw new Error('User not found');
-      }
-      
-      const dbUser = result.rows[0];
-      
-      // For testing, accept 'password123' for all admin users
-      if (user.password === 'password123' && dbUser.status === 'active') {
-        // Generate a simple JWT token for testing with Cognito-like structure
-        const jwt = require('jsonwebtoken');
-        const token = jwt.sign(
-          { 
-            sub: dbUser.id,
-            email: dbUser.email,
-            username: dbUser.email,
-            name: dbUser.name,
-            'cognito:groups': ['admin'],
-            exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hour
-          },
-          'test-secret-key'
-        );
-        
-        return {
-          AuthenticationResult: {
-            AccessToken: token,
-            IdToken: token,
-            RefreshToken: 'refresh-token-placeholder',
-            ExpiresIn: 3600,
-            TokenType: 'Bearer'
-          }
-        };
-      } else {
-        throw new Error('Invalid password');
-      }
-    } finally {
-      client.release();
-    }
-  }
-  
-  // For non-admin users, use Cognito
-  const username = user.email.replace('@', '_').replace(/\./g, '_');
+  // Cognito authentication
+  // Use email directly since Cognito is configured with email alias
+  const username = user.email; // Use email as-is for email alias configuration
   const secretHash = generateSecretHash(username);
   
   // Use USER_PASSWORD_AUTH flow (now enabled in Cognito)
@@ -284,5 +240,67 @@ export const signIn = async (user: SignInRequest) => {
     },
   });
 
-  return cognitoClient.send(command);
+  const res = await cognitoClient.send(command);
+  return res;
 };
+
+export const respondToChallenge = async (email: string, mfaCode: string, session: string) => {
+  const username = email.replace('@', '_').replace(/\./g, '_');
+  const secretHash = generateSecretHash(username);
+  const cmd = new RespondToAuthChallengeCommand({
+    ClientId: process.env.COGNITO_CLIENT_ID,
+    ChallengeName: 'SMS_MFA',
+    Session: session,
+    ChallengeResponses: {
+      USERNAME: username,
+      SMS_MFA_CODE: mfaCode,
+      SECRET_HASH: secretHash,
+    },
+  });
+  const res = await cognitoClient.send(cmd);
+  return res.AuthenticationResult;
+};
+
+export const refreshToken = async (email: string, refreshToken: string) => {
+  const username = email.replace('@', '_').replace(/\./g, '_');
+  const secretHash = generateSecretHash(username);
+  const cmd = new InitiateAuthCommand({
+    ClientId: process.env.COGNITO_CLIENT_ID,
+    AuthFlow: 'REFRESH_TOKEN_AUTH',
+    AuthParameters: {
+      REFRESH_TOKEN: refreshToken,
+      SECRET_HASH: secretHash,
+      USERNAME: username,
+    },
+  });
+  const res = await cognitoClient.send(cmd);
+  return res.AuthenticationResult;
+};
+
+export const assignUserToGroup = async (email: string, group: string) => {
+  const username = email.replace('@', '_').replace(/\./g, '_')
+  const poolId = process.env.COGNITO_USER_POOL_ID
+
+  try {
+    // Ensure group exists
+    const createGroup = new CreateGroupCommand({
+      GroupName: group,
+      UserPoolId: poolId,
+      Description: group === 'hospital-admin' ? 'Hospital administrators' : 'System administrators',
+    })
+    try {
+      await cognitoClient.send(createGroup)
+    } catch (e: any) {
+      // ignore if exists
+    }
+
+    const addCmd = new AdminAddUserToGroupCommand({
+      UserPoolId: poolId,
+      Username: username,
+      GroupName: group,
+    })
+    await cognitoClient.send(addCmd)
+  } catch (e) {
+    throw e
+  }
+}

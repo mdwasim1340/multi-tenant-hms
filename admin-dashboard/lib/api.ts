@@ -50,6 +50,16 @@ export const signIn = async (email: string, password: string) => {
   return response.data
 }
 
+export const respondToChallenge = async (email: string, mfaCode: string, session: string) => {
+  const response = await api.post("/auth/respond-to-challenge", { email, mfaCode, session })
+  return response.data
+}
+
+export const refresh = async (email: string, refreshToken: string) => {
+  const response = await api.post("/auth/refresh", { email, refreshToken })
+  return response.data
+}
+
 export const signUp = async (email: string, password: string, name: string) => {
   const response = await api.post("/auth/signup", { email, password, name })
   return response.data

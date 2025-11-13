@@ -4,12 +4,12 @@ import Cookies from 'js-cookie';
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
+  withCredentials: true, // Enable sending cookies with CORS requests
 });
 
 // Add request interceptor to include auth and tenant headers
 api.interceptors.request.use((config) => {
-  // Get auth token from localStorage or cookies
-  const token = localStorage.getItem('authToken') || Cookies.get('authToken');
+  const token = Cookies.get('token');
   
   // Get tenant ID from subdomain utilities (checks cookies and localStorage)
   const tenantId = getTenantContext();

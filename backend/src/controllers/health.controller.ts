@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { pool } from '../database';
+import pool from '../database';
 import { redisClient } from '../config/redis';
 import * as fs from 'fs';
 import * as path from 'path';

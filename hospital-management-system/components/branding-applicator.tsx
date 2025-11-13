@@ -9,6 +9,7 @@
 import { useEffect } from 'react';
 import { getTenantContext } from '@/lib/subdomain';
 import { fetchAndApplyBranding } from '@/lib/branding';
+import { isAuthenticated } from '@/lib/auth';
 
 export function BrandingApplicator() {
   useEffect(() => {
@@ -18,6 +19,12 @@ export function BrandingApplicator() {
 
       if (!tenantId) {
         console.log('ℹ️  No tenant context, skipping branding');
+        return;
+      }
+
+      // Check if user is authenticated (branding API requires auth)
+      if (!isAuthenticated()) {
+        console.log('ℹ️  User not authenticated, skipping branding');
         return;
       }
 

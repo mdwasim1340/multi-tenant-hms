@@ -94,8 +94,8 @@ npm run dev
 ### Authentication Flow
 1. **User Input:** Admin enters email/password in dashboard
 2. **API Call:** Dashboard calls `POST /auth/signin` on backend
-3. **Cognito Verification:** Backend validates credentials with AWS Cognito
-4. **Token Response:** Backend returns JWT access token
+3. **Cognito Verification:** Backend validates credentials with AWS Cognito (MFA supported)
+4. **Token Response:** Backend returns JWT access token or MFA challenge
 5. **Token Storage:** Dashboard stores token in cookies
 6. **Protected Requests:** All subsequent API calls include Bearer token
 
@@ -191,3 +191,14 @@ node tests/SYSTEM_STATUS_REPORT.js
 **Last Updated:** November 1, 2025  
 **System Version:** 1.0.0  
 **Status:** Production Ready ✅
+### MFA Enrollment and Usage
+1. Enable MFA (preferred TOTP) in Cognito User Pool settings
+2. On first login, enroll device using Cognito’s TOTP setup flow
+3. When `POST /auth/signin` returns `{ ChallengeName, Session }`, enter OTP in dashboard
+4. Dashboard calls `POST /auth/respond-to-challenge` with the code and session
+5. On success, the backend returns `{ AccessToken, RefreshToken, ExpiresIn, TokenType }`
+
+### Token Refresh
+1. Store `RefreshToken` client-side per security policy
+2. When token approaches expiration, call `POST /auth/refresh`
+3. Backend returns new `AccessToken`

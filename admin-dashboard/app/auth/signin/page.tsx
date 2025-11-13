@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Mail, Lock, ArrowRight, AlertCircle } from "lucide-react"
-import { signIn } from "@/lib/api"
+import { signIn, respondToChallenge } from "@/lib/api"
 import { useAuth } from "@/hooks/useAuth"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
@@ -19,6 +19,8 @@ export default function SignInPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [mfaSession, setMfaSession] = useState<string | null>(null)
+  const [mfaCode, setMfaCode] = useState("")
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,14 +28,38 @@ export default function SignInPage() {
     setError(null)
     try {
       const data = await signIn(email, password)
-      if (data.AccessToken) {
-        login(data.AccessToken)
+      if (data.ChallengeName && data.Session) {
+        setMfaSession(data.Session)
+      } else if (data.token || data.AccessToken) {
+        // Support both new format (token) and old format (AccessToken)
+        login(data.token || data.AccessToken)
       } else {
         setError("Authentication failed. No access token received.")
       }
     } catch (err) {
       console.error('Signin error:', err)
       setError("Failed to sign in. Please check your credentials.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleMfa = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!mfaSession) return
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await respondToChallenge(email, mfaCode, mfaSession)
+      if (data.token || data.AccessToken) {
+        // Support both new format (token) and old format (AccessToken)
+        login(data.token || data.AccessToken)
+      } else {
+        setError("MFA failed. No access token received.")
+      }
+    } catch (err) {
+      console.error('MFA error:', err)
+      setError("Failed to verify MFA code.")
     } finally {
       setLoading(false)
     }
@@ -62,7 +88,7 @@ export default function SignInPage() {
             <CardDescription>Enter your credentials to access the admin dashboard</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSignIn} className="space-y-4">
+            <form onSubmit={mfaSession ? handleMfa : handleSignIn} className="space-y-4">
               {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
@@ -105,6 +131,25 @@ export default function SignInPage() {
                 </div>
               </div>
 
+              {mfaSession && (
+                <div className="space-y-2">
+                  <label htmlFor="mfa" className="text-sm font-medium text-foreground">
+                    MFA Code
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="mfa"
+                      type="text"
+                      placeholder="123456"
+                      value={mfaCode}
+                      onChange={(e) => setMfaCode(e.target.value)}
+                      className="pl-3"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-between text-sm">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" className="w-4 h-4 rounded border-border" />
@@ -116,7 +161,7 @@ export default function SignInPage() {
               </div>
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Signing in..." : "Sign In"}
+                {loading ? (mfaSession ? "Verifying..." : "Signing in...") : (mfaSession ? "Verify MFA" : "Sign In")}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </form>

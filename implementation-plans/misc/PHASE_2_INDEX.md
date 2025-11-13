@@ -15,6 +15,15 @@
 - [AI Agent Ready](PHASE_2_AI_AGENT_READY.md) - Execution guide
 - [Daily Task Breakdown](phase-2/DAILY_TASK_BREAKDOWN.md) - All tasks
 
+### 🔐 Authentication, RBAC & Audit References
+- Canonical RBAC & Audit docs (do not duplicate):
+  - `phase-2/team-c-advanced/week-1-rbac/day-1-rbac-schema.md`
+  - `phase-2/team-c-advanced/week-1-rbac/day-2-permission-system.md`
+  - `phase-2/team-c-advanced/week-1-rbac/day-3-role-management-api.md`
+  - `phase-2/team-c-advanced/week-1-rbac/day-4-rbac-ui.md`
+  - `phase-2/team-c-advanced/week-1-rbac/day-5-audit-logging.md`
+- Guidance: Link to these docs from new materials; avoid creating parallel RBAC/audit specifications elsewhere
+
 ### 🚀 Execution Guides
 - [Quick Start Guide](phase-2/QUICK_START_GUIDE.md) - Get started fast
 - [Team Coordination](phase-2/TEAM_COORDINATION.md) - Multi-team work

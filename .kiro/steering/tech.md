@@ -79,6 +79,24 @@ npm run build
 npm start
 ```
 
+### Subdomain Setup (Multi-Tenant Access)
+```bash
+# Step 1: Setup database subdomains
+cd backend
+node scripts/setup-test-subdomains.js
+
+# Step 2: Configure hosts file (Windows - run as Administrator)
+powershell -ExecutionPolicy Bypass -File backend/scripts/setup-hosts-windows.ps1
+
+# Step 3: Verify subdomain routing
+node scripts/verify-subdomain-routing.js
+
+# Access hospitals via subdomains
+# http://aajminpolyclinic.localhost:3001
+# http://cityhospital.localhost:3001
+# http://demohospital.localhost:3001
+```
+
 ### Docker Development
 ```bash
 # Start full stack with PostgreSQL

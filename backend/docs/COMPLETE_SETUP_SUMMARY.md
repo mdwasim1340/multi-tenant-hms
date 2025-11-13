@@ -113,8 +113,8 @@ npm run dev
 ### Authentication Flow:
 1. **User Input**: Admin enters credentials in dashboard
 2. **API Call**: Dashboard calls `POST /auth/signin` on backend
-3. **Cognito Validation**: Backend validates with AWS Cognito
-4. **JWT Response**: Backend returns access token
+3. **Cognito Validation**: Backend validates with AWS Cognito (MFA supported)
+4. **JWT Response**: Backend returns access token or MFA challenge
 5. **Cookie Storage**: Dashboard stores token securely
 6. **Protected Access**: All API calls include Bearer token
 
@@ -123,6 +123,8 @@ npm run dev
 - ✅ Secure cookie storage with HttpOnly flags
 - ✅ Multi-tenant isolation (admin tenant)
 - ✅ Protected route middleware
+- ✅ MFA challenge handling via `/auth/respond-to-challenge`
+- ✅ Refresh token via `/auth/refresh`
 - ✅ CORS configuration for cross-origin requests
 - ✅ Input validation and sanitization
 - ✅ Unauthorized access prevention
@@ -139,7 +141,7 @@ admin-dashboard/
 backend/
 ├── src/services/auth.ts       # Cognito authentication service
 ├── src/routes/auth.ts         # Authentication API endpoints
-├── src/middleware/auth.ts     # JWT validation middleware
+├── src/middleware/auth.ts     # JWT validation middleware (Cognito JWKS)
 ├── src/middleware/tenant.ts   # Tenant context middleware
 └── tests/                     # Comprehensive test suite
 ```

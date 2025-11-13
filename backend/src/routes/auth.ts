@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { signUp, signIn, forgotPassword, resetPassword, verifyEmail } from '../services/auth';
+import { signUp, signIn, forgotPassword, resetPassword, verifyEmail, respondToChallenge, refreshToken } from '../services/auth';
 import { createTenant } from '../services/tenant';
 
 const router = Router();
@@ -142,10 +142,74 @@ router.post('/signin', async (req, res) => {
       });
     }
 
-    res.json(result.AuthenticationResult);
+    // Handle MFA challenge
+    if ((result as any).ChallengeName) {
+      return res.json({
+        ChallengeName: (result as any).ChallengeName,
+        Session: (result as any).Session
+      });
+    }
+
+    // Return token and user info in expected format
+    const authResult = (result as any).AuthenticationResult;
+    res.json({
+      token: authResult.IdToken || authResult.AccessToken,
+      refreshToken: authResult.RefreshToken,
+      expiresIn: authResult.ExpiresIn,
+      user: user ? {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        tenant_id: user.tenant_id
+      } : {
+        email: req.body.email,
+        name: req.body.email
+      }
+    });
+  } catch (error: any) {
+    console.error('Signin error:', error);
+    
+    // Return specific error messages
+    if (error.name === 'NotAuthorizedException') {
+      return res.status(401).json({ 
+        error: 'Invalid email or password',
+        message: 'The email or password you entered is incorrect'
+      });
+    }
+    
+    if (error.name === 'UserNotFoundException') {
+      return res.status(404).json({ 
+        error: 'User not found',
+        message: 'No account found with this email address'
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to sign in',
+      message: error.message || 'An error occurred during sign in'
+    });
+  }
+});
+
+router.post('/respond-to-challenge', async (req, res) => {
+  try {
+    const { email, mfaCode, session } = req.body;
+    const auth = await respondToChallenge(email, mfaCode, session);
+    res.json(auth);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Failed to sign in' });
+    res.status(500).json({ message: 'Failed to complete MFA challenge' });
+  }
+});
+
+router.post('/refresh', async (req, res) => {
+  try {
+    const { email, refreshToken: token } = req.body;
+    const auth = await refreshToken(email, token);
+    res.json(auth);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Failed to refresh token' });
   }
 });
 

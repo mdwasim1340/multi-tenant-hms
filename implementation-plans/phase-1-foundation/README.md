@@ -107,3 +107,37 @@ Backup System (A3) → Admin Monitoring (D2)
 - Week 2: Custom fields system (B1, B2)
 - Week 3: Real-time analytics (C1, C2)
 - Week 4: Admin dashboard integration (D1, D2) + Testing
+
+## Requirements & Specifications
+
+- Multi-tenant isolation with `X-Tenant-ID` required on protected routes
+- Subscription tiers define feature availability via feature flags (A1)
+- Usage tracking captures per-tenant metrics and enforces limits (A2)
+- Backup system stores tenant-scoped data with S3 prefix isolation (A3)
+- Custom fields engine supports conditional logic and validation (B1)
+- Custom fields UI integrates across hospital entities (B2)
+- Real-time analytics use Redis + WebSocket with fallback (C1/C2)
+- Admin dashboard exposes tenant management, billing, and monitoring (D1/D2)
+
+## Core Functionality Plan
+
+- A1 → Enable tier definitions and feature flags; expose middleware hooks
+- A2 → Integrate usage tracking; connect to billing and dashboards
+- A3 → Implement scheduled/triggered backups with restore validation
+- B1/B2 → Deliver custom fields engine + UI; integrate in hospital workflows
+- C1/C2 → Stand up Redis/WebSocket infrastructure; analytics dashboard functionality
+- D1/D2 → Tenant management and billing interfaces; cross-feature coordination
+
+## Unit & Integration Test Coverage
+
+- Unit tests: feature flags, usage counters, custom field validators, audit hooks
+- Integration tests: tenant isolation, tier enforcement, real-time delivery, backup/restore
+- Performance tests: API latency SLAs, WebSocket stability, Redis throughput, DB query plans
+- Validation alignment: reference Phase 2 Team D testing methodologies
+
+## Deployment Documentation
+
+- Deployment procedures and infrastructure specs are centralized under Phase 4:
+  - `implementation-plans/phase-4/team-d-deployment/week-1-infrastructure/day-1-task-1-vpc-setup.md`
+  - `implementation-plans/phase-4/README.md`
+- Production readiness: confirm tenant isolation, RBAC enforcement, and backup/restore success prior to launch

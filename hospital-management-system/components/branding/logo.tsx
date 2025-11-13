@@ -55,8 +55,11 @@ export function Logo({ size = 'medium', className = '', alt }: LogoProps) {
         if (customLogoUrl) {
           setLogoUrl(customLogoUrl);
         }
-      } catch (error) {
-        console.error('Error loading logo:', error);
+      } catch (error: any) {
+        // Silently fail - branding is optional and may require authentication
+        if (error.response?.status !== 401 && error.response?.status !== 404) {
+          console.error('Error loading logo:', error.message);
+        }
       }
     }
 

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Activity, LogOut, CheckCircle2 } from "lucide-react"
 import { AuthLoading } from "@/components/auth-loading"
+import { signOut } from "@/lib/auth"
 
 export default function LogoutPage() {
   const router = useRouter()
@@ -18,9 +19,8 @@ export default function LogoutPage() {
 
     await new Promise((resolve) => setTimeout(resolve, 1500))
 
-    // Clear all session data
-    localStorage.clear()
-    sessionStorage.clear()
+    // Clear authentication using auth utility
+    signOut()
 
     setIsLoggingOut(false)
     setIsLoggedOut(true)

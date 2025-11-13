@@ -10,36 +10,40 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Eye, EyeOff, Lock, Mail, Shield, Activity, Info } from "lucide-react"
+import { Eye, EyeOff, Lock, Mail, Shield, Activity, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AuthLoading } from "@/components/auth-loading"
+import { signIn } from "@/lib/auth"
 
 export default function LoginPage() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
-  const [email, setEmail] = useState("admin@mediflow.com")
-  const [password, setPassword] = useState("admin123")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError(null)
 
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    const result = await signIn(email, password, rememberMe)
 
-    // Set authentication token in localStorage
-    localStorage.setItem("mediflow_auth_token", "demo_token_" + Date.now())
-    localStorage.setItem("mediflow_user_email", email)
-    localStorage.setItem("mediflow_user_role", "admin")
+    if (result.success) {
+      setIsLoading(false)
+      setIsRedirecting(true)
 
-    setIsLoading(false)
-    setIsRedirecting(true)
-
-    // Use Next.js router for smooth transition
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    router.push("/dashboard")
+      // Redirect to dashboard
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      router.push("/dashboard")
+    } else {
+      setIsLoading(false)
+      setError(result.error || 'Failed to sign in. Please try again.')
+      console.error('Login error:', result.error)
+    }
   }
 
   if (isRedirecting) {
@@ -58,20 +62,14 @@ export default function LoginPage() {
           <p className="text-muted-foreground mt-2">Hospital Management System</p>
         </div>
 
-        <Alert className="mb-4 border-primary/20 bg-primary/5">
-          <Info className="h-4 w-4 text-primary" />
-          <AlertDescription className="text-sm">
-            <strong className="font-semibold text-foreground">Demo Credentials:</strong>
-            <div className="mt-1 space-y-0.5 text-muted-foreground">
-              <div>
-                Email: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">admin@mediflow.com</code>
-              </div>
-              <div>
-                Password: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">admin123</code>
-              </div>
-            </div>
-          </AlertDescription>
-        </Alert>
+        {error && (
+          <Alert className="mb-4 border-destructive/50 bg-destructive/10">
+            <AlertCircle className="h-4 w-4 text-destructive" />
+            <AlertDescription className="text-sm text-destructive">
+              {error}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Login Card */}
         <Card className="border-border/50 shadow-lg">

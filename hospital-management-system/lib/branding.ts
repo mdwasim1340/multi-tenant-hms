@@ -4,7 +4,7 @@
  * Requirements: 8.1, 8.2, 8.3, 8.4
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+import { api } from './api';
 
 export interface BrandingConfig {
   tenant_id: string;
@@ -28,24 +28,26 @@ export interface BrandingConfig {
  */
 export async function fetchBranding(tenantId: string): Promise<BrandingConfig | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/tenants/${tenantId}/branding`, {
-      headers: {
-        'X-App-ID': 'hospital-management',
-        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'hospital-dev-key-123',
-      },
-    });
+    // Use api client which includes authentication and credentials
+    const response = await api.get(`/api/tenants/${tenantId}/branding`);
 
-    if (!response.ok) {
-      console.error(`Failed to fetch branding: ${response.statusText}`);
-      return null;
+    if (response.data) {
+      console.log(`✅ Branding fetched for tenant: ${tenantId}`);
+      return response.data;
     }
 
-    const data = await response.json();
-    console.log(`✅ Branding fetched for tenant: ${tenantId}`);
-
-    return data;
-  } catch (error) {
-    console.error('Error fetching branding:', error);
+    return null;
+  } catch (error: any) {
+    // Branding is optional, so don't show errors if it doesn't exist or is forbidden
+    if (error.response?.status === 404) {
+      console.log(`ℹ️  No branding configured for tenant: ${tenantId}`);
+    } else if (error.response?.status === 403) {
+      console.log(`ℹ️  Branding access restricted for tenant: ${tenantId}`);
+    } else if (error.response?.status === 401) {
+      // Silent - authentication required but not available yet
+    } else {
+      console.error('Error fetching branding:', error.message);
+    }
     return null;
   }
 }

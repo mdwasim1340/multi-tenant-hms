@@ -228,6 +228,30 @@ Token stored in secure cookie (7-day expiry)
 User redirected to admin dashboard
 ```
 
+### 3. MFA Challenge Flow
+```
+Signin returns { ChallengeName, Session }
+    ↓
+Frontend prompts for OTP code
+    ↓
+POST /auth/respond-to-challenge { email, mfaCode, session }
+    ↓
+Backend calls Cognito RespondToAuthChallenge
+    ↓
+Returns { AccessToken, RefreshToken, ExpiresIn, TokenType }
+```
+
+### 4. Token Refresh Flow
+```
+Frontend detects expiring token
+    ↓
+POST /auth/refresh { email, refreshToken }
+    ↓
+Backend calls Cognito REFRESH_TOKEN_AUTH
+    ↓
+Returns { AccessToken, ExpiresIn, TokenType }
+```
+
 ### 3. Protected Route Access Flow
 ```
 User accesses protected route
@@ -309,6 +333,8 @@ If invalid → Return 401 Unauthorized
 **Test Coverage:**
 - ✅ Frontend-backend communication
 - ✅ Token format compatibility
+- ✅ MFA challenge and completion
+- ✅ Refresh token flow
 - ✅ Error handling workflows
 - ✅ Complete user journey
 

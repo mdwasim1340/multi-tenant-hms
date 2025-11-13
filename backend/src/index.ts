@@ -31,14 +31,27 @@ const port = process.env.PORT || 3000;
 
 // CORS configuration for authorized applications only
 app.use(cors({
-  origin: [
-    'http://localhost:3001', // Hospital Management System
-    'http://localhost:3002', // Admin Dashboard
-    'http://localhost:3003', // Future apps
-    'http://10.66.66.8:3001',
-    'http://10.66.66.8:3002',
-    'http://10.66.66.8:3003'
-  ],
+  origin: (origin, callback) => {
+    const allowed = [
+      'http://localhost:3001', // Hospital Management System
+      'http://localhost:3002', // Admin Dashboard
+      'http://localhost:3003', // Future apps
+      'http://10.66.66.8:3001',
+      'http://10.66.66.8:3002',
+      'http://10.66.66.8:3003'
+    ];
+
+    if (!origin) return callback(null, true);
+    if (allowed.includes(origin)) return callback(null, true);
+
+    try {
+      const url = new URL(origin);
+      const isLocalhostSubdomain = url.hostname.endsWith('.localhost') && (url.port === '3001' || url.port === '3002' || url.port === '3003');
+      if (isLocalhostSubdomain) return callback(null, true);
+    } catch (e) {}
+
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-API-Key', 'X-App-ID']
@@ -65,16 +78,18 @@ app.use('/auth', authRouter);
 import tenantsRouter from './routes/tenants';
 import brandingRouter from './routes/branding';
 import analyticsRoutes from './routes/analytics';
-import { authMiddleware } from './middleware/auth';
+import adminRouter from './routes/admin';
+import { adminAuthMiddleware, hospitalAuthMiddleware } from './middleware/auth';
 app.use('/api/tenants', tenantsRouter);
 app.use('/api/tenants', brandingRouter); // Branding routes (/:id/branding)
-app.use('/api/users', authMiddleware, usersRouter);
-app.use('/api/roles', authMiddleware, rolesRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/users', adminAuthMiddleware, usersRouter);
+app.use('/api/roles', adminAuthMiddleware, rolesRouter);
 app.use('/api/subscriptions', subscriptionsRouter);
 app.use('/api/usage', usageRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api/backups', backupRouter);
-app.use('/api/analytics', authMiddleware, analyticsRoutes);
+app.use('/api/analytics', adminAuthMiddleware, analyticsRoutes);
 
 // Routes that need tenant context - apply tenant middleware first
 import filesRouter from './routes/files';
@@ -89,17 +104,17 @@ import labTestsRouter from './routes/lab-tests.routes';
 import imagingRouter from './routes/imaging.routes';
 import labPanelsRouter from './routes/lab-panels.routes';
 
-app.use('/files', tenantMiddleware, authMiddleware, filesRouter);
-app.use('/api/realtime', tenantMiddleware, authMiddleware, realtimeRouter);
-app.use('/api/custom-fields', tenantMiddleware, authMiddleware, customFieldsRouter);
-app.use('/api/patients', tenantMiddleware, authMiddleware, patientsRouter);
-app.use('/api/appointments', tenantMiddleware, authMiddleware, appointmentsRouter);
-app.use('/api/medical-records', tenantMiddleware, authMiddleware, medicalRecordsRouter);
-app.use('/api/prescriptions', tenantMiddleware, authMiddleware, prescriptionsRouter);
-app.use('/api/medical-records', tenantMiddleware, authMiddleware, diagnosisTreatmentRouter);
-app.use('/api/lab-tests', tenantMiddleware, authMiddleware, labTestsRouter);
-app.use('/api/imaging', tenantMiddleware, authMiddleware, imagingRouter);
-app.use('/api/lab-panels', tenantMiddleware, authMiddleware, labPanelsRouter);
+app.use('/files', tenantMiddleware, hospitalAuthMiddleware, filesRouter);
+app.use('/api/realtime', tenantMiddleware, hospitalAuthMiddleware, realtimeRouter);
+app.use('/api/custom-fields', tenantMiddleware, hospitalAuthMiddleware, customFieldsRouter);
+app.use('/api/patients', tenantMiddleware, hospitalAuthMiddleware, patientsRouter);
+app.use('/api/appointments', tenantMiddleware, hospitalAuthMiddleware, appointmentsRouter);
+app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, medicalRecordsRouter);
+app.use('/api/prescriptions', tenantMiddleware, hospitalAuthMiddleware, prescriptionsRouter);
+app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, diagnosisTreatmentRouter);
+app.use('/api/lab-tests', tenantMiddleware, hospitalAuthMiddleware, labTestsRouter);
+app.use('/api/imaging', tenantMiddleware, hospitalAuthMiddleware, imagingRouter);
+app.use('/api/lab-panels', tenantMiddleware, hospitalAuthMiddleware, labPanelsRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {

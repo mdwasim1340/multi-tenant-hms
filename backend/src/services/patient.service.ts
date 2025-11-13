@@ -233,9 +233,9 @@ export class PatientService {
 
     // Get field definitions
     const fieldsQuery = `
-      SELECT id, name, type
+      SELECT id, name, field_type
       FROM public.custom_fields 
-      WHERE name = ANY($1) AND entity_type = 'patient'
+      WHERE name = ANY($1) AND applies_to = 'patients'
     `;
 
     const fieldsResult = await client.query(fieldsQuery, [fieldNames]);
@@ -284,7 +284,7 @@ export class PatientService {
     const query = `
       SELECT 
         cf.name as field_name,
-        cf.type as field_type,
+        cf.field_type as field_type,
         cfv.value as field_value
       FROM custom_field_values cfv
       JOIN public.custom_fields cf ON cf.id = cfv.field_id
