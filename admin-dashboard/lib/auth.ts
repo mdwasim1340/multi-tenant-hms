@@ -2,8 +2,7 @@ import Cookies from 'js-cookie';
 import { api } from './api';
 
 /**
- * Authentication utilities for hospital management system
- * Uses real backend authentication (no mock/demo credentials)
+ * Authentication utilities for admin dashboard
  */
 
 export interface User {
@@ -68,97 +67,9 @@ export const getCurrentUser = (): Partial<User> | null => {
 };
 
 /**
- * Sign in with email and password
+ * Check if user has access to admin dashboard
  */
-export const signIn = async (
-  email: string,
-  password: string,
-  rememberMe: boolean = false
-): Promise<{ success: boolean; error?: string; user?: User; hasAccess?: boolean }> => {
-  try {
-    const response = await api.post('/auth/signin', {
-      email,
-      password,
-    });
-
-    if (response.data && response.data.token) {
-      // Store authentication token
-      Cookies.set('token', response.data.token, {
-        expires: rememberMe ? 30 : 1, // 30 days if remember me, 1 day otherwise
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-      });
-
-      // Store user info if provided
-      if (response.data.user) {
-        Cookies.set('user_email', response.data.user.email, {
-          expires: rememberMe ? 30 : 1,
-        });
-        Cookies.set('user_name', response.data.user.name || email, {
-          expires: rememberMe ? 30 : 1,
-        });
-      }
-
-      // Store permissions and roles
-      if (response.data.permissions) {
-        Cookies.set('user_permissions', JSON.stringify(response.data.permissions), {
-          expires: rememberMe ? 30 : 1,
-        });
-      }
-
-      if (response.data.roles) {
-        Cookies.set('user_roles', JSON.stringify(response.data.roles), {
-          expires: rememberMe ? 30 : 1,
-        });
-      }
-
-      // Store accessible applications
-      if (response.data.accessibleApplications) {
-        Cookies.set('accessible_apps', JSON.stringify(response.data.accessibleApplications), {
-          expires: rememberMe ? 30 : 1,
-        });
-      }
-
-      // Check if user has access to hospital system
-      const hasHospitalAccess = response.data.accessibleApplications?.some(
-        (app: Application) => app.application_id === 'hospital_system' && app.has_access
-      ) || false;
-
-      return {
-        success: true,
-        user: response.data.user,
-        hasAccess: hasHospitalAccess,
-      };
-    }
-
-    return {
-      success: false,
-      error: 'Invalid response from server',
-    };
-  } catch (err: any) {
-    let errorMessage = 'Failed to sign in. Please try again.';
-
-    if (err.response?.data?.error) {
-      errorMessage = err.response.data.error;
-    } else if (err.response?.status === 401) {
-      errorMessage = 'Invalid email or password';
-    } else if (err.response?.status === 404) {
-      errorMessage = 'User not found';
-    } else if (err.message) {
-      errorMessage = err.message;
-    }
-
-    return {
-      success: false,
-      error: errorMessage,
-    };
-  }
-};
-
-/**
- * Check if user has access to hospital system
- */
-export const hasHospitalAccess = (): boolean => {
+export const hasAdminAccess = (): boolean => {
   if (typeof window === 'undefined') return false;
   
   try {
@@ -166,9 +77,9 @@ export const hasHospitalAccess = (): boolean => {
     if (!accessibleApps) return false;
     
     const apps: Application[] = JSON.parse(accessibleApps);
-    return apps.some(app => app.application_id === 'hospital_system' && app.has_access);
+    return apps.some(app => app.application_id === 'admin_dashboard' && app.has_access);
   } catch (error) {
-    console.error('Error checking hospital access:', error);
+    console.error('Error checking admin access:', error);
     return false;
   }
 };
@@ -212,10 +123,105 @@ export const hasPermission = (resource: string, action: string): boolean => {
 };
 
 /**
+ * Check if user has admin role
+ */
+export const isAdmin = (): boolean => {
+  const roles = getUserRoles();
+  return roles.some(r => r.name === 'Admin');
+};
+
+/**
+ * Sign in with email and password
+ */
+export const signIn = async (
+  email: string,
+  password: string,
+  rememberMe: boolean = false
+): Promise<{ success: boolean; error?: string; user?: User; hasAccess?: boolean }> => {
+  try {
+    const response = await api.post('/auth/signin', {
+      email,
+      password,
+    });
+
+    if (response.data && response.data.token) {
+      // Store authentication token
+      Cookies.set('token', response.data.token, {
+        expires: rememberMe ? 30 : 1,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+
+      // Store user info
+      if (response.data.user) {
+        Cookies.set('user_email', response.data.user.email, {
+          expires: rememberMe ? 30 : 1,
+        });
+        Cookies.set('user_name', response.data.user.name || email, {
+          expires: rememberMe ? 30 : 1,
+        });
+      }
+
+      // Store permissions and roles
+      if (response.data.permissions) {
+        Cookies.set('user_permissions', JSON.stringify(response.data.permissions), {
+          expires: rememberMe ? 30 : 1,
+        });
+      }
+
+      if (response.data.roles) {
+        Cookies.set('user_roles', JSON.stringify(response.data.roles), {
+          expires: rememberMe ? 30 : 1,
+        });
+      }
+
+      // Store accessible applications
+      if (response.data.accessibleApplications) {
+        Cookies.set('accessible_apps', JSON.stringify(response.data.accessibleApplications), {
+          expires: rememberMe ? 30 : 1,
+        });
+      }
+
+      // Check if user has access to admin dashboard
+      const hasAdminDashboardAccess = response.data.accessibleApplications?.some(
+        (app: Application) => app.application_id === 'admin_dashboard' && app.has_access
+      ) || false;
+
+      return {
+        success: true,
+        user: response.data.user,
+        hasAccess: hasAdminDashboardAccess,
+      };
+    }
+
+    return {
+      success: false,
+      error: 'Invalid response from server',
+    };
+  } catch (err: any) {
+    let errorMessage = 'Failed to sign in. Please try again.';
+
+    if (err.response?.data?.error) {
+      errorMessage = err.response.data.error;
+    } else if (err.response?.status === 401) {
+      errorMessage = 'Invalid email or password';
+    } else if (err.response?.status === 404) {
+      errorMessage = 'User not found';
+    } else if (err.message) {
+      errorMessage = err.message;
+    }
+
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
+};
+
+/**
  * Sign out current user
  */
 export const signOut = (): void => {
-  // Clear authentication cookies
   Cookies.remove('token');
   Cookies.remove('tenant_id');
   Cookies.remove('user_email');
@@ -224,26 +230,9 @@ export const signOut = (): void => {
   Cookies.remove('user_roles');
   Cookies.remove('accessible_apps');
 
-  // Clear any remaining session data
   if (typeof window !== 'undefined') {
     localStorage.clear();
     sessionStorage.clear();
-  }
-};
-
-/**
- * Verify token is still valid
- */
-export const verifyToken = async (): Promise<boolean> => {
-  try {
-    const token = getAuthToken();
-    if (!token) return false;
-
-    // You can add a backend endpoint to verify token
-    // For now, just check if token exists
-    return true;
-  } catch (error) {
-    return false;
   }
 };
 
@@ -252,7 +241,18 @@ export const verifyToken = async (): Promise<boolean> => {
  */
 export const requireAuth = (router: any): boolean => {
   if (!isAuthenticated()) {
-    router.push('/auth/login');
+    router.push('/auth/signin');
+    return false;
+  }
+  return true;
+};
+
+/**
+ * Redirect to unauthorized if not admin
+ */
+export const requireAdminAccess = (router: any): boolean => {
+  if (!hasAdminAccess()) {
+    router.push('/unauthorized');
     return false;
   }
   return true;

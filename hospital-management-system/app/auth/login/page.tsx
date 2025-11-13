@@ -33,6 +33,18 @@ export default function LoginPage() {
     const result = await signIn(email, password, rememberMe)
 
     if (result.success) {
+      // Check if user has access to hospital system
+      if (result.hasAccess === false) {
+        setIsLoading(false)
+        setError('You don\'t have permission to access the Hospital Management System. Please contact your administrator.')
+        
+        // Redirect to unauthorized page after a short delay
+        setTimeout(() => {
+          router.push('/unauthorized')
+        }, 2000)
+        return
+      }
+
       setIsLoading(false)
       setIsRedirecting(true)
 

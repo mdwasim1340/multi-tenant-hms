@@ -31,6 +31,20 @@ export default function SignInPage() {
       if (data.ChallengeName && data.Session) {
         setMfaSession(data.Session)
       } else if (data.token || data.AccessToken) {
+        // Check if user has access to admin dashboard
+        const hasAdminAccess = data.accessibleApplications?.some(
+          (app: any) => app.application_id === 'admin_dashboard' && app.has_access
+        ) || false
+
+        if (!hasAdminAccess) {
+          setError("Access Denied: You don't have permission to access the Admin Dashboard. Only users with the 'Admin' role can access this application.")
+          // Redirect to unauthorized page after showing error
+          setTimeout(() => {
+            window.location.href = '/unauthorized'
+          }, 3000)
+          return
+        }
+
         // Support both new format (token) and old format (AccessToken)
         login(data.token || data.AccessToken)
       } else {

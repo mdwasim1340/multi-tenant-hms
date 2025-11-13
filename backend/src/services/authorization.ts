@@ -1,0 +1,258 @@
+/**
+ * Authorization Service
+ * Handles role-based application access control
+ */
+
+import pool from '../database';
+
+export interface UserRole {
+  id: number;
+  name: string;
+  description: string;
+}
+
+export interface Permission {
+  resource: string;
+  action: string;
+}
+
+export interface ApplicationAccess {
+  application_id: string;
+  name: string;
+  url: string;
+  port: number;
+  has_access: boolean;
+  required_permissions: string[];
+}
+
+/**
+ * Get user roles
+ */
+export const getUserRoles = async (userId: number): Promise<UserRole[]> => {
+  const query = `
+    SELECT 
+      r.id,
+      r.name,
+      r.description
+    FROM user_roles ur
+    JOIN roles r ON ur.role_id = r.id
+    WHERE ur.user_id = $1
+    ORDER BY r.name
+  `;
+  
+  const result = await pool.query(query, [userId]);
+  return result.rows;
+};
+
+/**
+ * Get user permissions
+ */
+export const getUserPermissions = async (userId: number): Promise<Permission[]> => {
+  const query = `
+    SELECT resource, action
+    FROM get_user_permissions($1)
+  `;
+  
+  const result = await pool.query(query, [userId]);
+  return result.rows;
+};
+
+/**
+ * Check if user has specific permission
+ */
+export const checkUserPermission = async (
+  userId: number,
+  resource: string,
+  action: string
+): Promise<boolean> => {
+  const query = `SELECT check_user_permission($1, $2, $3) as has_permission`;
+  const result = await pool.query(query, [userId, resource, action]);
+  return result.rows[0]?.has_permission || false;
+};
+
+/**
+ * Get applications user can access
+ */
+export const getUserApplicationAccess = async (userId: number): Promise<ApplicationAccess[]> => {
+  // Get all applications
+  const appsQuery = `
+    SELECT id, name, url, port, required_permissions, status
+    FROM applications
+    WHERE status = 'active'
+    ORDER BY name
+  `;
+  
+  const appsResult = await pool.query(appsQuery);
+  const applications = appsResult.rows;
+  
+  // Get user permissions
+  const permissions = await getUserPermissions(userId);
+  const userPermissions = new Set(
+    permissions.map(p => `${p.resource}:${p.action}`)
+  );
+  
+  // Check access for each application
+  const applicationAccess: ApplicationAccess[] = [];
+  
+  for (const app of applications) {
+    const requiredPerms = app.required_permissions || [];
+    const hasAccess = requiredPerms.length === 0 || 
+      requiredPerms.some((perm: string) => userPermissions.has(perm));
+    
+    applicationAccess.push({
+      application_id: app.id,
+      name: app.name,
+      url: app.url,
+      port: app.port,
+      has_access: hasAccess,
+      required_permissions: requiredPerms
+    });
+  }
+  
+  return applicationAccess;
+};
+
+/**
+ * Check if user can access application
+ */
+export const canUserAccessApplication = async (
+  userId: number,
+  applicationId: string
+): Promise<boolean> => {
+  // Get application requirements
+  const appQuery = `
+    SELECT required_permissions 
+    FROM applications 
+    WHERE id = $1 AND status = 'active'
+  `;
+  
+  const appResult = await pool.query(appQuery, [applicationId]);
+  
+  if (appResult.rows.length === 0) {
+    return false; // Application not found or inactive
+  }
+  
+  const requiredPermissions = appResult.rows[0].required_permissions || [];
+  
+  // If no permissions required, allow access
+  if (requiredPermissions.length === 0) {
+    return true;
+  }
+  
+  // Check if user has any of the required permissions
+  for (const permission of requiredPermissions) {
+    const [resource, action] = permission.split(':');
+    const hasPermission = await checkUserPermission(userId, resource, action);
+    
+    if (hasPermission) {
+      return true;
+    }
+  }
+  
+  return false;
+};
+
+/**
+ * Get user's accessible applications with details
+ */
+export const getUserAccessibleApplications = async (userId: number) => {
+  const applications = await getUserApplicationAccess(userId);
+  return applications.filter(app => app.has_access);
+};
+
+/**
+ * Assign role to user
+ */
+export const assignUserRole = async (
+  userId: number,
+  roleId: number
+): Promise<void> => {
+  // Check if assignment already exists
+  const existingQuery = `
+    SELECT id FROM user_roles 
+    WHERE user_id = $1 AND role_id = $2
+  `;
+  
+  const existingResult = await pool.query(existingQuery, [userId, roleId]);
+  
+  if (existingResult.rows.length > 0) {
+    throw new Error('User already has this role');
+  }
+  
+  // Insert new role assignment
+  const insertQuery = `
+    INSERT INTO user_roles (user_id, role_id)
+    VALUES ($1, $2)
+  `;
+  
+  await pool.query(insertQuery, [userId, roleId]);
+};
+
+/**
+ * Revoke role from user
+ */
+export const revokeUserRole = async (
+  userId: number,
+  roleId: number
+): Promise<void> => {
+  const query = `
+    DELETE FROM user_roles 
+    WHERE user_id = $1 AND role_id = $2
+  `;
+  
+  const result = await pool.query(query, [userId, roleId]);
+  
+  if (result.rowCount === 0) {
+    throw new Error('Role assignment not found');
+  }
+};
+
+/**
+ * Get all available roles
+ */
+export const getAllRoles = async (): Promise<any[]> => {
+  const query = `
+    SELECT 
+      r.id,
+      r.name,
+      r.description,
+      COUNT(rp.permission_id) as permission_count
+    FROM roles r
+    LEFT JOIN role_permissions rp ON r.id = rp.role_id
+    GROUP BY r.id, r.name, r.description
+    ORDER BY r.name
+  `;
+  
+  const result = await pool.query(query);
+  return result.rows;
+};
+
+/**
+ * Get role permissions
+ */
+export const getRolePermissions = async (roleId: number): Promise<Permission[]> => {
+  const query = `
+    SELECT p.resource, p.action
+    FROM role_permissions rp
+    JOIN permissions p ON rp.permission_id = p.id
+    WHERE rp.role_id = $1
+    ORDER BY p.resource, p.action
+  `;
+  
+  const result = await pool.query(query, [roleId]);
+  return result.rows;
+};
+
+/**
+ * Get all permissions
+ */
+export const getAllPermissions = async (): Promise<any[]> => {
+  const query = `
+    SELECT id, resource, action, description
+    FROM permissions
+    ORDER BY resource, action
+  `;
+  
+  const result = await pool.query(query);
+  return result.rows;
+};

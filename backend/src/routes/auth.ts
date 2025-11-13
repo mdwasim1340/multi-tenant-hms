@@ -121,6 +121,7 @@ router.post('/reset-password', async (req, res) => {
 
 import { eventService } from '../services/events';
 import { getUserByEmail } from '../services/userService';
+import { getUserPermissions, getUserRoles, getUserAccessibleApplications } from '../services/authorization';
 
 router.post('/signin', async (req, res) => {
   try {
@@ -150,6 +151,22 @@ router.post('/signin', async (req, res) => {
       });
     }
 
+    // Get user permissions and accessible applications
+    let permissions: any[] = [];
+    let roles: any[] = [];
+    let accessibleApplications: any[] = [];
+    
+    if (user) {
+      try {
+        permissions = await getUserPermissions(user.id);
+        roles = await getUserRoles(user.id);
+        accessibleApplications = await getUserAccessibleApplications(user.id);
+      } catch (authError) {
+        console.error('Error fetching user authorization data:', authError);
+        // Continue without permissions if there's an error
+      }
+    }
+
     // Return token and user info in expected format
     const authResult = (result as any).AuthenticationResult;
     res.json({
@@ -164,7 +181,10 @@ router.post('/signin', async (req, res) => {
       } : {
         email: req.body.email,
         name: req.body.email
-      }
+      },
+      roles: roles,
+      permissions: permissions,
+      accessibleApplications: accessibleApplications
     });
   } catch (error: any) {
     console.error('Signin error:', error);
