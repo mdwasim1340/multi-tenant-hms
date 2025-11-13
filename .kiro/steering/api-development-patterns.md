@@ -8,7 +8,7 @@
 - **ALWAYS set database schema context** for tenant operations
 - **NEVER allow cross-tenant data access** in any API endpoint
 
-### Current API Status (Updated November 2025 - PRODUCTION READY)
+### Current API Status (Updated November 13, 2025 - PRODUCTION READY)
 
 ## 🚨 ANTI-DUPLICATION RULES FOR API DEVELOPMENT
 
@@ -21,14 +21,18 @@
 
 ### Current API Status
 - ✅ **Authentication endpoints**: /auth/* routes fully functional (signin working)
+- ✅ **Authorization system**: Role-based application access control implemented
 - ✅ **Tenant management**: /api/tenants endpoints operational with subscription integration
 - ✅ **User management**: /api/users endpoints with tenant context
+- ✅ **Role management**: /api/roles endpoints for managing user roles (6 endpoints)
+- ✅ **Permission system**: 20 granular permissions for resource access
 - ✅ **Custom Fields**: /api/custom-fields endpoints with conditional logic support
 - ✅ **S3 file operations**: Presigned URLs working with tenant isolation
-- ✅ **Security middleware**: Auth and tenant middleware fully implemented
+- ✅ **Security middleware**: Auth, tenant, and authorization middleware fully implemented
 - ✅ **App authentication**: Backend protected from direct browser access
 - ✅ **Analytics**: Real-time monitoring endpoints with usage tracking
 - ✅ **Backup system**: S3 backup endpoints with compression
+- ✅ **Signin enhancement**: Returns roles, permissions, and accessible applications
 - 🎯 **Hospital management**: Patient/appointment APIs ready to be created
 - ✅ **Database foundation**: All core tables ready for hospital API development
 
@@ -51,10 +55,15 @@ app.get('/api/patients', getPatientsHandler); // Now operates in tenant context
 ```javascript
 // MANDATORY headers for all /api/* endpoints
 {
-  'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', // JWT from signin
   'X-Tenant-ID': 'tenant_1762083064503', // Must be valid tenant ID
+  'X-App-ID': 'hospital_system', // Application identifier
+  'X-API-Key': 'app-specific-key', // Application authentication
   'Content-Type': 'application/json'
 }
+
+// Note: User must have appropriate permissions to access the endpoint
+// Check permissions using: requirePermission(resource, action) middleware
 ```
 
 ### Tenant Validation Pattern

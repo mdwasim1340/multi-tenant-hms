@@ -13,12 +13,17 @@ The backend API must NEVER be accessible directly through browsers or unauthoriz
 3. **Use established patterns**: Follow existing app authentication and tenant validation
 4. **Single security model**: Never create duplicate authentication or authorization systems
 
-### Current Security Implementation Status
+### Current Security Implementation Status (Updated November 13, 2025)
 - ✅ **Complete Security Architecture**: App authentication system fully implemented
 - ✅ **Modern Tenant Security**: Subscription-based tenant validation operational
 - ✅ **Protected Backend**: Direct browser access blocked, app authentication required
 - ✅ **Frontend Integration**: Both applications use direct backend communication
 - ✅ **No API Proxies**: All Next.js API proxy routes removed
+- ✅ **Application-Level Authorization**: Role-based application access control
+- ✅ **Permission System**: 20 granular permissions for resource access
+- ✅ **Role Management**: 8 roles with specific permission assignments
+- ✅ **Access Guards**: Frontend and backend enforcement of application access
+- ✅ **Signin Enhancement**: Returns roles, permissions, and accessible applications
 
 ## 🛡️ Application-Level Security Architecture
 
@@ -43,11 +48,14 @@ const APP_API_KEYS = {
 ```typescript
 // MANDATORY headers for ALL API requests
 headers: {
-  'Authorization': 'Bearer jwt_token',        // User authentication
+  'Authorization': 'Bearer jwt_token',        // User authentication (JWT from signin)
   'X-Tenant-ID': 'tenant_id',               // Multi-tenant context
   'X-App-ID': 'admin-dashboard',            // Application identifier
   'X-API-Key': 'app-specific-secret-key'    // Application authentication
 }
+
+// Note: User must have appropriate role and permissions to access the application
+// Signin response includes: roles, permissions, accessibleApplications
 ```
 
 ## 🚫 FORBIDDEN PATTERNS
@@ -239,11 +247,92 @@ curl -X GET http://localhost:3000/api/users \
 4. **Strengthen**: Add additional app verification layers
 5. **Notify**: Alert application owners of security incident
 
+## 🔐 Application-Level Authorization (NEW - Nov 13, 2025)
+
+### Role-Based Application Access
+Users can only access applications they have permissions for:
+
+**Database Schema**:
+- `permissions` - 20 granular permissions (resource:action pairs)
+- `role_permissions` - Role-to-permission mappings
+- `applications` - Application registry with required permissions
+- `user_roles` - User-to-role assignments
+
+**8 Roles Defined**:
+1. **Admin** - Full system access (20 permissions)
+2. **Hospital Admin** - Hospital management (16 permissions)
+3. **Doctor** - Clinical access (8 permissions)
+4. **Nurse** - Patient care (5 permissions)
+5. **Receptionist** - Front desk (6 permissions)
+6. **Manager** - Reports and analytics (4 permissions)
+7. **Lab Technician** - Lab module (3 permissions)
+8. **Pharmacist** - Pharmacy module (3 permissions)
+
+**Access Control Matrix**:
+```
+Role              | Admin Dashboard | Hospital System
+------------------|-----------------|----------------
+Admin             | ✅ Yes          | ✅ Yes
+Hospital Admin    | ❌ No           | ✅ Yes
+Doctor            | ❌ No           | ✅ Yes
+Nurse             | ❌ No           | ✅ Yes
+Receptionist      | ❌ No           | ✅ Yes
+Manager           | ❌ No           | ✅ Yes
+Lab Technician    | ❌ No           | ✅ Yes
+Pharmacist        | ❌ No           | ✅ Yes
+```
+
+**Signin Response Enhancement**:
+```json
+{
+  "token": "jwt_token",
+  "user": {...},
+  "roles": [{"id": 1, "name": "Doctor", "description": "..."}],
+  "permissions": [
+    {"resource": "hospital_system", "action": "access"},
+    {"resource": "patients", "action": "read"},
+    {"resource": "patients", "action": "write"}
+  ],
+  "accessibleApplications": [
+    {
+      "application_id": "hospital_system",
+      "name": "Hospital Management System",
+      "has_access": true,
+      "required_permissions": ["hospital_system:access"]
+    }
+  ]
+}
+```
+
+**Frontend Guards**:
+- Both applications check `accessibleApplications` on login
+- Users without access are redirected to `/unauthorized` page
+- Clear error messages explain access requirements
+
+**Backend Middleware**:
+- `requireApplicationAccess(applicationId)` - Enforce app-level access
+- `requirePermission(resource, action)` - Enforce permission-based access
+- `requireRole(roleName)` - Enforce role-based access
+
+**Role Management API**:
+- `GET /api/roles` - List all roles
+- `GET /api/permissions` - List all permissions
+- `GET /api/users/:userId/roles` - Get user roles
+- `POST /api/users/:userId/roles` - Assign role (admin only)
+- `DELETE /api/users/:userId/roles/:roleId` - Revoke role (admin only)
+
+**Helper Scripts**:
+- `backend/scripts/test-authorization.js` - Test authorization system
+- `backend/scripts/assign-admin-role.js` - Assign admin role to user
+- `backend/scripts/create-hospital-admin.js` - Create hospital admin user
+
 ## 🎯 Security Goals
 
 ### Primary Objectives
 - **Zero Direct Access**: No browser can directly access backend APIs
 - **App Verification**: Only authorized applications can access backend
+- **Role-Based Access**: Users can only access authorized applications
+- **Permission Enforcement**: Granular control over resource access
 - **Audit Trail**: All API access is logged and traceable
 - **Defense in Depth**: Multiple security layers protect the backend
 - **Fail Secure**: Default to blocking access when in doubt
@@ -251,8 +340,9 @@ curl -X GET http://localhost:3000/api/users \
 ### Success Metrics
 - 100% of direct access attempts blocked
 - 100% of unauthorized app attempts blocked
+- 100% of unauthorized user access attempts blocked
 - 0% false positives for authorized applications
 - Complete audit trail of all API access
 - Zero security incidents related to unauthorized access
 
-This security architecture ensures that the backend API is completely protected from unauthorized access while maintaining seamless operation for authorized applications.
+This security architecture ensures that the backend API is completely protected from unauthorized access while maintaining seamless operation for authorized applications and users.

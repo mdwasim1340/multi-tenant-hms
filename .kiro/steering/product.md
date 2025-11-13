@@ -6,6 +6,7 @@ This is a **Multi-Tenant Hospital Management System** with AWS Cognito authentic
 
 - **Schema-based Multi-Tenancy**: Each tenant gets isolated PostgreSQL schemas ✅ WORKING
 - **AWS Cognito Authentication**: JWT token validation with JWKS ✅ WORKING
+- **Application-Level Authorization**: Role-based application access control ✅ WORKING
 - **S3 File Management**: Tenant-specific file storage with presigned URLs ✅ WORKING
 - **Hospital Management Frontend**: Next.js application with Radix UI components ✅ WORKING
 - **Admin Dashboard**: Multi-tenant administration interface ✅ WORKING
@@ -14,10 +15,12 @@ This is a **Multi-Tenant Hospital Management System** with AWS Cognito authentic
 - **Analytics Dashboard**: Real-time monitoring with polling fallback ✅ WORKING
 - **Backup System**: Cross-platform S3 backup with compression ✅ WORKING
 - **Subscription Management**: Tier-based restrictions and usage tracking ✅ WORKING
+- **Role Management**: 8 roles with granular permissions (20 permissions) ✅ WORKING
 
-## System Status (Last Updated: November 2025)
+## System Status (Last Updated: November 13, 2025)
 
 🎉 **PHASE 1 COMPLETE** - Core infrastructure is production-ready with complete feature set
+✅ **APPLICATION AUTHORIZATION COMPLETE** - Role-based application access control implemented
 🚀 **PHASE 2 IN PROGRESS** - Hospital operations implementation with 250+ AI-agent-ready tasks
 
 ## 🚨 ANTI-DUPLICATION GUIDELINES
@@ -33,14 +36,19 @@ This is a **Multi-Tenant Hospital Management System** with AWS Cognito authentic
 - **Subscription System**: Integrated billing and usage tracking
 - **No Duplicates**: 739 lines of legacy tenant code removed (Nov 4, 2025)
 
-### ✅ Authentication System
+### ✅ Authentication & Authorization System
 - User registration via `/auth/signup` - ✅ WORKING (Cognito connected)
 - User sign-in via `/auth/signin` with JWT tokens - ✅ WORKING (USER_PASSWORD_AUTH enabled)
 - Password reset via `/auth/forgot-password` - ✅ WORKING
 - Email verification and OTP system - ✅ WORKING
-- Complete user management with roles - ✅ WORKING (multiple tenants, 7 roles)
+- Complete user management with roles - ✅ WORKING (multiple tenants, 8 roles)
 - Token validation middleware - ✅ WORKING
 - Multi-tenant user isolation - ✅ WORKING
+- **Application-level authorization** - ✅ WORKING (role-based app access)
+- **Permission system** - ✅ WORKING (20 granular permissions)
+- **Role management API** - ✅ WORKING (6 endpoints)
+- **Frontend access guards** - ✅ WORKING (both applications)
+- **Signin returns permissions** - ✅ WORKING (roles, permissions, accessible apps)
 
 ### ✅ S3 File Operations
 - Upload URL generation with tenant isolation - WORKING
@@ -72,6 +80,28 @@ This is a **Multi-Tenant Hospital Management System** with AWS Cognito authentic
 - Custom Fields UI - ✅ WORKING (complete field management)
 - Analytics Dashboard - ✅ WORKING (real-time monitoring)
 - Direct backend communication - ✅ WORKING (no API proxies)
+- **Application access guards** - ✅ WORKING (role-based access control)
+- **Unauthorized pages** - ✅ WORKING (clear error messages)
+
+### ✅ Application-Level Authorization (NEW - Nov 13, 2025)
+- **Database Schema**: 3 new tables (permissions, role_permissions, applications)
+- **20 Permissions**: Granular access control for all resources
+- **8 Roles**: Admin, Hospital Admin, Doctor, Nurse, Receptionist, Manager, Lab Tech, Pharmacist
+- **2 Applications**: Admin Dashboard (admin-only), Hospital System (staff-only)
+- **Role Management API**: 6 endpoints for managing user roles
+- **Frontend Guards**: Both apps check permissions before allowing access
+- **Signin Enhancement**: Returns roles, permissions, and accessible applications
+- **Access Control Matrix**: Clear definition of who can access what
+
+**Access Control**:
+- **Admin** → ✅ Admin Dashboard + ✅ Hospital System (all permissions)
+- **Hospital Admin** → ❌ Admin Dashboard + ✅ Hospital System (16 permissions)
+- **Doctor** → ❌ Admin Dashboard + ✅ Hospital System (8 permissions)
+- **Nurse** → ❌ Admin Dashboard + ✅ Hospital System (5 permissions)
+- **Receptionist** → ❌ Admin Dashboard + ✅ Hospital System (6 permissions)
+- **Manager** → ❌ Admin Dashboard + ✅ Hospital System (4 permissions)
+- **Lab Technician** → ❌ Admin Dashboard + ✅ Hospital System (3 permissions)
+- **Pharmacist** → ❌ Admin Dashboard + ✅ Hospital System (3 permissions)
 
 ### 🚀 Phase 2: Hospital Operations (In Progress)
 - **Patient Management**: Database schema, API endpoints, Frontend UI (Team A & B, Week 1)

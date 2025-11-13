@@ -5,17 +5,20 @@
 ### Core Principle: Complete Data Isolation
 Every tenant must have completely isolated data with no possibility of cross-tenant access or data leakage.
 
-### Current Multi-Tenant Status (Updated November 2025 - PRODUCTION READY)
+### Current Multi-Tenant Status (Updated November 13, 2025 - PRODUCTION READY)
 - ✅ **Global Tables**: Modern subscription-based tenant system (legacy removed)
 - ✅ **Tenant Management**: Complete UI implementation with subscription integration
 - ✅ **Subscription System**: Integrated billing, usage tracking, and tier management
 - ✅ **User Management**: Complete admin users with proper tenant relationships
-- ✅ **Role System**: 7 hospital roles defined with RBAC foundation
+- ✅ **Role System**: 8 hospital roles defined with complete RBAC implementation
+- ✅ **Application Authorization**: Role-based application access control (20 permissions)
+- ✅ **Permission System**: Granular permissions for all resources and actions
 - ✅ **Custom Fields**: Multi-tenant custom field system with conditional logic
 - ✅ **Analytics**: Real-time tenant monitoring with usage tracking
 - ✅ **Backup System**: Tenant-specific backup and restore functionality
 - ✅ **Legacy Cleanup**: All duplicate tenant code removed
 - ✅ **Isolation Mechanism**: PostgreSQL schema-based isolation fully operational
+- ✅ **Access Control**: Frontend and backend enforcement of application access
 
 ## 🚨 ANTI-DUPLICATION RULES FOR MULTI-TENANT DEVELOPMENT
 
@@ -57,12 +60,16 @@ These tables must be created in EACH tenant schema:
 
 ### Required Headers for All Protected API Calls
 ```javascript
-// MANDATORY: All API requests must include tenant context
+// MANDATORY: All API requests must include tenant context and authentication
 headers: {
   'X-Tenant-ID': 'tenant_1762083064503', // Must match existing tenant ID
-  'Authorization': 'Bearer jwt_token_here'
+  'Authorization': 'Bearer jwt_token_here', // JWT token from signin
+  'X-App-ID': 'hospital_system', // Application identifier
+  'X-API-Key': 'app-specific-key' // Application authentication key
 }
 ```
+
+**Note**: Application-level authorization is now enforced. Users must have appropriate roles and permissions to access applications.
 
 ### Database Schema Context Setting
 ```sql
