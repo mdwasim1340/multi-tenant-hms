@@ -103,18 +103,20 @@ import diagnosisTreatmentRouter from './routes/diagnosis-treatment.routes';
 import labTestsRouter from './routes/lab-tests.routes';
 import imagingRouter from './routes/imaging.routes';
 import labPanelsRouter from './routes/lab-panels.routes';
+import { requireApplicationAccess } from './middleware/authorization';
 
-app.use('/files', tenantMiddleware, hospitalAuthMiddleware, filesRouter);
-app.use('/api/realtime', tenantMiddleware, hospitalAuthMiddleware, realtimeRouter);
-app.use('/api/custom-fields', tenantMiddleware, hospitalAuthMiddleware, customFieldsRouter);
-app.use('/api/patients', tenantMiddleware, hospitalAuthMiddleware, patientsRouter);
-app.use('/api/appointments', tenantMiddleware, hospitalAuthMiddleware, appointmentsRouter);
-app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, medicalRecordsRouter);
-app.use('/api/prescriptions', tenantMiddleware, hospitalAuthMiddleware, prescriptionsRouter);
-app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, diagnosisTreatmentRouter);
-app.use('/api/lab-tests', tenantMiddleware, hospitalAuthMiddleware, labTestsRouter);
-app.use('/api/imaging', tenantMiddleware, hospitalAuthMiddleware, imagingRouter);
-app.use('/api/lab-panels', tenantMiddleware, hospitalAuthMiddleware, labPanelsRouter);
+// Apply tenant middleware and application access control to hospital routes
+app.use('/files', tenantMiddleware, requireApplicationAccess('hospital_system'), filesRouter);
+app.use('/api/realtime', tenantMiddleware, requireApplicationAccess('hospital_system'), realtimeRouter);
+app.use('/api/custom-fields', tenantMiddleware, requireApplicationAccess('hospital_system'), customFieldsRouter);
+app.use('/api/patients', tenantMiddleware, requireApplicationAccess('hospital_system'), patientsRouter);
+app.use('/api/appointments', tenantMiddleware, requireApplicationAccess('hospital_system'), appointmentsRouter);
+app.use('/api/medical-records', tenantMiddleware, requireApplicationAccess('hospital_system'), medicalRecordsRouter);
+app.use('/api/prescriptions', tenantMiddleware, requireApplicationAccess('hospital_system'), prescriptionsRouter);
+app.use('/api/medical-records', tenantMiddleware, requireApplicationAccess('hospital_system'), diagnosisTreatmentRouter);
+app.use('/api/lab-tests', tenantMiddleware, requireApplicationAccess('hospital_system'), labTestsRouter);
+app.use('/api/imaging', tenantMiddleware, requireApplicationAccess('hospital_system'), imagingRouter);
+app.use('/api/lab-panels', tenantMiddleware, requireApplicationAccess('hospital_system'), labPanelsRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {

@@ -67,6 +67,8 @@ export const adminAuthMiddleware = (req: Request, res: Response, next: NextFunct
     }
 
     req.user = payload;
+    // Extract userId for consistent access across controllers
+    (req as any).userId = (payload as any).sub || (payload as any)['cognito:username'];
     next();
   });
 };
@@ -101,6 +103,8 @@ export const hospitalAuthMiddleware = (req: Request, res: Response, next: NextFu
     }
 
     req.user = payload;
+    // Extract userId for consistent access across controllers
+    (req as any).userId = (payload as any).sub || (payload as any)['cognito:username'];
     next();
   });
 };
