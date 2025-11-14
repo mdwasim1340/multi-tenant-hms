@@ -23,33 +23,41 @@ export default function PatientRegistration() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [step, setStep] = useState(1)
   
-  // Check authentication on mount
+  // Check authentication on mount (only once)
   useEffect(() => {
-    if (!isAuthenticated()) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to access patient registration",
-        variant: "destructive",
-      })
-      router.push('/auth/login')
-      return
+    const checkAuth = () => {
+      if (!isAuthenticated()) {
+        console.warn('⚠️  Not authenticated, redirecting to login')
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to access patient registration",
+          variant: "destructive",
+        })
+        router.push('/auth/login')
+        return false
+      }
+      
+      // Check tenant context
+      const tenantId = getTenantContext()
+      if (!tenantId) {
+        console.warn('⚠️  No tenant context, redirecting to login')
+        toast({
+          title: "Tenant Context Missing",
+          description: "Please log in again to set your tenant context",
+          variant: "destructive",
+        })
+        router.push('/auth/login')
+        return false
+      }
+      
+      console.log('✅ Authentication check passed')
+      console.log('✅ Tenant context:', tenantId)
+      return true
     }
     
-    // Check tenant context
-    const tenantId = getTenantContext()
-    if (!tenantId) {
-      toast({
-        title: "Tenant Context Missing",
-        description: "Please log in again to set your tenant context",
-        variant: "destructive",
-      })
-      router.push('/auth/login')
-      return
-    }
-    
-    console.log('✅ Authentication check passed')
-    console.log('✅ Tenant context:', tenantId)
-  }, [router, toast])
+    checkAuth()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run once on mount
 
   // Use the patient form hook
   const {

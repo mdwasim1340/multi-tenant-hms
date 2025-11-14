@@ -35,25 +35,20 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Log errors but don't auto-redirect
+    // Let the application handle errors gracefully
     if (error.response?.status === 400 && error.response?.data?.code === 'MISSING_TENANT_ID') {
       console.error('❌ Tenant context missing for API request');
-      // Redirect to login instead of tenant selection
-      // User should log in again to set proper tenant context
-      if (typeof window !== 'undefined') {
-        console.warn('⚠️  Redirecting to login to set tenant context');
-        window.location.href = '/auth/login';
-      }
+      console.error('💡 Please log in again to set tenant context');
     }
     
     if (error.response?.status === 401) {
-      console.error('❌ Authentication required');
-      // Redirect to login for authentication errors
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/')) {
-        console.warn('⚠️  Redirecting to login for authentication');
-        window.location.href = '/auth/login';
-      }
+      console.error('❌ Authentication error:', error.response?.data?.error || 'Unauthorized');
+      console.error('💡 Please check your login credentials');
     }
     
+    // Don't auto-redirect - let the UI handle the error
+    // This prevents unwanted logouts during form submissions
     return Promise.reject(error);
   }
 );
