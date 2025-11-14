@@ -74,19 +74,19 @@ export async function getPatients(
 export async function createPatient(
   data: CreatePatientData
 ): Promise<Patient> {
-  try {
-    // Convert date_of_birth to ISO datetime format (backend expects datetime)
-    const formattedData = {
-      ...data,
-      date_of_birth: data.date_of_birth.includes('T') 
-        ? data.date_of_birth 
-        : `${data.date_of_birth}T00:00:00.000Z`,
-      // Remove empty strings for optional fields
-      email: data.email || undefined,
-      phone: data.phone || undefined,
-      mobile_phone: data.mobile_phone || undefined,
-    };
+  // Convert date_of_birth to ISO datetime format (backend expects datetime)
+  const formattedData = {
+    ...data,
+    date_of_birth: data.date_of_birth.includes('T') 
+      ? data.date_of_birth 
+      : `${data.date_of_birth}T00:00:00.000Z`,
+    // Remove empty strings for optional fields
+    email: data.email || undefined,
+    phone: data.phone || undefined,
+    mobile_phone: data.mobile_phone || undefined,
+  };
 
+  try {
     const response = await api.post<PatientResponse>('/api/patients', formattedData);
     return response.data.data.patient;
   } catch (error: any) {
