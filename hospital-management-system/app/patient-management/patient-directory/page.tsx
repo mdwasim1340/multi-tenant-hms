@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { Button } from "@/components/ui/button"
@@ -8,54 +9,62 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Filter, Download, Eye, Edit, Trash2, Phone, Mail, TrendingUp } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Search, Filter, Download, Eye, Edit, Trash2, Phone, Mail, TrendingUp, AlertCircle, Loader2 } from "lucide-react"
+import { usePatients } from "@/hooks/usePatients"
+import { formatPatientName, formatPhoneNumber, calculateAge } from "@/lib/patients"
+import { useToast } from "@/hooks/use-toast"
 
 export default function PatientDirectory() {
+  const router = useRouter()
+  const { toast } = useToast()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [filterStatus, setFilterStatus] = useState("all")
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all")
 
-  const patients = [
-    {
-      id: "P001",
-      name: "Sarah Johnson",
-      mrn: "MRN-2024-001",
-      age: 45,
-      phone: "+1 (555) 123-4567",
-      email: "sarah.j@email.com",
-      status: "Active",
-      riskLevel: "High",
-      lastVisit: "2024-10-20",
-      nextAppointment: "2024-10-28",
-      aiScore: 8.2,
-    },
-    {
-      id: "P002",
-      name: "Michael Chen",
-      mrn: "MRN-2024-002",
-      age: 62,
-      phone: "+1 (555) 234-5678",
-      email: "m.chen@email.com",
-      status: "Active",
-      riskLevel: "Medium",
-      lastVisit: "2024-10-18",
-      nextAppointment: "2024-10-30",
-      aiScore: 6.5,
-    },
-    {
-      id: "P003",
-      name: "Emma Williams",
-      mrn: "MRN-2024-003",
-      age: 28,
-      phone: "+1 (555) 345-6789",
-      email: "emma.w@email.com",
-      status: "Inactive",
-      riskLevel: "Low",
-      lastVisit: "2024-09-15",
-      nextAppointment: "2024-11-05",
-      aiScore: 3.1,
-    },
-  ]
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+
+  // Use the custom hook to fetch patients
+  const {
+    patients,
+    loading,
+    error,
+    pagination,
+    setSearch,
+    setFilters,
+    setPage,
+  } = usePatients({
+    page: currentPage,
+    limit: pageSize,
+    status: filterStatus === "all" ? undefined : filterStatus,
+  })
+
+  // Handle search input changes (debounced in hook)
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    setSearch(value)
+  }
+
+  // Handle status filter changes
+  const handleStatusFilterChange = (status: string) => {
+    setFilterStatus(status as "all" | "active" | "inactive")
+    setFilters({
+      status: status === "all" ? undefined : (status as "active" | "inactive"),
+      page: 1,
+    })
+  }
+
+  // Show error toast if API call fails
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to fetch patients",
+        variant: "destructive",
+      })
+    }
+  }, [error, toast])
 
   const getRiskColor = (level: string) => {
     switch (level) {
@@ -95,11 +104,15 @@ export default function PatientDirectory() {
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by name, MRN, or email..."
+                  placeholder="Search by name, patient number, email, or phone..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="pl-10"
+                  disabled={loading}
                 />
+                {loading && searchQuery && (
+                  <Loader2 className="absolute right-3 top-3 w-4 h-4 text-muted-foreground animate-spin" />
+                )}
               </div>
               <Button variant="outline" className="flex items-center gap-2 bg-transparent">
                 <Filter className="w-4 h-4" />
@@ -108,107 +121,290 @@ export default function PatientDirectory() {
             </div>
 
             {/* Status Filter Tabs */}
-            <Tabs value={filterStatus} onValueChange={setFilterStatus} className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+            <Tabs value={filterStatus} onValueChange={handleStatusFilterChange} className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="all">All Patients</TabsTrigger>
                 <TabsTrigger value="active">Active</TabsTrigger>
                 <TabsTrigger value="inactive">Inactive</TabsTrigger>
-                <TabsTrigger value="high-risk">High Risk</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="all" className="space-y-4 mt-6">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-3 px-4 font-semibold text-foreground">Patient Name</th>
-                        <th className="text-left py-3 px-4 font-semibold text-foreground">MRN</th>
-                        <th className="text-left py-3 px-4 font-semibold text-foreground">Contact</th>
-                        <th className="text-left py-3 px-4 font-semibold text-foreground">Risk Level</th>
-                        <th className="text-left py-3 px-4 font-semibold text-foreground">Last Visit</th>
-                        <th className="text-left py-3 px-4 font-semibold text-foreground">AI Score</th>
-                        <th className="text-left py-3 px-4 font-semibold text-foreground">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {patients.map((patient) => (
-                        <tr key={patient.id} className="border-b border-border hover:bg-muted/50 transition-colors">
-                          <td className="py-4 px-4">
-                            <div>
-                              <p className="font-semibold text-foreground">{patient.name}</p>
-                              <p className="text-xs text-muted-foreground">{patient.age} years old</p>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4 text-sm text-foreground">{patient.mrn}</td>
-                          <td className="py-4 px-4">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2 text-sm text-foreground">
-                                <Phone className="w-3 h-3" />
-                                {patient.phone}
-                              </div>
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Mail className="w-3 h-3" />
-                                {patient.email}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <Badge className={getRiskColor(patient.riskLevel)}>{patient.riskLevel}</Badge>
-                          </td>
-                          <td className="py-4 px-4 text-sm text-foreground">{patient.lastVisit}</td>
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-2">
-                              <TrendingUp className="w-4 h-4 text-accent" />
-                              <span className="font-semibold text-foreground">{patient.aiScore}</span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="flex gap-2">
-                              <Button variant="ghost" size="sm">
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              <TabsContent value={filterStatus} className="space-y-4 mt-6">
+                {/* Loading State */}
+                {loading && patients.length === 0 && (
+                  <div className="space-y-4">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="border border-border rounded-lg p-4">
+                        <div className="flex items-center gap-4">
+                          <Skeleton className="h-12 w-12 rounded-full" />
+                          <div className="flex-1 space-y-2">
+                            <Skeleton className="h-4 w-1/4" />
+                            <Skeleton className="h-3 w-1/3" />
+                          </div>
+                          <Skeleton className="h-8 w-20" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Error State */}
+                {error && !loading && (
+                  <Card className="border-destructive/50 bg-destructive/5">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-3">
+                        <AlertCircle className="w-5 h-5 text-destructive" />
+                        <div>
+                          <p className="font-semibold text-destructive">Failed to load patients</p>
+                          <p className="text-sm text-muted-foreground mt-1">{error.message}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Empty State */}
+                {!loading && !error && patients.length === 0 && (
+                  <Card className="border-border/50">
+                    <CardContent className="pt-12 pb-12 text-center">
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                          <Search className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-foreground text-lg">No patients found</h3>
+                          <p className="text-muted-foreground mt-1">
+                            {searchQuery
+                              ? `No patients match "${searchQuery}"`
+                              : "No patients registered yet"}
+                          </p>
+                        </div>
+                        <Button
+                          onClick={() => router.push("/patient-registration")}
+                          className="mt-4"
+                        >
+                          Register New Patient
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Patient Table */}
+                {!loading && !error && patients.length > 0 && (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="text-left py-3 px-4 font-semibold text-foreground">Patient Name</th>
+                            <th className="text-left py-3 px-4 font-semibold text-foreground">Patient Number</th>
+                            <th className="text-left py-3 px-4 font-semibold text-foreground">Contact</th>
+                            <th className="text-left py-3 px-4 font-semibold text-foreground">Status</th>
+                            <th className="text-left py-3 px-4 font-semibold text-foreground">Age</th>
+                            <th className="text-left py-3 px-4 font-semibold text-foreground">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {patients.map((patient) => {
+                            const age = patient.age || calculateAge(patient.date_of_birth)
+                            const fullName = formatPatientName(patient)
+                            const phone = patient.phone || patient.mobile_phone
+                            const formattedPhone = phone ? formatPhoneNumber(phone) : "N/A"
+
+                            return (
+                              <tr
+                                key={patient.id}
+                                className="border-b border-border hover:bg-muted/50 transition-colors cursor-pointer"
+                                onClick={() => router.push(`/patient-management/${patient.id}`)}
+                              >
+                                <td className="py-4 px-4">
+                                  <div>
+                                    <p className="font-semibold text-foreground">{fullName}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {patient.gender && patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1)}
+                                    </p>
+                                  </div>
+                                </td>
+                                <td className="py-4 px-4 text-sm text-foreground font-mono">
+                                  {patient.patient_number}
+                                </td>
+                                <td className="py-4 px-4">
+                                  <div className="space-y-1">
+                                    {phone && (
+                                      <div className="flex items-center gap-2 text-sm text-foreground">
+                                        <Phone className="w-3 h-3" />
+                                        {formattedPhone}
+                                      </div>
+                                    )}
+                                    {patient.email && (
+                                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <Mail className="w-3 h-3" />
+                                        {patient.email}
+                                      </div>
+                                    )}
+                                    {!phone && !patient.email && (
+                                      <span className="text-sm text-muted-foreground">No contact info</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-4 px-4">
+                                  <Badge
+                                    variant={patient.status === "active" ? "default" : "secondary"}
+                                    className={
+                                      patient.status === "active"
+                                        ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200"
+                                        : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+                                    }
+                                  >
+                                    {patient.status.charAt(0).toUpperCase() + patient.status.slice(1)}
+                                  </Badge>
+                                </td>
+                                <td className="py-4 px-4 text-sm text-foreground">{age} years</td>
+                                <td className="py-4 px-4">
+                                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => router.push(`/patient-management/${patient.id}`)}
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => router.push(`/patient-management/${patient.id}/edit`)}
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {pagination && pagination.pages > 1 && (
+                      <div className="flex items-center justify-between mt-6">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">Rows per page:</span>
+                          <select
+                            value={pageSize}
+                            onChange={(e) => {
+                              const newSize = Number(e.target.value)
+                              setPageSize(newSize)
+                              setCurrentPage(1)
+                              setFilters({ limit: newSize, page: 1 })
+                            }}
+                            className="border border-border rounded px-2 py-1 text-sm bg-background"
+                          >
+                            <option value={10}>10</option>
+                            <option value={25}>25</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                          </select>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">
+                            Page {pagination.page} of {pagination.pages} ({pagination.total} total)
+                          </span>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setCurrentPage(1)
+                                setPage(1)
+                              }}
+                              disabled={!pagination.has_prev || loading}
+                            >
+                              First
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const newPage = currentPage - 1
+                                setCurrentPage(newPage)
+                                setPage(newPage)
+                              }}
+                              disabled={!pagination.has_prev || loading}
+                            >
+                              Previous
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const newPage = currentPage + 1
+                                setCurrentPage(newPage)
+                                setPage(newPage)
+                              }}
+                              disabled={!pagination.has_next || loading}
+                            >
+                              Next
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setCurrentPage(pagination.pages)
+                                setPage(pagination.pages)
+                              }}
+                              disabled={!pagination.has_next || loading}
+                            >
+                              Last
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </TabsContent>
             </Tabs>
 
-            {/* AI Insights Card */}
-            <Card className="border-accent/20 bg-accent/5">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-accent" />
-                  AI Directory Insights
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-background rounded-lg border border-border">
-                  <p className="text-sm text-muted-foreground mb-2">High-Risk Patients</p>
-                  <p className="text-2xl font-bold text-red-600">12</p>
-                  <p className="text-xs text-muted-foreground mt-2">Require immediate follow-up</p>
-                </div>
-                <div className="p-4 bg-background rounded-lg border border-border">
-                  <p className="text-sm text-muted-foreground mb-2">Overdue Appointments</p>
-                  <p className="text-2xl font-bold text-yellow-600">8</p>
-                  <p className="text-xs text-muted-foreground mt-2">Schedule within 7 days</p>
-                </div>
-                <div className="p-4 bg-background rounded-lg border border-border">
-                  <p className="text-sm text-muted-foreground mb-2">Readmission Risk</p>
-                  <p className="text-2xl font-bold text-orange-600">18%</p>
-                  <p className="text-xs text-muted-foreground mt-2">Average across directory</p>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Statistics Card */}
+            {!loading && !error && pagination && (
+              <Card className="border-accent/20 bg-accent/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-accent" />
+                    Patient Directory Statistics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 bg-background rounded-lg border border-border">
+                    <p className="text-sm text-muted-foreground mb-2">Total Patients</p>
+                    <p className="text-2xl font-bold text-primary">{pagination.total}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {filterStatus === "all"
+                        ? "All registered patients"
+                        : `${filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)} patients`}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-background rounded-lg border border-border">
+                    <p className="text-sm text-muted-foreground mb-2">Current Page</p>
+                    <p className="text-2xl font-bold text-accent">
+                      {pagination.page} / {pagination.pages}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Showing {patients.length} of {pagination.total}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-background rounded-lg border border-border">
+                    <p className="text-sm text-muted-foreground mb-2">Search Results</p>
+                    <p className="text-2xl font-bold text-green-600">{patients.length}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {searchQuery ? `Matching "${searchQuery}"` : "On this page"}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </main>
       </div>
