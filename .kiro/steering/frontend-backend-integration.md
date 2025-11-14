@@ -8,17 +8,20 @@
 3. **Use modern APIs**: Integrate with subscription-based tenant system
 4. **Single implementation**: Never create duplicate screens or forms for same function
 
-### Recent System Completion (November 2025)
+### Recent System Completion (November 14, 2025)
 - ✅ **Complete Feature Set**: All major features implemented and merged
 - ✅ **Custom Fields UI**: Complete field management with conditional logic
 - ✅ **Analytics Dashboard**: Real-time monitoring with WebSocket fallback
 - ✅ **Build Success**: All applications build successfully (100+ routes total)
 - ✅ **Direct Backend Integration**: No API proxies, direct communication
 - ✅ **Modern Integration**: All components use subscription-based backend APIs
+- ✅ **Patient Management**: Full CRUD with CSV export and advanced filtering
+- ✅ **Type Safety**: Nullable fields properly handled (Zod + TypeScript compatibility)
+- ✅ **Recent Fixes**: All build errors, type errors, and CSV export issues resolved
 
 ## 🚨 MAJOR ISSUES TO PREVENT
 
-Based on recent debugging sessions and legacy cleanup, these are the most critical issues:
+Based on recent debugging sessions (Nov 14, 2025) and legacy cleanup, these are the most critical issues:
 
 ### 1. Data Contract Mismatches
 **Problem**: Frontend expects fields that backend doesn't provide
@@ -32,7 +35,37 @@ Based on recent debugging sessions and legacy cleanup, these are the most critic
 **Problem**: Frontend field names don't match database column names
 **Example**: Frontend sends `sortBy=joinDate` but database has `created_at`
 
-### 4. Unsafe Property Access
+### 4. Nullable Field Handling (NEW - Nov 14, 2025)
+**Problem**: Zod schema allows `null` but TypeScript types only allow `undefined`
+**Example**: 
+```typescript
+// Zod schema
+z.string().optional().nullable() // Returns: string | undefined | null
+
+// TypeScript type (WRONG)
+interface Data {
+  field?: string; // Only: string | undefined
+}
+
+// TypeScript type (CORRECT)
+interface Data {
+  field?: string | null; // Matches Zod: string | undefined | null
+}
+```
+
+### 5. Response Method Conflicts (NEW - Nov 14, 2025)
+**Problem**: Using multiple response methods causes "headers already sent" error
+**Example**:
+```typescript
+// WRONG
+res.write('\uFEFF');
+res.send(csv); // Error: headers already sent
+
+// CORRECT
+res.send('\uFEFF' + csv); // Single response
+```
+
+### 6. Unsafe Property Access
 **Problem**: Accessing nested properties without null checks
 **Example**: `role.permissions.map()` when `permissions` is undefined
 

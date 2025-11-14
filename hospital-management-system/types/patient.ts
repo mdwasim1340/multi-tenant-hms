@@ -82,40 +82,43 @@ export interface CreatePatientData {
   patient_number: string;
   first_name: string;
   last_name: string;
-  middle_name?: string;
-  preferred_name?: string;
-  email?: string;
-  phone?: string;
-  mobile_phone?: string;
+  middle_name?: string | null;
+  preferred_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  mobile_phone?: string | null;
   date_of_birth: string;
   gender: 'male' | 'female' | 'other' | 'prefer_not_to_say';
-  marital_status?: string;
-  occupation?: string;
+  marital_status?: string | null;
+  occupation?: string | null;
 
   // Address
-  address_line_1?: string;
-  address_line_2?: string;
-  city?: string;
-  state?: string;
-  postal_code?: string;
-  country?: string;
+  address_line_1?: string | null;
+  address_line_2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
 
   // Emergency Contact
-  emergency_contact_name?: string;
-  emergency_contact_relationship?: string;
-  emergency_contact_phone?: string;
+  emergency_contact_name?: string | null;
+  emergency_contact_relationship?: string | null;
+  emergency_contact_phone?: string | null;
+  emergency_contact_email?: string | null;
 
   // Medical Information
-  blood_type?: string;
-  allergies?: string;
-  medical_history?: string; // Changed from chronic_conditions to match backend
-  current_medications?: string;
-  family_medical_history?: string;
+  blood_type?: string | null;
+  allergies?: string | null;
+  medical_history?: string | null; // Changed from chronic_conditions to match backend
+  current_medications?: string | null;
+  family_medical_history?: string | null;
 
   // Insurance
-  insurance_provider?: string;
-  insurance_policy_number?: string;
-  insurance_group_number?: string;
+  insurance_provider?: string | null;
+  insurance_policy_number?: string | null;
+  insurance_group_number?: string | null;
+  insurance_info?: Record<string, any> | null;
+  notes?: string | null;
 
   // Custom Fields
   custom_fields?: Record<string, any>;

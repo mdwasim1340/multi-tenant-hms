@@ -8,6 +8,32 @@ inclusion: always
 
 ### File Placement Rules (Updated Nov 4, 2025 - LEGACY CLEANUP COMPLETE)
 
+## 🚨 Recent Issues Fixed (November 14, 2025)
+
+### Issue 1: Duplicate Imports ✅ FIXED
+**Problem**: TypeScript error `TS2300: Duplicate identifier`
+**Cause**: Same middleware imported twice in `backend/src/index.ts`
+**Solution**: Remove duplicate import statements
+**Prevention**: Search for existing imports before adding new ones
+
+### Issue 2: CSV Export Headers Error ✅ FIXED
+**Problem**: `Cannot set headers after they are sent to the client`
+**Cause**: Using both `res.write()` and `res.send()` in export endpoint
+**Solution**: Combine into single `res.send('\uFEFF' + csv)`
+**Prevention**: Use only one response method per endpoint
+
+### Issue 3: Type Compatibility ✅ FIXED
+**Problem**: `Type 'null' is not assignable to type 'string | undefined'`
+**Cause**: Zod schema allows `null` but TypeScript types don't
+**Solution**: Update TypeScript interfaces to include `| null` for optional fields
+**Prevention**: Ensure Zod schemas and TypeScript types match exactly
+
+### Issue 4: TypeScript Type Inference ✅ FIXED
+**Problem**: `TS2358: instanceof expression must be of type 'any'`
+**Cause**: TypeScript couldn't infer type from generic parameter
+**Solution**: Add explicit type annotation `const value: any`
+**Prevention**: Add type annotations when working with generic types
+
 ## 🚨 CRITICAL: Anti-Duplication Rules
 
 ### Before Creating ANY New File or Component
@@ -17,12 +43,15 @@ inclusion: always
 4. **CLEANUP FIRST**: If replacement is needed, remove old implementation before creating new one
 5. **DOCUMENT CHANGES**: Update cleanup summaries when removing or replacing components
 
-### Current System Status (November 2025 - PRODUCTION READY)
+### Current System Status (November 14, 2025 - PRODUCTION READY)
 - ✅ **Complete Feature Set**: All major features implemented and merged
 - ✅ **Custom Fields System**: Complete UI with conditional logic and validation
 - ✅ **Analytics Dashboard**: Real-time monitoring with WebSocket fallback
 - ✅ **Backup System**: Cross-platform S3 backup with compression
 - ✅ **Build Success**: All applications build successfully (100+ routes total)
+- ✅ **Patient Management**: Full CRUD with CSV export and 12+ filters (Nov 14, 2025)
+- ✅ **Type Safety**: Nullable fields properly handled throughout stack
+- ✅ **Recent Fixes**: Duplicate imports, CSV headers, type compatibility resolved
 - **Backend documentation**: `backend/docs/` directory (✅ 15+ documentation files)
 - **Backend tests**: `backend/tests/` directory (✅ 25+ comprehensive test files)
 - **Hospital frontend**: `hospital-management-system/` (✅ 81 routes, custom fields ready)

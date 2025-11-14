@@ -5,10 +5,14 @@ import {
   getPatientById,
   updatePatient,
   deletePatient,
+  exportPatientsCSV,
 } from '../controllers/patient.controller';
 import { requirePermission } from '../middleware/authorization';
 
 const router = express.Router();
+
+// GET /api/patients/export - Export patients to CSV (requires read permission)
+router.get('/export', requirePermission('patients', 'read'), exportPatientsCSV);
 
 // GET /api/patients - List patients (requires read permission)
 router.get('/', requirePermission('patients', 'read'), getPatients);

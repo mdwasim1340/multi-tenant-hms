@@ -10,14 +10,10 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Eye, Edit, Phone, Mail, TrendingUp, AlertCircle, Loader2 } from "lucide-react"
+import { Search, Filter, Download, Eye, Edit, Trash2, Phone, Mail, TrendingUp, AlertCircle, Loader2 } from "lucide-react"
 import { usePatients } from "@/hooks/usePatients"
 import { formatPatientName, formatPhoneNumber, calculateAge } from "@/lib/patients"
 import { useToast } from "@/hooks/use-toast"
-import { ExportButton } from "@/components/export/ExportButton"
-import { AdvancedFilters } from "@/components/filters/AdvancedFilters"
-import { SelectionToolbar } from "@/components/selection/SelectionToolbar"
 
 export default function PatientDirectory() {
   const router = useRouter()
@@ -25,20 +21,9 @@ export default function PatientDirectory() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all")
+
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
-  
-  // Selection state
-  const [selectedIds, setSelectedIds] = useState<number[]>([])
-  
-  // Advanced filters state
-  const [advancedFilters, setAdvancedFilters] = useState<Record<string, any>>({})
-
-  // Combine all filters
-  const allFilters = {
-    ...advancedFilters,
-    status: filterStatus === "all" ? undefined : filterStatus,
-  }
 
   // Use the custom hook to fetch patients
   const {
@@ -52,7 +37,7 @@ export default function PatientDirectory() {
   } = usePatients({
     page: currentPage,
     limit: pageSize,
-    ...allFilters,
+    status: filterStatus === "all" ? undefined : filterStatus,
   })
 
   // Handle search input changes (debounced in hook)
@@ -65,57 +50,9 @@ export default function PatientDirectory() {
   const handleStatusFilterChange = (status: string) => {
     setFilterStatus(status as "all" | "active" | "inactive")
     setFilters({
-      ...advancedFilters,
       status: status === "all" ? undefined : (status as "active" | "inactive"),
       page: 1,
     })
-    setCurrentPage(1)
-  }
-
-  // Handle advanced filter changes
-  const handleAdvancedFilterChange = (filters: Record<string, any>) => {
-    setAdvancedFilters(filters)
-    setFilters({
-      ...filters,
-      status: filterStatus === "all" ? undefined : filterStatus,
-      page: 1,
-    })
-    setCurrentPage(1)
-  }
-
-  // Clear all filters
-  const handleClearFilters = () => {
-    setAdvancedFilters({})
-    setSearchQuery("")
-    setSearch("")
-    setFilterStatus("all")
-    setFilters({ page: 1 })
-    setCurrentPage(1)
-  }
-
-  // Selection handlers
-  const handleSelectAll = () => {
-    setSelectedIds(patients.map(p => p.id))
-  }
-
-  const handleClearSelection = () => {
-    setSelectedIds([])
-  }
-
-  const handleToggleSelect = (id: number) => {
-    setSelectedIds(prev =>
-      prev.includes(id)
-        ? prev.filter(selectedId => selectedId !== id)
-        : [...prev, id]
-    )
-  }
-
-  const handleToggleSelectAll = () => {
-    if (selectedIds.length === patients.length) {
-      setSelectedIds([])
-    } else {
-      setSelectedIds(patients.map(p => p.id))
-    }
   }
 
   // Show error toast if API call fails
@@ -129,55 +66,18 @@ export default function PatientDirectory() {
     }
   }, [error, toast])
 
-  // Clear selection when page changes
-  useEffect(() => {
-    setSelectedIds([])
-  }, [currentPage])
-
-  // Advanced filter fields configuration
-  const filterFields = [
-    { name: 'search', label: 'Search', type: 'text' as const, placeholder: 'Search patients...' },
-    { 
-      name: 'status', 
-      label: 'Status', 
-      type: 'select' as const, 
-      options: [
-        { value: 'active', label: 'Active' },
-        { value: 'inactive', label: 'Inactive' },
-        { value: 'deceased', label: 'Deceased' },
-      ]
-    },
-    { 
-      name: 'gender', 
-      label: 'Gender', 
-      type: 'select' as const, 
-      options: [
-        { value: 'male', label: 'Male' },
-        { value: 'female', label: 'Female' },
-        { value: 'other', label: 'Other' },
-      ]
-    },
-    { name: 'age_min', label: 'Min Age', type: 'number' as const, placeholder: '0' },
-    { name: 'age_max', label: 'Max Age', type: 'number' as const, placeholder: '150' },
-    { name: 'city', label: 'City', type: 'text' as const, placeholder: 'City name' },
-    { name: 'state', label: 'State', type: 'text' as const, placeholder: 'State name' },
-    { 
-      name: 'blood_type', 
-      label: 'Blood Type', 
-      type: 'select' as const, 
-      options: [
-        { value: 'A+', label: 'A+' },
-        { value: 'A-', label: 'A-' },
-        { value: 'B+', label: 'B+' },
-        { value: 'B-', label: 'B-' },
-        { value: 'AB+', label: 'AB+' },
-        { value: 'AB-', label: 'AB-' },
-        { value: 'O+', label: 'O+' },
-        { value: 'O-', label: 'O-' },
-      ]
-    },
-    { name: 'created_at', label: 'Registration Date', type: 'daterange' as const },
-  ]
+  const getRiskColor = (level: string) => {
+    switch (level) {
+      case "High":
+        return "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200"
+      case "Medium":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200"
+      case "Low":
+        return "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
 
   return (
     <div className="flex h-screen bg-background">
@@ -187,64 +87,80 @@ export default function PatientDirectory() {
         <TopBar sidebarOpen={sidebarOpen} />
 
         <main className="flex-1 overflow-auto pt-20 pb-8">
-          <div className="max-w-7xl mx-auto px-6 space-y-6">
+          <div className="max-w-7xl mx-auto px-6 space-y-8">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-foreground">Patient Directory</h1>
                 <p className="text-muted-foreground mt-1">Search and manage all patient records</p>
               </div>
-              <ExportButton
-                endpoint="/api/patients/export"
-                filename="patients.csv"
-                filters={allFilters}
-                selectedIds={selectedIds}
-                selectedCount={selectedIds.length}
-                totalCount={pagination?.total || 0}
-                variant="default"
-                size="md"
-              />
+              <Button 
+                className="bg-primary hover:bg-primary/90"
+                onClick={async () => {
+                  try {
+                    const q = new URLSearchParams();
+                    if (searchQuery) q.set('search', searchQuery);
+                    if (filterStatus !== 'all') q.set('status', filterStatus);
+                    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/patients/export?${q.toString()}`;
+                    const resp = await fetch(url, {
+                      headers: { 
+                        'Authorization': `Bearer ${require('js-cookie').get('token') || ''}`, 
+                        'X-Tenant-ID': require('js-cookie').get('tenant_id') || '' 
+                      }
+                    });
+                    const blob = await resp.blob();
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = 'patients.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    toast({ 
+                      title: 'Export Successful', 
+                      description: 'Patient list has been downloaded', 
+                    });
+                  } catch (e) {
+                    toast({ 
+                      title: 'Export Failed', 
+                      description: 'Unable to export patients', 
+                      variant: 'destructive' 
+                    });
+                  }
+                }}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export List
+              </Button>
             </div>
 
-            {/* Search Bar */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name, patient number, email, or phone..."
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-10"
-                aria-busy={loading}
-              />
-              {loading && searchQuery && (
-                <Loader2 className="absolute right-3 top-3 w-4 h-4 text-muted-foreground animate-spin" />
-              )}
+            {/* Search and Filter Bar */}
+            <div className="flex gap-4 flex-col md:flex-row">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name, patient number, email, or phone..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="pl-10"
+                  aria-busy={loading}
+                />
+                {loading && searchQuery && (
+                  <Loader2 className="absolute right-3 top-3 w-4 h-4 text-muted-foreground animate-spin" />
+                )}
+              </div>
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2 bg-transparent"
+                onClick={() => {
+                  toast({ 
+                    title: 'Advanced Filters', 
+                    description: 'Advanced filter panel coming soon! Use the tabs below to filter by status.', 
+                  });
+                }}
+              >
+                <Filter className="w-4 h-4" />
+                Filters
+              </Button>
             </div>
-
-            {/* Advanced Filters */}
-            <AdvancedFilters
-              fields={filterFields}
-              filters={advancedFilters}
-              onFilterChange={handleAdvancedFilterChange}
-              onClearFilters={handleClearFilters}
-            />
-
-            {/* Selection Toolbar */}
-            <SelectionToolbar
-              selectedCount={selectedIds.length}
-              totalCount={pagination?.total || 0}
-              onSelectAll={handleSelectAll}
-              onClearSelection={handleClearSelection}
-            >
-              <ExportButton
-                endpoint="/api/patients/export"
-                filename="patients_selected.csv"
-                selectedIds={selectedIds}
-                selectedCount={selectedIds.length}
-                totalCount={pagination?.total || 0}
-                variant="outline"
-                size="sm"
-              />
-            </SelectionToolbar>
 
             {/* Status Filter Tabs */}
             <Tabs value={filterStatus} onValueChange={handleStatusFilterChange} className="w-full">
@@ -299,8 +215,8 @@ export default function PatientDirectory() {
                         <div>
                           <h3 className="font-semibold text-foreground text-lg">No patients found</h3>
                           <p className="text-muted-foreground mt-1">
-                            {searchQuery || Object.keys(advancedFilters).length > 0
-                              ? "No patients match your search criteria"
+                            {searchQuery
+                              ? `No patients match "${searchQuery}"`
                               : "No patients registered yet"}
                           </p>
                         </div>
@@ -318,17 +234,10 @@ export default function PatientDirectory() {
                 {/* Patient Table */}
                 {!loading && !error && patients.length > 0 && (
                   <>
-                    <div className="overflow-x-auto border border-border rounded-lg">
+                    <div className="overflow-x-auto">
                       <table className="w-full">
-                        <thead className="bg-muted/50">
+                        <thead>
                           <tr className="border-b border-border">
-                            <th className="text-left py-3 px-4 w-12">
-                              <Checkbox
-                                checked={selectedIds.length === patients.length && patients.length > 0}
-                                onCheckedChange={handleToggleSelectAll}
-                                aria-label="Select all patients"
-                              />
-                            </th>
                             <th className="text-left py-3 px-4 font-semibold text-foreground">Patient Name</th>
                             <th className="text-left py-3 px-4 font-semibold text-foreground">Patient Number</th>
                             <th className="text-left py-3 px-4 font-semibold text-foreground">Contact</th>
@@ -343,26 +252,14 @@ export default function PatientDirectory() {
                             const fullName = formatPatientName(patient)
                             const phone = patient.phone || patient.mobile_phone
                             const formattedPhone = phone ? formatPhoneNumber(phone) : "N/A"
-                            const isSelected = selectedIds.includes(patient.id)
 
                             return (
                               <tr
                                 key={patient.id}
-                                className={`border-b border-border hover:bg-muted/50 transition-colors ${
-                                  isSelected ? 'bg-blue-50 dark:bg-blue-950/20' : ''
-                                }`}
+                                className="border-b border-border hover:bg-muted/50 transition-colors cursor-pointer"
+                                onClick={() => router.push(`/patient-management/${patient.id}`)}
                               >
-                                <td className="py-4 px-4" onClick={(e) => e.stopPropagation()}>
-                                  <Checkbox
-                                    checked={isSelected}
-                                    onCheckedChange={() => handleToggleSelect(patient.id)}
-                                    aria-label={`Select ${fullName}`}
-                                  />
-                                </td>
-                                <td 
-                                  className="py-4 px-4 cursor-pointer"
-                                  onClick={() => router.push(`/patient-management/${patient.id}`)}
-                                >
+                                <td className="py-4 px-4">
                                   <div>
                                     <p className="font-semibold text-foreground">{fullName}</p>
                                     <p className="text-xs text-muted-foreground">
@@ -370,16 +267,10 @@ export default function PatientDirectory() {
                                     </p>
                                   </div>
                                 </td>
-                                <td 
-                                  className="py-4 px-4 text-sm text-foreground font-mono cursor-pointer"
-                                  onClick={() => router.push(`/patient-management/${patient.id}`)}
-                                >
+                                <td className="py-4 px-4 text-sm text-foreground font-mono">
                                   {patient.patient_number}
                                 </td>
-                                <td 
-                                  className="py-4 px-4 cursor-pointer"
-                                  onClick={() => router.push(`/patient-management/${patient.id}`)}
-                                >
+                                <td className="py-4 px-4">
                                   <div className="space-y-1">
                                     {phone && (
                                       <div className="flex items-center gap-2 text-sm text-foreground">
@@ -398,10 +289,7 @@ export default function PatientDirectory() {
                                     )}
                                   </div>
                                 </td>
-                                <td 
-                                  className="py-4 px-4 cursor-pointer"
-                                  onClick={() => router.push(`/patient-management/${patient.id}`)}
-                                >
+                                <td className="py-4 px-4">
                                   <Badge
                                     variant={patient.status === "active" ? "default" : "secondary"}
                                     className={
@@ -413,19 +301,13 @@ export default function PatientDirectory() {
                                     {patient.status.charAt(0).toUpperCase() + patient.status.slice(1)}
                                   </Badge>
                                 </td>
-                                <td 
-                                  className="py-4 px-4 text-sm text-foreground cursor-pointer"
-                                  onClick={() => router.push(`/patient-management/${patient.id}`)}
-                                >
-                                  {age} years
-                                </td>
+                                <td className="py-4 px-4 text-sm text-foreground">{age} years</td>
                                 <td className="py-4 px-4">
                                   <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                                     <Button
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => router.push(`/patient-management/${patient.id}`)}
-                                      title="View patient"
                                     >
                                       <Eye className="w-4 h-4" />
                                     </Button>
@@ -433,7 +315,6 @@ export default function PatientDirectory() {
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => router.push(`/patient-management/${patient.id}/edit`)}
-                                      title="Edit patient"
                                     >
                                       <Edit className="w-4 h-4" />
                                     </Button>
@@ -457,7 +338,7 @@ export default function PatientDirectory() {
                               const newSize = Number(e.target.value)
                               setPageSize(newSize)
                               setCurrentPage(1)
-                              setFilters({ ...allFilters, limit: newSize, page: 1 })
+                              setFilters({ limit: newSize, page: 1 })
                             }}
                             className="border border-border rounded px-2 py-1 text-sm bg-background"
                           >
@@ -548,19 +429,19 @@ export default function PatientDirectory() {
                     </p>
                   </div>
                   <div className="p-4 bg-background rounded-lg border border-border">
-                    <p className="text-sm text-muted-foreground mb-2">Selected</p>
-                    <p className="text-2xl font-bold text-blue-600">{selectedIds.length}</p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {selectedIds.length > 0 ? "Patients selected for export" : "No patients selected"}
-                    </p>
-                  </div>
-                  <div className="p-4 bg-background rounded-lg border border-border">
                     <p className="text-sm text-muted-foreground mb-2">Current Page</p>
                     <p className="text-2xl font-bold text-accent">
                       {pagination.page} / {pagination.pages}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
                       Showing {patients.length} of {pagination.total}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-background rounded-lg border border-border">
+                    <p className="text-sm text-muted-foreground mb-2">Search Results</p>
+                    <p className="text-2xl font-bold text-green-600">{patients.length}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {searchQuery ? `Matching "${searchQuery}"` : "On this page"}
                     </p>
                   </div>
                 </CardContent>

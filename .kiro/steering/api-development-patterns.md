@@ -19,7 +19,7 @@
 4. **Follow single pattern**: Use established middleware chain and response formats
 5. **Include custom fields**: Integrate with custom fields system for entities
 
-### Current API Status
+### Current API Status (Updated Nov 14, 2025)
 - ✅ **Authentication endpoints**: /auth/* routes fully functional (signin working)
 - ✅ **Authorization system**: Role-based application access control implemented
 - ✅ **Tenant management**: /api/tenants endpoints operational with subscription integration
@@ -33,7 +33,14 @@
 - ✅ **Analytics**: Real-time monitoring endpoints with usage tracking
 - ✅ **Backup system**: S3 backup endpoints with compression
 - ✅ **Signin enhancement**: Returns roles, permissions, and accessible applications
-- 🎯 **Hospital management**: Patient/appointment APIs ready to be created
+- ✅ **Patient Management**: COMPLETE - Full CRUD + CSV export + advanced filtering
+  - GET /api/patients - List with pagination, search, 12+ filters
+  - POST /api/patients - Create with 32 fields
+  - GET /api/patients/:id - Get patient details
+  - PUT /api/patients/:id - Update patient
+  - DELETE /api/patients/:id - Delete patient
+  - GET /api/patients/export - CSV export with filters
+- 🔄 **Appointment Management**: IN PROGRESS
 - ✅ **Database foundation**: All core tables ready for hospital API development
 
 ## 🛡️ API Security Patterns
@@ -144,6 +151,132 @@ headers: {
 - **Mobile App**: Future implementation (X-App-ID: 'mobile-app')
 
 ## 🏥 Hospital Management API Patterns
+
+### CSV Export Pattern (NEW - Nov 14, 2025)
+```typescript
+// GET /api/patients/export - Export patients to CSV
+export const exportPatients = asyncHandler(async (req: Request, res: Response) => {
+  const tenantId = req.headers['x-tenant-id'] as string;
+  
+  // Parse and validate query parameters (same as list endpoint)
+  const query = PatientSearchSchema.parse(req.query);
+  
+  // Build filtered query (reuse filtering logic)
+  const patients = await patientService.getFilteredPatients(tenantId, query);
+  
+  // Define CSV columns
+  const columns = [
+    { key: 'patient_number', header: 'Patient Number' },
+    { key: 'first_name', header: 'First Name' },
+    // ... 30 more columns
+  ];
+  
+  // Convert to CSV with UTF-8 BOM for Excel
+  const csv = convertToCSV(patients, columns);
+  
+  // Set headers for file download
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${generateCSVFilename('patients')}"`);
+  
+  // Send CSV with BOM
+  res.send('\uFEFF' + csv);
+});
+```
+
+**Key Features**:
+- UTF-8 BOM (`\uFEFF`) for Excel compatibility
+- Reuses filtering logic from list endpoint
+- Formatted dates (YYYY-MM-DD)
+- Handles null values gracefully
+- Dynamic filename with timestamp
+
+**Common Pitfall**: Don't use `res.write()` + `res.send()` - causes "headers already sent" error
+
+### Advanced Filtering Pattern (NEW - Nov 14, 2025)
+```typescript
+// Support 12+ filter types
+const query = PatientSearchSchema.parse(req.query);
+
+// Build dynamic WHERE clause
+let whereConditions: string[] = ['1=1'];
+let queryParams: any[] = [];
+let paramIndex = 1;
+
+// Text search across multiple fields
+if (search) {
+  whereConditions.push(`(
+    patient_number ILIKE $${paramIndex} OR
+    first_name ILIKE $${paramIndex} OR
+    last_name ILIKE $${paramIndex} OR
+    email ILIKE $${paramIndex}
+  )`);
+  queryParams.push(`%${search}%`);
+  paramIndex++;
+}
+
+// Enum filters (status, gender, blood_type)
+if (status) {
+  whereConditions.push(`status = $${paramIndex}`);
+  queryParams.push(status);
+  paramIndex++;
+}
+
+// Age range filter (calculated from date_of_birth)
+if (age_min !== undefined) {
+  const maxBirthDate = new Date(
+    currentDate.getFullYear() - age_min,
+    currentDate.getMonth(),
+    currentDate.getDate()
+  );
+  whereConditions.push(`date_of_birth <= $${paramIndex}`);
+  queryParams.push(maxBirthDate.toISOString().split('T')[0]);
+  paramIndex++;
+}
+
+// Location filters
+if (city) {
+  whereConditions.push(`city ILIKE $${paramIndex}`);
+  queryParams.push(`%${city}%`);
+  paramIndex++;
+}
+
+// Date range filters
+if (created_at_from) {
+  whereConditions.push(`created_at >= $${paramIndex}`);
+  queryParams.push(created_at_from);
+  paramIndex++;
+}
+
+// Custom field filters (JSONB queries)
+if (custom_field_filters) {
+  const filters = JSON.parse(custom_field_filters);
+  Object.entries(filters).forEach(([fieldId, value]) => {
+    whereConditions.push(`custom_fields->$${paramIndex}->>'value' = $${paramIndex + 1}`);
+    queryParams.push(fieldId, value);
+    paramIndex += 2;
+  });
+}
+
+// Execute query with all filters
+const query = `
+  SELECT * FROM patients 
+  WHERE ${whereConditions.join(' AND ')}
+  ORDER BY ${sort_by} ${sort_order}
+  LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+`;
+```
+
+**Supported Filters**:
+1. Text search (patient_number, name, email, phone)
+2. Status (active, inactive, deceased)
+3. Gender (male, female, other)
+4. Blood type (A+, A-, B+, B-, AB+, AB-, O+, O-)
+5. Marital status
+6. Age range (min/max)
+7. Location (city, state, country)
+8. Date range (created_at)
+9. Custom fields (JSONB)
+10. Specific patient IDs (for bulk export)
 
 ### Patient Management Endpoints
 ```typescript
