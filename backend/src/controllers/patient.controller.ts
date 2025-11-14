@@ -38,6 +38,9 @@ export const getPatients = asyncHandler(
       blood_type,
       sort_by,
       sort_order,
+      created_at_from,
+      created_at_to,
+      custom_field_filters,
     } = query;
 
     // Calculate pagination
@@ -126,6 +129,36 @@ export const getPatients = asyncHandler(
         paramIndex++;
       }
 
+      // Created_at date range filters
+      if (created_at_from) {
+        whereConditions.push(`created_at >= $${paramIndex}`);
+        queryParams.push(`${created_at_from}T00:00:00.000Z`);
+        paramIndex++;
+      }
+      if (created_at_to) {
+        whereConditions.push(`created_at <= $${paramIndex}`);
+        queryParams.push(`${created_at_to}T23:59:59.999Z`);
+        paramIndex++;
+      }
+
+      // Custom field filters: join when present
+      let customWhere: string[] = [];
+      if (custom_field_filters && Object.keys(custom_field_filters).length > 0) {
+        // Each field must exist for the patient; we use EXISTS subqueries for flexibility
+        for (const [fieldName, fieldValue] of Object.entries(custom_field_filters as Record<string, any>)) {
+          customWhere.push(`EXISTS (
+            SELECT 1 FROM custom_field_values cfv
+            JOIN public.custom_fields cf ON cf.id = cfv.field_id
+            WHERE cfv.entity_type = 'patient'
+              AND cfv.entity_id = patients.id
+              AND cf.name = $${paramIndex}
+              AND cfv.value ILIKE $${paramIndex + 1}
+          )`);
+          queryParams.push(fieldName, `%${String(fieldValue)}%`);
+          paramIndex += 2;
+        }
+      }
+
       // Build final query
       const whereClause = whereConditions.join(' AND ');
       const orderClause = `ORDER BY ${sort_by} ${sort_order.toUpperCase()}`;
@@ -140,7 +173,7 @@ export const getPatients = asyncHandler(
         blood_type, status, created_at, updated_at,
         EXTRACT(YEAR FROM AGE(date_of_birth)) as age
       FROM patients 
-      WHERE ${whereClause}
+      WHERE ${[whereClause, ...(customWhere.length ? customWhere : [])].join(' AND ')}
       ${orderClause}
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
@@ -151,7 +184,7 @@ export const getPatients = asyncHandler(
       const countQuery = `
       SELECT COUNT(*) as total
       FROM patients 
-      WHERE ${whereClause}
+      WHERE ${[whereClause, ...(customWhere.length ? customWhere : [])].join(' AND ')}
     `;
 
       const [patientsResult, countResult] = await Promise.all([
@@ -187,7 +220,7 @@ export const getPatients = asyncHandler(
 export const createPatient = asyncHandler(
   async (req: Request, res: Response) => {
     const tenantId = req.headers['x-tenant-id'] as string;
-    const userId = (req as any).user?.id; // From auth middleware
+    const userId = (req as any).userId;
 
     // Validate request body
     const validatedData = CreatePatientSchema.parse(req.body);
@@ -235,7 +268,7 @@ export const updatePatient = asyncHandler(
   async (req: Request, res: Response) => {
     const tenantId = req.headers['x-tenant-id'] as string;
     const patientId = parseInt(req.params.id);
-    const userId = (req as any).user?.id;
+    const userId = (req as any).userId;
 
     if (isNaN(patientId)) {
       throw new ValidationError('Invalid patient ID');
@@ -265,7 +298,7 @@ export const deletePatient = asyncHandler(
   async (req: Request, res: Response) => {
     const tenantId = req.headers['x-tenant-id'] as string;
     const patientId = parseInt(req.params.id);
-    const userId = (req as any).user?.id;
+    const userId = (req as any).userId;
 
     if (isNaN(patientId)) {
       throw new ValidationError('Invalid patient ID');

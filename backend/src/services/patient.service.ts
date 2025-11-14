@@ -37,6 +37,19 @@ export class PatientService {
       // Separate custom fields from patient data
       const { custom_fields, ...patientData } = data;
 
+      // Normalize date_of_birth to DATE (YYYY-MM-DD) for Postgres
+      if (patientData.date_of_birth) {
+        try {
+          const d = new Date(patientData.date_of_birth as unknown as string);
+          const normalized = isNaN(d.getTime())
+            ? String(patientData.date_of_birth).split('T')[0]
+            : d.toISOString().split('T')[0];
+          (patientData as any).date_of_birth = normalized;
+        } catch {
+          (patientData as any).date_of_birth = String(patientData.date_of_birth).split('T')[0];
+        }
+      }
+
       // Add audit fields
       const dataWithAudit = {
         ...patientData,

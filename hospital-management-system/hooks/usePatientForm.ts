@@ -44,7 +44,7 @@ export interface UsePatientFormReturn {
  * Initial empty form data
  */
 const getInitialFormData = (): PatientRegistrationForm => ({
-  patient_number: generatePatientNumber(),
+  patient_number: '',
   first_name: '',
   last_name: '',
   middle_name: '',
@@ -127,6 +127,12 @@ const validationRules: Record<string, (value: any) => string | null> = {
     }
     return null;
   },
+  blood_type: (value) => {
+    if (!value) return null; // optional
+    const allowed = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
+    if (!allowed.includes(value)) return 'Invalid blood type';
+    return null;
+  },
 };
 
 /**
@@ -162,6 +168,14 @@ export function usePatientForm(
   }));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<boolean>(false);
+
+  // Generate patient number on client after mount to avoid SSR hydration mismatch
+  useEffect(() => {
+    if (!formData.patient_number) {
+      setFormData({ patient_number: generatePatientNumber() });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /**
    * Update form data (merge with existing)

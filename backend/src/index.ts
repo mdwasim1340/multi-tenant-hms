@@ -104,19 +104,20 @@ import labTestsRouter from './routes/lab-tests.routes';
 import imagingRouter from './routes/imaging.routes';
 import labPanelsRouter from './routes/lab-panels.routes';
 import { requireApplicationAccess } from './middleware/authorization';
+import { hospitalAuthMiddleware } from './middleware/auth';
 
-// Apply tenant middleware and application access control to hospital routes
-app.use('/files', tenantMiddleware, requireApplicationAccess('hospital_system'), filesRouter);
-app.use('/api/realtime', tenantMiddleware, requireApplicationAccess('hospital_system'), realtimeRouter);
-app.use('/api/custom-fields', tenantMiddleware, requireApplicationAccess('hospital_system'), customFieldsRouter);
-app.use('/api/patients', tenantMiddleware, requireApplicationAccess('hospital_system'), patientsRouter);
-app.use('/api/appointments', tenantMiddleware, requireApplicationAccess('hospital_system'), appointmentsRouter);
-app.use('/api/medical-records', tenantMiddleware, requireApplicationAccess('hospital_system'), medicalRecordsRouter);
-app.use('/api/prescriptions', tenantMiddleware, requireApplicationAccess('hospital_system'), prescriptionsRouter);
-app.use('/api/medical-records', tenantMiddleware, requireApplicationAccess('hospital_system'), diagnosisTreatmentRouter);
-app.use('/api/lab-tests', tenantMiddleware, requireApplicationAccess('hospital_system'), labTestsRouter);
-app.use('/api/imaging', tenantMiddleware, requireApplicationAccess('hospital_system'), imagingRouter);
-app.use('/api/lab-panels', tenantMiddleware, requireApplicationAccess('hospital_system'), labPanelsRouter);
+// Apply tenant middleware, authentication, and application access control to hospital routes
+app.use('/files', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), filesRouter);
+app.use('/api/realtime', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), realtimeRouter);
+app.use('/api/custom-fields', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), customFieldsRouter);
+app.use('/api/patients', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), patientsRouter);
+app.use('/api/appointments', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), appointmentsRouter);
+app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), medicalRecordsRouter);
+app.use('/api/prescriptions', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), prescriptionsRouter);
+app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), diagnosisTreatmentRouter);
+app.use('/api/lab-tests', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labTestsRouter);
+app.use('/api/imaging', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), imagingRouter);
+app.use('/api/lab-panels', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labPanelsRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {
@@ -131,9 +132,9 @@ app.get('/', async (req: Request, res: Response) => {
   }
 });
 
-import { errorMiddleware } from './middleware/error';
+import { errorHandler } from './middleware/errorHandler';
 import { initializeWebSocketServer } from './websocket/server';
-app.use(errorMiddleware);
+app.use(errorHandler);
 
 const server = app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

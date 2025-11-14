@@ -84,6 +84,24 @@ export async function createPatient(
     email: data.email || undefined,
     phone: data.phone || undefined,
     mobile_phone: data.mobile_phone || undefined,
+    middle_name: (data.middle_name && data.middle_name.trim() !== '') ? data.middle_name : undefined,
+    preferred_name: (data.preferred_name && data.preferred_name.trim() !== '') ? data.preferred_name : undefined,
+    marital_status: (data.marital_status && data.marital_status.trim() !== '') ? data.marital_status : undefined,
+    occupation: (data.occupation && data.occupation.trim() !== '') ? data.occupation : undefined,
+    address_line_1: (data.address_line_1 && data.address_line_1.trim() !== '') ? data.address_line_1 : undefined,
+    address_line_2: (data.address_line_2 && data.address_line_2.trim() !== '') ? data.address_line_2 : undefined,
+    city: (data.city && data.city.trim() !== '') ? data.city : undefined,
+    state: (data.state && data.state.trim() !== '') ? data.state : undefined,
+    postal_code: (data.postal_code && data.postal_code.trim() !== '') ? data.postal_code : undefined,
+    country: (data.country && data.country.trim() !== '') ? data.country : undefined,
+    emergency_contact_name: (data.emergency_contact_name && data.emergency_contact_name.trim() !== '') ? data.emergency_contact_name : undefined,
+    emergency_contact_relationship: (data.emergency_contact_relationship && data.emergency_contact_relationship.trim() !== '') ? data.emergency_contact_relationship : undefined,
+    emergency_contact_phone: (data.emergency_contact_phone && data.emergency_contact_phone.trim() !== '') ? data.emergency_contact_phone : undefined,
+    blood_type: (data.blood_type && data.blood_type.trim() !== '') ? data.blood_type : undefined,
+    allergies: (data.allergies && data.allergies.trim() !== '') ? data.allergies : undefined,
+    current_medications: (data.current_medications && data.current_medications.trim() !== '') ? data.current_medications : undefined,
+    medical_history: (data.medical_history && data.medical_history.trim() !== '') ? data.medical_history : undefined,
+    family_medical_history: (data.family_medical_history && data.family_medical_history.trim() !== '') ? data.family_medical_history : undefined,
   };
 
   try {
@@ -192,6 +210,24 @@ export async function updatePatient(
       email: data.email || undefined,
       phone: data.phone || undefined,
       mobile_phone: data.mobile_phone || undefined,
+      middle_name: (data.middle_name && data.middle_name.trim() !== '') ? data.middle_name : undefined,
+      preferred_name: (data.preferred_name && data.preferred_name.trim() !== '') ? data.preferred_name : undefined,
+      marital_status: (data.marital_status && data.marital_status.trim() !== '') ? data.marital_status : undefined,
+      occupation: (data.occupation && data.occupation.trim() !== '') ? data.occupation : undefined,
+      address_line_1: (data.address_line_1 && data.address_line_1.trim() !== '') ? data.address_line_1 : undefined,
+      address_line_2: (data.address_line_2 && data.address_line_2.trim() !== '') ? data.address_line_2 : undefined,
+      city: (data.city && data.city.trim() !== '') ? data.city : undefined,
+      state: (data.state && data.state.trim() !== '') ? data.state : undefined,
+      postal_code: (data.postal_code && data.postal_code.trim() !== '') ? data.postal_code : undefined,
+      country: (data.country && data.country.trim() !== '') ? data.country : undefined,
+      emergency_contact_name: (data.emergency_contact_name && data.emergency_contact_name.trim() !== '') ? data.emergency_contact_name : undefined,
+      emergency_contact_relationship: (data.emergency_contact_relationship && data.emergency_contact_relationship.trim() !== '') ? data.emergency_contact_relationship : undefined,
+      emergency_contact_phone: (data.emergency_contact_phone && data.emergency_contact_phone.trim() !== '') ? data.emergency_contact_phone : undefined,
+      blood_type: (data.blood_type && data.blood_type.trim() !== '') ? data.blood_type : undefined,
+      allergies: (data.allergies && data.allergies.trim() !== '') ? data.allergies : undefined,
+      current_medications: (data.current_medications && data.current_medications.trim() !== '') ? data.current_medications : undefined,
+      medical_history: (data.medical_history && data.medical_history.trim() !== '') ? data.medical_history : undefined,
+      family_medical_history: (data.family_medical_history && data.family_medical_history.trim() !== '') ? data.family_medical_history : undefined,
     };
 
     const response = await api.put<PatientResponse>(
@@ -211,15 +247,24 @@ export async function updatePatient(
     }
     
     if (error.response?.status === 400) {
-      const details = error.response?.data?.details;
-      if (details) {
-        const fieldErrors = Object.entries(details)
+      const errorData = error.response?.data;
+      console.error('Full 400 error data:', JSON.stringify(errorData, null, 2));
+
+      if (errorData?.details && Array.isArray(errorData.details)) {
+        const fieldErrors = errorData.details
+          .map((detail: any) => `${detail.field}: ${detail.message}`)
+          .join(', ');
+        throw new Error(`Validation error: ${fieldErrors}`);
+      }
+
+      if (errorData?.details && typeof errorData.details === 'object') {
+        const fieldErrors = Object.entries(errorData.details)
           .map(([field, message]) => `${field}: ${message}`)
           .join(', ');
         throw new Error(`Validation error: ${fieldErrors}`);
       }
-      // Show the actual error message from backend
-      throw new Error(error.response?.data?.error || 'Validation error');
+
+      throw new Error(errorData?.error || errorData?.message || 'Validation error');
     }
     
     throw new Error(

@@ -108,13 +108,32 @@ export default function PatientDirectory() {
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   className="pl-10"
-                  disabled={loading}
+                  aria-busy={loading}
                 />
                 {loading && searchQuery && (
                   <Loader2 className="absolute right-3 top-3 w-4 h-4 text-muted-foreground animate-spin" />
                 )}
               </div>
-              <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+              <Button variant="outline" className="flex items-center gap-2 bg-transparent" onClick={async () => {
+                try {
+                  const q = new URLSearchParams();
+                  if (searchQuery) q.set('search', searchQuery);
+                  if (filterStatus !== 'all') q.set('status', filterStatus);
+                  const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/patients/export?${q.toString()}`;
+                  const resp = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${require('js-cookie').get('token') || ''}`, 'X-Tenant-ID': require('js-cookie').get('tenant_id') || '' }
+                  });
+                  const blob = await resp.blob();
+                  const a = document.createElement('a');
+                  a.href = URL.createObjectURL(blob);
+                  a.download = 'patients.csv';
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                } catch (e) {
+                  toast({ title: 'Export Failed', description: 'Unable to export patients', variant: 'destructive' });
+                }
+              }}>
                 <Filter className="w-4 h-4" />
                 Filters
               </Button>

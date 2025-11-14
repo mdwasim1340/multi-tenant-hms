@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, createContext, useContext } from 'react';
-// import { api } from '@/lib/api'; // Commented out for mock implementation
+import { api } from '@/lib/api';
 
 // --- Mock Data ---
 const mockTiers = {
@@ -138,32 +138,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     setLoading(true);
     
     try {
-      // Use real API call now that backend is implemented
-      const response = await fetch('/api/subscriptions/current', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`,
-          'X-Tenant-ID': localStorage.getItem('tenantId') || 'tenant_1762083064503',
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setSubscription(data);
-      } else {
-        console.warn('⚠️  Subscription API not available, using default basic tier');
-        // Fall back to basic tier if API fails
-        const currentTier = 'basic';
-        const mockData: SubscriptionData = {
-          tier: mockTiers[currentTier],
-          usage: mockUsage,
-          warnings: mockUsage.patients_count > mockTiers[currentTier].limits.max_patients * 0.8 ? mockWarnings : [],
-        };
-        setSubscription(mockData);
-      }
+      const response = await api.get('/api/subscriptions/current');
+      setSubscription(response.data);
     } catch (error) {
       console.warn('⚠️  Subscription API error, using default basic tier');
-      // Fall back to basic tier if API fails
       const currentTier = 'basic';
       const mockData: SubscriptionData = {
         tier: mockTiers[currentTier],

@@ -1,0 +1,190 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - generic [ref=e7]: M
+          - generic [ref=e8]: MediFlow
+        - button [ref=e9]:
+          - img
+      - navigation [ref=e10]:
+        - link "Dashboard" [ref=e11] [cursor=pointer]:
+          - /url: /dashboard
+          - button "Dashboard" [ref=e12]:
+            - img
+            - generic [ref=e13]: Dashboard
+        - button "Patient Management" [ref=e15]:
+          - img
+          - generic [ref=e16]: Patient Management
+          - img
+        - button "Appointments" [ref=e18]:
+          - img
+          - generic [ref=e19]: Appointments
+          - img
+        - button "Bed Management" [ref=e21]:
+          - img
+          - generic [ref=e22]: Bed Management
+          - img
+        - button "Medical Records" [ref=e24]:
+          - img
+          - generic [ref=e25]: Medical Records
+          - img
+        - button "Billing & Finance" [ref=e27]:
+          - img
+          - generic [ref=e28]: Billing & Finance
+          - img
+        - button "Staff Management" [ref=e30]:
+          - img
+          - generic [ref=e31]: Staff Management
+          - img
+        - button "Workforce Management" [ref=e33]:
+          - img
+          - generic [ref=e34]: Workforce Management
+          - img
+        - button "Pharmacy Management" [ref=e36]:
+          - img
+          - generic [ref=e37]: Pharmacy Management
+          - img
+        - button "Inventory & Supply" [ref=e39]:
+          - img
+          - generic [ref=e40]: Inventory & Supply
+          - img
+        - button "Analytics & Reports" [ref=e42]:
+          - img
+          - generic [ref=e43]: Analytics & Reports
+          - img
+        - button "Notifications & Alerts" [ref=e45]:
+          - img
+          - generic [ref=e46]: Notifications & Alerts
+          - img
+        - button "Admin Functions" [ref=e48]:
+          - img
+          - generic [ref=e49]: Admin Functions
+          - img
+      - generic [ref=e50]:
+        - link "Profile" [ref=e51] [cursor=pointer]:
+          - /url: /profile
+          - button "Profile" [ref=e52]:
+            - img
+            - generic [ref=e53]: Profile
+        - link "Settings" [ref=e54] [cursor=pointer]:
+          - /url: /settings
+          - button "Settings" [ref=e55]:
+            - img
+            - generic [ref=e56]: Settings
+        - button "Logout" [ref=e57]:
+          - img
+          - generic [ref=e58]: Logout
+    - generic [ref=e59]:
+      - banner [ref=e60]:
+        - generic [ref=e62]:
+          - img [ref=e63]
+          - textbox "Search patients, appointments..." [ref=e66]
+        - generic [ref=e67]:
+          - button [ref=e68]:
+            - img
+          - button [ref=e70]:
+            - img
+          - link [ref=e71] [cursor=pointer]:
+            - /url: /settings
+            - button [ref=e72]:
+              - img
+          - link [ref=e73] [cursor=pointer]:
+            - /url: /profile
+            - button [ref=e74]:
+              - img
+      - main [ref=e75]:
+        - generic [ref=e76]:
+          - generic [ref=e77]:
+            - heading "New Patient Registration" [level=1] [ref=e78]
+            - paragraph [ref=e79]: Complete the registration process to add a new patient
+          - generic [ref=e80]:
+            - generic [ref=e81]:
+              - generic [ref=e82]: "1"
+              - paragraph [ref=e84]: Personal Info
+            - generic [ref=e86]:
+              - generic [ref=e87]: "2"
+              - paragraph [ref=e89]: Contact & Insurance
+            - generic [ref=e91]:
+              - generic [ref=e92]: "3"
+              - paragraph [ref=e94]: Medical History
+            - generic [ref=e96]:
+              - generic [ref=e97]: "4"
+              - paragraph [ref=e99]: Review & Submit
+          - generic [ref=e102]:
+            - img [ref=e103]
+            - generic [ref=e105]:
+              - heading "AI-Powered Registration" [level=3] [ref=e106]
+              - paragraph [ref=e107]: Our system will automatically detect duplicate records, assess health risks, and suggest relevant medical history based on your input.
+          - generic [ref=e110]:
+            - generic [ref=e111]:
+              - heading "Personal Information" [level=2] [ref=e112]
+              - generic [ref=e113]:
+                - generic [ref=e114]:
+                  - generic [ref=e115]: First Name *
+                  - textbox "First Name *" [ref=e116]:
+                    - /placeholder: John
+                    - text: A
+                  - paragraph [ref=e117]: First name must be at least 2 characters
+                - generic [ref=e118]:
+                  - generic [ref=e119]: Last Name *
+                  - textbox "Last Name *" [ref=e120]:
+                    - /placeholder: Doe
+                    - text: B
+                  - paragraph [ref=e121]: Last name must be at least 2 characters
+                - generic [ref=e122]:
+                  - generic [ref=e123]: Middle Name
+                  - textbox "Middle Name" [ref=e124]:
+                    - /placeholder: Michael
+                - generic [ref=e125]:
+                  - generic [ref=e126]: Preferred Name
+                  - textbox "Preferred Name" [ref=e127]:
+                    - /placeholder: Johnny
+                - generic [ref=e128]:
+                  - generic [ref=e129]: Date of Birth *
+                  - textbox "Date of Birth *" [active] [ref=e130]: 2999-01-01
+                - generic [ref=e131]:
+                  - generic [ref=e132]: Gender *
+                  - combobox [ref=e133]:
+                    - generic: Male
+                    - img
+                - generic [ref=e134]:
+                  - generic [ref=e135]: Marital Status
+                  - combobox [ref=e136]:
+                    - generic: Select status
+                    - img
+                - generic [ref=e137]:
+                  - generic [ref=e138]: Occupation
+                  - textbox "Occupation" [ref=e139]:
+                    - /placeholder: Software Engineer
+            - generic [ref=e141]:
+              - img [ref=e142]
+              - generic [ref=e145]:
+                - paragraph [ref=e146]: Patient Number Generated
+                - paragraph [ref=e147]: P1763116569585664
+          - generic [ref=e148]:
+            - button "Previous" [disabled]
+            - generic [ref=e149]: Step 1 of 4
+            - button "Next" [ref=e150]:
+              - text: Next
+              - img
+  - button "Open chat" [ref=e151]:
+    - img [ref=e152]
+  - generic [ref=e158] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e159]:
+      - img [ref=e160]
+    - generic [ref=e164]:
+      - button "Open issues overlay" [ref=e165]:
+        - generic [ref=e166]:
+          - generic [ref=e167]: "1"
+          - generic [ref=e168]: "2"
+        - generic [ref=e169]:
+          - text: Issue
+          - generic [ref=e170]: s
+      - button "Collapse issues badge" [ref=e171]:
+        - img [ref=e172]
+  - alert [ref=e174]
+```

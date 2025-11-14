@@ -729,6 +729,7 @@ export default function PatientRegistration() {
               </div>
               {step < steps.length ? (
                 <Button
+                  data-testid="next-button"
                   onClick={handleNextStep}
                   className="bg-primary hover:bg-primary/90"
                   disabled={loading}
@@ -738,6 +739,7 @@ export default function PatientRegistration() {
                 </Button>
               ) : (
                 <Button
+                  data-testid="submit-registration"
                   onClick={handleFinalSubmit}
                   className="bg-primary hover:bg-primary/90"
                   disabled={loading}

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import jwkToPem from 'jwk-to-pem';
 import fetch from 'node-fetch';
+import { getUserByEmail } from '../services/userService';
 
 let pems: { [key: string]: string } = {};
 
@@ -56,7 +57,7 @@ export const adminAuthMiddleware = (req: Request, res: Response, next: NextFunct
     return res.status(401).json({ message: 'Invalid token' });
   }
 
-  jwt.verify(token, pem, { algorithms: ['RS256'] }, (err, payload) => {
+  jwt.verify(token, pem, { algorithms: ['RS256'] }, async (err, payload) => {
     if (err) {
       return res.status(401).json({ message: 'Invalid token' });
     }
@@ -67,8 +68,14 @@ export const adminAuthMiddleware = (req: Request, res: Response, next: NextFunct
     }
 
     req.user = payload;
-    // Extract userId for consistent access across controllers
-    (req as any).userId = (payload as any).sub || (payload as any)['cognito:username'];
+    // Map JWT to local DB user id when possible
+    try {
+      const email = (payload as any).email || (payload as any)['cognito:username'];
+      const user = email ? await getUserByEmail(email) : null;
+      (req as any).userId = user?.id ?? (payload as any).sub ?? (payload as any)['cognito:username'];
+    } catch (mapErr) {
+      (req as any).userId = (payload as any).sub || (payload as any)['cognito:username'];
+    }
     next();
   });
 };
@@ -92,7 +99,7 @@ export const hospitalAuthMiddleware = (req: Request, res: Response, next: NextFu
     return res.status(401).json({ message: 'Invalid token' });
   }
 
-  jwt.verify(token, pem, { algorithms: ['RS256'] }, (err, payload) => {
+  jwt.verify(token, pem, { algorithms: ['RS256'] }, async (err, payload) => {
     if (err) {
       return res.status(401).json({ message: 'Invalid token' });
     }
@@ -103,8 +110,14 @@ export const hospitalAuthMiddleware = (req: Request, res: Response, next: NextFu
     }
 
     req.user = payload;
-    // Extract userId for consistent access across controllers
-    (req as any).userId = (payload as any).sub || (payload as any)['cognito:username'];
+    // Map JWT to local DB user id when possible
+    try {
+      const email = (payload as any).email || (payload as any)['cognito:username'];
+      const user = email ? await getUserByEmail(email) : null;
+      (req as any).userId = user?.id ?? (payload as any).sub ?? (payload as any)['cognito:username'];
+    } catch (mapErr) {
+      (req as any).userId = (payload as any).sub || (payload as any)['cognito:username'];
+    }
     next();
   });
 };

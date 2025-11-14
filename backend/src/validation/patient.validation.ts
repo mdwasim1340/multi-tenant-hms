@@ -23,18 +23,18 @@ const PatientBaseSchema = z.object({
   emergency_contact_name: z.string().max(255).optional(),
   emergency_contact_relationship: z.string().max(100).optional(),
   emergency_contact_phone: z.string().max(50).optional(),
-  emergency_contact_email: z.string().email().optional().or(z.literal('')),
-  blood_type: z.enum(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']).optional(),
-  allergies: z.string().optional(),
-  current_medications: z.string().optional(),
-  medical_history: z.string().optional(),
-  family_medical_history: z.string().optional(),
-  insurance_provider: z.string().max(255).optional(),
-  insurance_policy_number: z.string().max(100).optional(),
-  insurance_group_number: z.string().max(100).optional(),
-  insurance_info: z.record(z.string(), z.any()).optional(),
+  emergency_contact_email: z.string().email().optional().or(z.literal('')).nullable(),
+  blood_type: z.enum(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']).optional().nullable(),
+  allergies: z.string().optional().nullable(),
+  current_medications: z.string().optional().nullable(),
+  medical_history: z.string().optional().nullable(),
+  family_medical_history: z.string().optional().nullable(),
+  insurance_provider: z.string().max(255).optional().nullable(),
+  insurance_policy_number: z.string().max(100).optional().nullable(),
+  insurance_group_number: z.string().max(100).optional().nullable(),
+  insurance_info: z.record(z.string(), z.any()).optional().nullable(),
   status: z.enum(['active', 'inactive', 'deceased', 'transferred']).default('active'),
-  notes: z.string().optional(),
+  notes: z.string().optional().nullable(),
   custom_fields: z.record(z.string(), z.any()).optional()
 });
 
@@ -43,7 +43,10 @@ export const CreatePatientSchema = z.object({
   patient_number: z.string().min(1).max(50),
   first_name: z.string().min(1).max(255),
   last_name: z.string().min(1).max(255),
-  date_of_birth: z.string().datetime()
+  date_of_birth: z.union([
+    z.string().datetime(),
+    z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+  ])
 }).merge(PatientBaseSchema.partial().omit({
   patient_number: true,
   first_name: true,
@@ -69,7 +72,10 @@ export const PatientSearchSchema = z.object({
   state: z.string().optional(),
   blood_type: z.enum(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']).optional(),
   sort_by: z.enum(['first_name', 'last_name', 'patient_number', 'date_of_birth', 'created_at']).default('created_at'),
-  sort_order: z.enum(['asc', 'desc']).default('desc')
+  sort_order: z.enum(['asc', 'desc']).default('desc'),
+  created_at_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  created_at_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  custom_field_filters: z.record(z.string(), z.any()).optional()
 });
 
 // Export types inferred from schemas

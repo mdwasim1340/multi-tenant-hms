@@ -65,6 +65,17 @@ export function errorHandler(
         timestamp: new Date().toISOString(),
       });
     }
+
+    // Relation does not exist (likely missing tenant schema tables)
+    if (dbError.code === '42P01') {
+      return res.status(500).json({
+        success: false,
+        error: 'Tenant schema not initialized',
+        code: 'SCHEMA_NOT_INITIALIZED',
+        details: 'Required tables for this tenant are missing. Initialize schema.',
+        timestamp: new Date().toISOString(),
+      });
+    }
   }
 
   // Default error response
