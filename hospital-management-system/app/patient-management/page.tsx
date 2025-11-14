@@ -1,70 +1,32 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, AlertCircle, TrendingUp, Activity, ChevronRight } from "lucide-react"
+import { Plus, TrendingUp, Activity, ChevronRight, Users, FileText, UserPlus } from "lucide-react"
 import { UsageWarning } from "@/components/subscription/usage-warning"
 import { FeatureGate } from "@/components/subscription/feature-gate"
+import { usePatients } from "@/hooks/usePatients"
+import { formatPatientName, calculateAge } from "@/lib/patients"
 
 export default function PatientManagement() {
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("overview")
 
-  const patients = [
-    {
-      id: "P001",
-      name: "Sarah Johnson",
-      age: 45,
-      mrn: "MRN-2024-001",
-      status: "Active",
-      riskLevel: "High",
-      lastVisit: "2024-10-20",
-      conditions: ["Hypertension", "Diabetes"],
-      aiInsight: "Readmission risk: 72% - Recommend follow-up",
-    },
-    {
-      id: "P002",
-      name: "Michael Chen",
-      age: 62,
-      mrn: "MRN-2024-002",
-      status: "Active",
-      riskLevel: "Medium",
-      lastVisit: "2024-10-18",
-      conditions: ["Cardiac History"],
-      aiInsight: "Stable condition - Continue current treatment",
-    },
-    {
-      id: "P003",
-      name: "Emma Williams",
-      age: 28,
-      mrn: "MRN-2024-003",
-      status: "Scheduled",
-      riskLevel: "Low",
-      lastVisit: "2024-10-15",
-      conditions: ["Routine Checkup"],
-      aiInsight: "Preventive care recommended",
-    },
-  ]
+  // Fetch recent patients (limit to 5 for overview)
+  const { patients, loading, pagination } = usePatients({
+    page: 1,
+    limit: 5,
+    status: "active",
+  })
 
-  const getRiskColor = (level: string) => {
-    switch (level) {
-      case "High":
-        return "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200"
-      case "Medium":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200"
-      case "Low":
-        return "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
+
 
   return (
     <div className="flex h-screen bg-background">
@@ -81,141 +43,247 @@ export default function PatientManagement() {
                 <h1 className="text-3xl font-bold text-foreground">Patient Management</h1>
                 <p className="text-muted-foreground mt-1">Manage patient records and health profiles</p>
               </div>
-              <Button className="bg-primary hover:bg-primary/90">
+              <Button
+                className="bg-primary hover:bg-primary/90"
+                onClick={() => router.push("/patient-registration")}
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 New Patient
               </Button>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-8">
-                <TabsTrigger value="overview">Patient List</TabsTrigger>
-                <TabsTrigger value="registration">Registration</TabsTrigger>
-                <TabsTrigger value="analytics">AI Analytics</TabsTrigger>
-              </TabsList>
+            {/* Quick Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="border-border/50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Patients</p>
+                      <p className="text-3xl font-bold text-foreground mt-2">
+                        {loading ? "..." : pagination?.total || 0}
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Users className="w-6 h-6 text-primary" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-              {/* Patient List Tab */}
-              <TabsContent value="overview" className="space-y-4">
-                <div className="grid gap-4">
-                  {patients.map((patient) => (
-                    <Card
-                      key={patient.id}
-                      className="hover:shadow-md transition-shadow cursor-pointer border-border/50"
-                    >
-                      <CardContent className="pt-6">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                <span className="text-sm font-semibold text-primary">{patient.name.charAt(0)}</span>
-                              </div>
-                              <div>
-                                <h3 className="font-semibold text-foreground">{patient.name}</h3>
-                                <p className="text-sm text-muted-foreground">{patient.mrn}</p>
-                              </div>
+              <Card className="border-border/50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Active Patients</p>
+                      <p className="text-3xl font-bold text-foreground mt-2">
+                        {loading ? "..." : patients.filter((p) => p.status === "active").length}
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                      <Activity className="w-6 h-6 text-green-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Recent Registrations</p>
+                      <p className="text-3xl font-bold text-foreground mt-2">{loading ? "..." : patients.length}</p>
+                    </div>
+                    <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center">
+                      <UserPlus className="w-6 h-6 text-blue-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card
+                className="border-border/50 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => router.push("/patient-management/patient-directory")}
+              >
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Users className="w-6 h-6 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-foreground">Patient Directory</h3>
+                      <p className="text-sm text-muted-foreground mt-1">View and search all patients</p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="border-border/50 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => router.push("/patient-registration")}
+              >
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                      <UserPlus className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-foreground">Register Patient</h3>
+                      <p className="text-sm text-muted-foreground mt-1">Add new patient record</p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="border-border/50 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => router.push("/patient-management/records")}
+              >
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center">
+                      <FileText className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-foreground">Medical Records</h3>
+                      <p className="text-sm text-muted-foreground mt-1">Access patient records</p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Recent Patients */}
+            <Card className="border-border/50">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Recent Patients</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push("/patient-management/patient-directory")}
+                  >
+                    View All
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <p className="text-muted-foreground text-center py-8">Loading patients...</p>
+                ) : patients.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-4">No patients registered yet</p>
+                    <Button onClick={() => router.push("/patient-registration")}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Register First Patient
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {patients.map((patient) => {
+                      const age = patient.age || calculateAge(patient.date_of_birth)
+                      const fullName = formatPatientName(patient)
+
+                      return (
+                        <div
+                          key={patient.id}
+                          className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                          onClick={() => router.push(`/patient-management/${patient.id}`)}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <span className="text-sm font-semibold text-primary">
+                                {patient.first_name.charAt(0)}
+                              </span>
                             </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 mb-3">
-                              <div>
-                                <p className="text-xs text-muted-foreground">Age</p>
-                                <p className="font-semibold text-foreground">{patient.age} years</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-muted-foreground">Status</p>
-                                <Badge variant="outline" className="mt-1">
-                                  {patient.status}
-                                </Badge>
-                              </div>
-                              <div>
-                                <p className="text-xs text-muted-foreground">Risk Level</p>
-                                <Badge className={`mt-1 ${getRiskColor(patient.riskLevel)}`}>{patient.riskLevel}</Badge>
-                              </div>
-                              <div>
-                                <p className="text-xs text-muted-foreground">Last Visit</p>
-                                <p className="font-semibold text-foreground">{patient.lastVisit}</p>
-                              </div>
-                            </div>
-
-                            {/* AI Insight */}
-                            <div className="bg-accent/5 border border-accent/20 rounded-lg p-3 mt-3">
-                              <div className="flex items-start gap-2">
-                                <TrendingUp className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                                <div>
-                                  <p className="text-xs font-semibold text-accent mb-1">AI Insight</p>
-                                  <p className="text-sm text-foreground">{patient.aiInsight}</p>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Conditions */}
-                            <div className="flex flex-wrap gap-2 mt-3">
-                              {patient.conditions.map((condition) => (
-                                <Badge key={condition} variant="secondary" className="text-xs">
-                                  {condition}
-                                </Badge>
-                              ))}
+                            <div>
+                              <h3 className="font-semibold text-foreground">{fullName}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                {age} years • {patient.patient_number}
+                              </p>
                             </div>
                           </div>
-                          <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-1" />
+                          <div className="flex items-center gap-3">
+                            <Badge
+                              variant={patient.status === "active" ? "default" : "secondary"}
+                              className={
+                                patient.status === "active"
+                                  ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200"
+                                  : ""
+                              }
+                            >
+                              {patient.status.charAt(0).toUpperCase() + patient.status.slice(1)}
+                            </Badge>
+                            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                          </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-8">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="analytics">Analytics</TabsTrigger>
+              </TabsList>
+
+              {/* Overview Tab */}
+              <TabsContent value="overview" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card className="border-border/50">
+                    <CardHeader>
+                      <CardTitle>Quick Stats</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Total Patients</span>
+                          <span className="text-lg font-bold text-foreground">{pagination?.total || 0}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Active Patients</span>
+                          <span className="text-lg font-bold text-green-600">
+                            {patients.filter((p) => p.status === "active").length}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Inactive Patients</span>
+                          <span className="text-lg font-bold text-gray-600">
+                            {patients.filter((p) => p.status === "inactive").length}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-border/50">
+                    <CardHeader>
+                      <CardTitle>Recent Activity</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                          {patients.length} patients registered recently
+                        </p>
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => router.push("/patient-management/patient-directory")}
+                        >
+                          View All Patients
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-              </TabsContent>
-
-              {/* Registration Tab */}
-              <TabsContent value="registration" className="space-y-6">
-                <Card className="border-border/50">
-                  <CardHeader>
-                    <CardTitle>New Patient Registration</CardTitle>
-                    <CardDescription>Complete the form to register a new patient</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">First Name</label>
-                        <Input placeholder="Enter first name" />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">Last Name</label>
-                        <Input placeholder="Enter last name" />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">Date of Birth</label>
-                        <Input type="date" />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">Contact Number</label>
-                        <Input placeholder="+1 (555) 000-0000" />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium text-foreground mb-2 block">Email Address</label>
-                      <Input type="email" placeholder="patient@example.com" />
-                    </div>
-
-                    <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                      <div className="flex gap-3">
-                        <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-semibold text-blue-900 dark:text-blue-100 text-sm">
-                            AI Duplicate Detection
-                          </p>
-                          <p className="text-sm text-blue-800 dark:text-blue-200 mt-1">
-                            System will automatically check for duplicate records and flag potential matches
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <Button className="w-full bg-primary hover:bg-primary/90">Register Patient</Button>
-                  </CardContent>
-                </Card>
               </TabsContent>
 
               {/* AI Analytics Tab */}
