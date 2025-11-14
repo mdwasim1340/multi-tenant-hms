@@ -49,6 +49,7 @@ export async function getPatients(
     return response.data;
   } catch (error: any) {
     console.error('Error fetching patients:', error);
+    console.error('Error response:', error.response?.data);
     throw new Error(
       error.response?.data?.error || 'Failed to fetch patients'
     );
@@ -74,7 +75,19 @@ export async function createPatient(
   data: CreatePatientData
 ): Promise<Patient> {
   try {
-    const response = await api.post<PatientResponse>('/api/patients', data);
+    // Convert date_of_birth to ISO datetime format (backend expects datetime)
+    const formattedData = {
+      ...data,
+      date_of_birth: data.date_of_birth.includes('T') 
+        ? data.date_of_birth 
+        : `${data.date_of_birth}T00:00:00.000Z`,
+      // Remove empty strings for optional fields
+      email: data.email || undefined,
+      phone: data.phone || undefined,
+      mobile_phone: data.mobile_phone || undefined,
+    };
+
+    const response = await api.post<PatientResponse>('/api/patients', formattedData);
     return response.data.data.patient;
   } catch (error: any) {
     console.error('Error creating patient:', error);
@@ -92,6 +105,8 @@ export async function createPatient(
           .join(', ');
         throw new Error(`Validation error: ${fieldErrors}`);
       }
+      // Show the actual error message from backend
+      throw new Error(error.response?.data?.error || 'Validation error');
     }
     
     throw new Error(
@@ -145,9 +160,23 @@ export async function updatePatient(
   data: UpdatePatientData
 ): Promise<Patient> {
   try {
+    // Convert date_of_birth to ISO datetime format if present
+    const formattedData = {
+      ...data,
+      ...(data.date_of_birth && {
+        date_of_birth: data.date_of_birth.includes('T')
+          ? data.date_of_birth
+          : `${data.date_of_birth}T00:00:00.000Z`,
+      }),
+      // Remove empty strings for optional fields
+      email: data.email || undefined,
+      phone: data.phone || undefined,
+      mobile_phone: data.mobile_phone || undefined,
+    };
+
     const response = await api.put<PatientResponse>(
       `/api/patients/${id}`,
-      data
+      formattedData
     );
     return response.data.data.patient;
   } catch (error: any) {
@@ -169,6 +198,8 @@ export async function updatePatient(
           .join(', ');
         throw new Error(`Validation error: ${fieldErrors}`);
       }
+      // Show the actual error message from backend
+      throw new Error(error.response?.data?.error || 'Validation error');
     }
     
     throw new Error(
