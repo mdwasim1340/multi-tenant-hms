@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
@@ -14,12 +14,42 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Users, CheckCircle2, Zap, ChevronRight, Phone, Heart, AlertTriangle, Loader2 } from "lucide-react"
 import { usePatientForm } from "@/hooks/usePatientForm"
 import { useToast } from "@/hooks/use-toast"
+import { isAuthenticated } from "@/lib/auth"
+import { getTenantContext } from "@/lib/subdomain"
 
 export default function PatientRegistration() {
   const router = useRouter()
   const { toast } = useToast()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [step, setStep] = useState(1)
+  
+  // Check authentication on mount
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to access patient registration",
+        variant: "destructive",
+      })
+      router.push('/auth/login')
+      return
+    }
+    
+    // Check tenant context
+    const tenantId = getTenantContext()
+    if (!tenantId) {
+      toast({
+        title: "Tenant Context Missing",
+        description: "Please log in again to set your tenant context",
+        variant: "destructive",
+      })
+      router.push('/auth/login')
+      return
+    }
+    
+    console.log('✅ Authentication check passed')
+    console.log('✅ Tenant context:', tenantId)
+  }, [router, toast])
 
   // Use the patient form hook
   const {

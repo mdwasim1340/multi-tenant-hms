@@ -124,6 +124,11 @@ export async function createPatient(
       throw new Error(errorData?.error || errorData?.message || 'Validation error');
     }
     
+    // Handle authentication errors
+    if (error.response?.status === 401) {
+      throw new Error('Authentication required. Please log in to continue.');
+    }
+    
     throw new Error(
       error.response?.data?.error || 'Failed to create patient'
     );
