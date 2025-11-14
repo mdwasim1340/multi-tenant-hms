@@ -97,6 +97,21 @@ export const signIn = async (
         Cookies.set('user_name', response.data.user.name || email, {
           expires: rememberMe ? 30 : 1,
         });
+        
+        // Store tenant ID for API requests
+        if (response.data.user.tenant_id) {
+          Cookies.set('tenant_id', response.data.user.tenant_id, {
+            expires: rememberMe ? 30 : 1,
+            path: '/',
+            sameSite: 'lax',
+          });
+          
+          // Also store in localStorage for client-side access
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('tenant_id', response.data.user.tenant_id);
+            console.log(`✅ Tenant context set: ${response.data.user.tenant_id}`);
+          }
+        }
       }
 
       // Store permissions and roles
