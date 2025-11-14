@@ -151,8 +151,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         const data = await response.json();
         setSubscription(data);
       } else {
-        console.error('Failed to fetch subscription:', response.status);
-        // Fall back to mock data if API fails
+        console.warn('⚠️  Subscription API not available, using default basic tier');
+        // Fall back to basic tier if API fails
         const currentTier = 'basic';
         const mockData: SubscriptionData = {
           tier: mockTiers[currentTier],
@@ -162,8 +162,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         setSubscription(mockData);
       }
     } catch (error) {
-      console.error('Error fetching subscription:', error);
-      // Fall back to mock data if API fails
+      console.warn('⚠️  Subscription API error, using default basic tier');
+      // Fall back to basic tier if API fails
       const currentTier = 'basic';
       const mockData: SubscriptionData = {
         tier: mockTiers[currentTier],

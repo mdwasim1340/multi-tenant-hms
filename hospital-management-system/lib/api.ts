@@ -37,11 +37,23 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 400 && error.response?.data?.code === 'MISSING_TENANT_ID') {
       console.error('❌ Tenant context missing for API request');
-      // Optionally redirect to tenant selection
+      // Redirect to login instead of tenant selection
+      // User should log in again to set proper tenant context
       if (typeof window !== 'undefined') {
-        window.location.href = '/select-tenant';
+        console.warn('⚠️  Redirecting to login to set tenant context');
+        window.location.href = '/auth/login';
       }
     }
+    
+    if (error.response?.status === 401) {
+      console.error('❌ Authentication required');
+      // Redirect to login for authentication errors
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/')) {
+        console.warn('⚠️  Redirecting to login for authentication');
+        window.location.href = '/auth/login';
+      }
+    }
+    
     return Promise.reject(error);
   }
 );

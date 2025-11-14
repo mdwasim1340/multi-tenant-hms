@@ -24,6 +24,14 @@ export default function SelectTenantPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Check if user is already logged in with a tenant
+    const existingTenantId = localStorage.getItem('tenant_id');
+    if (existingTenantId) {
+      console.log('✅ Tenant already set, redirecting to dashboard');
+      router.push('/dashboard');
+      return;
+    }
+
     async function fetchTenants() {
       try {
         // In development, fetch list of tenants
@@ -36,21 +44,22 @@ export default function SelectTenantPage() {
         });
 
         if (!response.ok) {
-          throw new Error('Failed to fetch tenants');
+          console.warn('⚠️  Tenant list not available, redirecting to login');
+          router.push('/auth/login');
+          return;
         }
 
         const data = await response.json();
         setTenants(data.filter((t: Tenant) => t.status === 'active'));
         setIsLoading(false);
       } catch (err) {
-        console.error('Error fetching tenants:', err);
-        setError('Failed to load hospitals. Please try again.');
-        setIsLoading(false);
+        console.warn('⚠️  Error fetching tenants, redirecting to login');
+        router.push('/auth/login');
       }
     }
 
     fetchTenants();
-  }, []);
+  }, [router]);
 
   const handleTenantSelect = (tenant: Tenant) => {
     // Set tenant context
