@@ -471,11 +471,11 @@ export default function PatientEditPage() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="chronic_conditions">Chronic Conditions</Label>
+                        <Label htmlFor="medical_history">Medical History</Label>
                         <textarea
-                          id="chronic_conditions"
-                          value={formData.chronic_conditions || ""}
-                          onChange={(e) => handleInputChange("chronic_conditions", e.target.value)}
+                          id="medical_history"
+                          value={formData.medical_history || ""}
+                          onChange={(e) => handleInputChange("medical_history", e.target.value)}
                           className="w-full mt-2 p-3 border border-border rounded-lg bg-input text-foreground"
                           rows={3}
                         />

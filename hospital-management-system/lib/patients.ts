@@ -91,6 +91,9 @@ export async function createPatient(
     return response.data.data.patient;
   } catch (error: any) {
     console.error('Error creating patient:', error);
+    console.error('Error response status:', error.response?.status);
+    console.error('Error response data:', error.response?.data);
+    console.error('Formatted data sent:', formattedData);
     
     // Handle specific error cases
     if (error.response?.status === 409) {
@@ -98,15 +101,27 @@ export async function createPatient(
     }
     
     if (error.response?.status === 400) {
-      const details = error.response?.data?.details;
-      if (details) {
-        const fieldErrors = Object.entries(details)
+      const errorData = error.response?.data;
+      console.error('Full 400 error data:', JSON.stringify(errorData, null, 2));
+      
+      // Check for Zod validation errors (array format from backend)
+      if (errorData?.details && Array.isArray(errorData.details)) {
+        const fieldErrors = errorData.details
+          .map((detail: any) => `${detail.field}: ${detail.message}`)
+          .join(', ');
+        throw new Error(`Validation error: ${fieldErrors}`);
+      }
+      
+      // Check for object format details
+      if (errorData?.details && typeof errorData.details === 'object') {
+        const fieldErrors = Object.entries(errorData.details)
           .map(([field, message]) => `${field}: ${message}`)
           .join(', ');
         throw new Error(`Validation error: ${fieldErrors}`);
       }
+      
       // Show the actual error message from backend
-      throw new Error(error.response?.data?.error || 'Validation error');
+      throw new Error(errorData?.error || errorData?.message || 'Validation error');
     }
     
     throw new Error(

@@ -35,7 +35,7 @@ export interface Patient {
   // Medical Information
   blood_type?: string;
   allergies?: string;
-  chronic_conditions?: string;
+  medical_history?: string; // Changed from chronic_conditions to match backend
   current_medications?: string;
   family_medical_history?: string;
 
@@ -108,7 +108,7 @@ export interface CreatePatientData {
   // Medical Information
   blood_type?: string;
   allergies?: string;
-  chronic_conditions?: string;
+  medical_history?: string; // Changed from chronic_conditions to match backend
   current_medications?: string;
   family_medical_history?: string;
 
@@ -211,7 +211,7 @@ export interface PatientRegistrationForm {
   // Step 3: Medical History
   blood_type?: string;
   allergies?: string;
-  chronic_conditions?: string;
+  medical_history?: string; // Changed from chronic_conditions to match backend
   current_medications?: string;
   family_medical_history?: string;
 

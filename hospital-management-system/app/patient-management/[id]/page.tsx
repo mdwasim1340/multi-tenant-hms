@@ -403,10 +403,10 @@ export default function PatientDetailsPage() {
                           <p className="text-foreground mt-1 whitespace-pre-wrap">{patient.current_medications}</p>
                         </div>
                       )}
-                      {patient.chronic_conditions && (
+                      {patient.medical_history && (
                         <div>
-                          <p className="text-sm text-muted-foreground">Chronic Conditions</p>
-                          <p className="text-foreground mt-1 whitespace-pre-wrap">{patient.chronic_conditions}</p>
+                          <p className="text-sm text-muted-foreground">Medical History</p>
+                          <p className="text-foreground mt-1 whitespace-pre-wrap">{patient.medical_history}</p>
                         </div>
                       )}
                       {patient.family_medical_history && (
@@ -420,7 +420,7 @@ export default function PatientDetailsPage() {
                       {!patient.blood_type &&
                         !patient.allergies &&
                         !patient.current_medications &&
-                        !patient.chronic_conditions &&
+                        !patient.medical_history &&
                         !patient.family_medical_history && (
                           <p className="text-sm text-muted-foreground">No medical information recorded</p>
                         )}

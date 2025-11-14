@@ -70,7 +70,7 @@ const getInitialFormData = (): PatientRegistrationForm => ({
   insurance_group_number: '',
   blood_type: '',
   allergies: '',
-  chronic_conditions: '',
+  medical_history: '', // Changed from chronic_conditions to match backend
   current_medications: '',
   family_medical_history: '',
   custom_fields: {},
