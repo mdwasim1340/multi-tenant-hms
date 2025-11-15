@@ -2,11 +2,12 @@ import express from 'express';
 import { billingService } from '../services/billing';
 import { razorpayService } from '../services/razorpay';
 import { authMiddleware } from '../middleware/auth';
+import { requireBillingRead, requireBillingWrite, requireBillingAdmin } from '../middleware/billing-auth';
 
 const router = express.Router();
 
-// Generate invoice for tenant
-router.post('/generate-invoice', authMiddleware, async (req, res) => {
+// Generate invoice for tenant (requires billing:write permission)
+router.post('/generate-invoice', authMiddleware, requireBillingWrite, async (req, res) => {
   try {
     const { tenant_id, period_start, period_end, include_overage_charges, custom_line_items, notes, due_days } = req.body;
     
@@ -43,8 +44,8 @@ router.post('/generate-invoice', authMiddleware, async (req, res) => {
   }
 });
 
-// Get all invoices (admin)
-router.get('/invoices', authMiddleware, async (req, res) => {
+// Get all invoices (requires billing:read permission)
+router.get('/invoices', authMiddleware, requireBillingRead, async (req, res) => {
   try {
     const { limit = 50, offset = 0 } = req.query;
     
@@ -71,8 +72,8 @@ router.get('/invoices', authMiddleware, async (req, res) => {
   }
 });
 
-// Get invoices for specific tenant
-router.get('/invoices/:tenantId', authMiddleware, async (req, res) => {
+// Get invoices for specific tenant (requires billing:read permission)
+router.get('/invoices/:tenantId', authMiddleware, requireBillingRead, async (req, res) => {
   try {
     const { tenantId } = req.params;
     const { limit = 50, offset = 0 } = req.query;
@@ -110,8 +111,8 @@ router.get('/invoices/:tenantId', authMiddleware, async (req, res) => {
   }
 });
 
-// Get specific invoice details
-router.get('/invoice/:invoiceId', authMiddleware, async (req, res) => {
+// Get specific invoice details (requires billing:read permission)
+router.get('/invoice/:invoiceId', authMiddleware, requireBillingRead, async (req, res) => {
   try {
     const { invoiceId } = req.params;
     
@@ -141,8 +142,8 @@ router.get('/invoice/:invoiceId', authMiddleware, async (req, res) => {
   }
 });
 
-// Create Razorpay payment order
-router.post('/create-order', authMiddleware, async (req, res) => {
+// Create Razorpay payment order (requires billing:admin permission)
+router.post('/create-order', authMiddleware, requireBillingAdmin, async (req, res) => {
   try {
     const { invoice_id } = req.body;
     
@@ -169,8 +170,8 @@ router.post('/create-order', authMiddleware, async (req, res) => {
   }
 });
 
-// Verify and process Razorpay payment
-router.post('/verify-payment', authMiddleware, async (req, res) => {
+// Verify and process Razorpay payment (requires billing:admin permission)
+router.post('/verify-payment', authMiddleware, requireBillingAdmin, async (req, res) => {
   try {
     const {
       invoice_id,
@@ -206,8 +207,8 @@ router.post('/verify-payment', authMiddleware, async (req, res) => {
   }
 });
 
-// Record manual payment
-router.post('/manual-payment', authMiddleware, async (req, res) => {
+// Record manual payment (requires billing:admin permission)
+router.post('/manual-payment', authMiddleware, requireBillingAdmin, async (req, res) => {
   try {
     const { invoice_id, amount, payment_method, notes } = req.body;
     
@@ -244,8 +245,8 @@ router.post('/manual-payment', authMiddleware, async (req, res) => {
   }
 });
 
-// Get all payments (admin)
-router.get('/payments', authMiddleware, async (req, res) => {
+// Get all payments (requires billing:read permission)
+router.get('/payments', authMiddleware, requireBillingRead, async (req, res) => {
   try {
     const { limit = 50, offset = 0 } = req.query;
     
@@ -272,8 +273,8 @@ router.get('/payments', authMiddleware, async (req, res) => {
   }
 });
 
-// Get billing report (admin)
-router.get('/report', authMiddleware, async (req, res) => {
+// Get billing report (requires billing:read permission)
+router.get('/report', authMiddleware, requireBillingRead, async (req, res) => {
   try {
     const report = await billingService.generateBillingReport();
     

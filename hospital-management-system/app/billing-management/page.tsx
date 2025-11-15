@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { Card, CardContent } from "@/components/ui/card"
@@ -36,6 +37,7 @@ import {
 import { useInvoices, useInvoiceDetails } from "@/hooks/use-billing"
 import { InvoiceGenerationModal } from "@/components/billing/invoice-generation-modal"
 import { PaymentModal } from "@/components/billing/payment-modal"
+import { canAccessBilling, canCreateInvoices, canProcessPayments } from "@/lib/permissions"
 
 export default function BillingManagement() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -44,7 +46,19 @@ export default function BillingManagement() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [page, setPage] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
+  const [checkingPermissions, setCheckingPermissions] = useState(true)
   const limit = 10
+  const router = useRouter()
+  
+  // Check permissions on mount
+  useEffect(() => {
+    const hasAccess = canAccessBilling()
+    if (!hasAccess) {
+      router.push('/unauthorized')
+    } else {
+      setCheckingPermissions(false)
+    }
+  }, [router])
   
   // Fetch invoices from backend
   const { invoices, loading, error, pagination, refetch } = useInvoices(limit, page * limit)
@@ -89,6 +103,18 @@ export default function BillingManagement() {
 
   const totalPages = Math.ceil((pagination?.total || 0) / limit)
 
+  // Show loading while checking permissions
+  if (checkingPermissions) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+          <p className="text-muted-foreground">Checking permissions...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-screen bg-background">
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
@@ -113,13 +139,15 @@ export default function BillingManagement() {
                   <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
-                <Button 
-                  className="bg-primary hover:bg-primary/90"
-                  onClick={() => setShowGenerateModal(true)}
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  Create Invoice
-                </Button>
+                {canCreateInvoices() && (
+                  <Button 
+                    className="bg-primary hover:bg-primary/90"
+                    onClick={() => setShowGenerateModal(true)}
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Create Invoice
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -371,7 +399,7 @@ export default function BillingManagement() {
 
               {/* Actions */}
               <div className="flex gap-2 pt-4 border-t">
-                {(selectedInvoice.status === 'pending' || selectedInvoice.status === 'overdue') && (
+                {canProcessPayments() && (selectedInvoice.status === 'pending' || selectedInvoice.status === 'overdue') && (
                   <Button 
                     className="flex-1"
                     onClick={() => {

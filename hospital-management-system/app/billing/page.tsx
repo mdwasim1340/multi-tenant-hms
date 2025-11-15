@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { Button } from "@/components/ui/button"
@@ -8,15 +9,40 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CreditCard, FileText, TrendingUp, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw } from "lucide-react"
+import { CreditCard, FileText, TrendingUp, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw, ShieldAlert } from "lucide-react"
 import { useBillingReport } from "@/hooks/use-billing"
+import { canAccessBilling } from "@/lib/permissions"
 
 export default function Billing() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeTab, setActiveTab] = useState("invoices")
+  const [checkingPermissions, setCheckingPermissions] = useState(true)
+  const router = useRouter()
+  
+  // Check permissions on mount
+  useEffect(() => {
+    const hasAccess = canAccessBilling()
+    if (!hasAccess) {
+      router.push('/unauthorized')
+    } else {
+      setCheckingPermissions(false)
+    }
+  }, [router])
   
   // Fetch real billing data from backend
   const { report, loading, error, refetch } = useBillingReport()
+  
+  // Show loading while checking permissions
+  if (checkingPermissions) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+          <p className="text-muted-foreground">Checking permissions...</p>
+        </div>
+      </div>
+    )
+  }
 
   const invoices = [
     {
