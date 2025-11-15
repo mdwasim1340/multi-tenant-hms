@@ -24,6 +24,10 @@ export default function StaffManagement() {
   const { staff, loading: staffLoading, error: staffError } = useStaff(filters)
   const { analytics, loading: analyticsLoading } = useDashboardAnalytics()
 
+  // Log for debugging
+  console.log('Staff data:', { staff, loading: staffLoading, error: staffError })
+  console.log('Analytics data:', { analytics, loading: analyticsLoading })
+
   return (
     <div className="flex h-screen bg-background">
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
@@ -135,7 +139,7 @@ export default function StaffManagement() {
                       </div>
                     </CardContent>
                   </Card>
-                ) : staff.length === 0 ? (
+                ) : !staff || staff.length === 0 ? (
                   <Card className="border-border/50">
                     <CardContent className="pt-6">
                       <div className="text-center py-12">
@@ -146,7 +150,7 @@ export default function StaffManagement() {
                     </CardContent>
                   </Card>
                 ) : (
-                  staff.map((member) => (
+                  (staff || []).map((member) => (
                     <Card key={member.id} className="border-border/50 hover:shadow-md transition-shadow">
                       <CardContent className="pt-6">
                         <div className="flex items-start justify-between gap-4">
