@@ -7,11 +7,16 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CreditCard, FileText, TrendingUp, AlertCircle, CheckCircle, Clock, DollarSign } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { CreditCard, FileText, TrendingUp, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw } from "lucide-react"
+import { useBillingReport } from "@/hooks/use-billing"
 
 export default function Billing() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeTab, setActiveTab] = useState("invoices")
+  
+  // Fetch real billing data from backend
+  const { report, loading, error, refetch } = useBillingReport()
 
   const invoices = [
     {
@@ -89,55 +94,109 @@ export default function Billing() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card className="border-border/50">
+            {/* Metrics Cards */}
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <Card key={i} className="border-border/50">
+                    <CardContent className="pt-6">
+                      <Skeleton className="h-4 w-24 mb-2" />
+                      <Skeleton className="h-8 w-32" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : error ? (
+              <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Total Revenue</p>
-                      <p className="text-2xl font-bold text-foreground">$125,450</p>
+                      <p className="text-sm text-red-600 dark:text-red-400 mb-2">Failed to load billing data</p>
+                      <p className="text-xs text-red-500">{error}</p>
                     </div>
-                    <DollarSign className="w-8 h-8 text-accent opacity-20" />
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => refetch()}
+                      className="border-red-300"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Retry
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="border-border/50">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Total Revenue</p>
+                        <p className="text-2xl font-bold text-foreground">
+                          ${report?.total_revenue?.toLocaleString() || '0'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {report?.paid_invoices || 0} paid invoices
+                        </p>
+                      </div>
+                      <DollarSign className="w-8 h-8 text-accent opacity-20" />
+                    </div>
+                  </CardContent>
+                </Card>
 
-              <Card className="border-border/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Pending Claims</p>
-                      <p className="text-2xl font-bold text-yellow-600">$34,200</p>
+                <Card className="border-border/50">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Pending Amount</p>
+                        <p className="text-2xl font-bold text-yellow-600">
+                          ${report?.pending_amount?.toLocaleString() || '0'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {report?.pending_invoices || 0} pending invoices
+                        </p>
+                      </div>
+                      <Clock className="w-8 h-8 text-yellow-600 opacity-20" />
                     </div>
-                    <Clock className="w-8 h-8 text-yellow-600 opacity-20" />
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              <Card className="border-border/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Overdue Accounts</p>
-                      <p className="text-2xl font-bold text-red-600">$12,800</p>
+                <Card className="border-border/50">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Overdue Amount</p>
+                        <p className="text-2xl font-bold text-red-600">
+                          ${report?.overdue_amount?.toLocaleString() || '0'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {report?.overdue_invoices || 0} overdue invoices
+                        </p>
+                      </div>
+                      <AlertCircle className="w-8 h-8 text-red-600 opacity-20" />
                     </div>
-                    <AlertCircle className="w-8 h-8 text-red-600 opacity-20" />
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              <Card className="border-border/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Avg Reimbursement</p>
-                      <p className="text-2xl font-bold text-green-600">96.2%</p>
+                <Card className="border-border/50">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Monthly Revenue</p>
+                        <p className="text-2xl font-bold text-green-600">
+                          ${report?.monthly_revenue?.toLocaleString() || '0'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          This month
+                        </p>
+                      </div>
+                      <TrendingUp className="w-8 h-8 text-green-600 opacity-20" />
                     </div>
-                    <TrendingUp className="w-8 h-8 text-green-600 opacity-20" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 mb-8">
