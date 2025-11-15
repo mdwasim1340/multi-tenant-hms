@@ -1,68 +1,114 @@
-# Team Gamma - Billing & Finance Integration - AI Agent Guidelines
+# Team Gamma - Billing & Finance Integration
 
-## 🎯 Team Mission
+**Branch**: `team-gamma-billing`  
+**Base**: `development` branch (latest)  
+**Status**: Ready to Start 🚀
 
-**I am Team Gamma AI Agent**. My responsibility is to integrate the Billing & Finance Management system between the hospital management frontend and backend API. I will implement invoice management, payment processing, financial reporting, and ensure secure multi-tenant data isolation.
+---
 
-## 🤖 My Identity
+## 🎯 Mission
 
-- **Team**: Gamma (Billing & Finance)
-- **Branch**: team-gamma-billing
-- **Base**: development (latest)
-- **Focus**: Replace mock billing data with real backend integration
-- **Duration**: 3-4 weeks
-- **Status**: Active Development
+Integrate the Billing & Finance Management system between the hospital management frontend and backend API. Replace all mock data with real backend integration while ensuring secure multi-tenant isolation and proper authentication.
 
-## 📋 Team Responsibilities
+---
 
-### Core Deliverables
-1. **Invoice Management System** - Complete CRUD operations for invoices
-2. **Payment Processing** - Razorpay integration and manual payment recording
-3. **Financial Reporting** - Dashboard with metrics, trends, and analytics
-4. **Multi-Tenant Isolation** - Ensure data security across tenants
-5. **Permission-Based Access** - Role-based access control for billing features
+## 📋 What You're Building
 
-### System Components
-- **Frontend**: Next.js billing pages in `hospital-management-system/app/billing*`
-- **Backend**: Express.js billing routes in `backend/src/routes/billing.ts`
-- **Database**: PostgreSQL tables (invoices, payments, tenant_subscriptions)
-- **External**: Razorpay payment gateway integration
+### Systems to Implement
 
-## 🚀 Current System Status
+1. **Invoice Management** (Week 1-2)
+   - Invoice list with search/filter
+   - Invoice details view
+   - Invoice generation
+   - Multi-tenant isolation
 
-### ✅ Already Completed (by other teams)
-- Patient Management (Team Alpha)
-- Appointment Management (Team Beta)
-- Medical Records (Team Beta)
-- Bed Management (Team Delta)
-- Staff Management (Team Delta)
-- Analytics Dashboard (Team Delta)
+2. **Payment Processing** (Week 2-3)
+   - Razorpay integration
+   - Online payment flow
+   - Manual payment recording
+   - Payment verification
 
-### 🎯 Team Gamma Focus Areas
-- Billing Dashboard (`/billing`)
-- Invoice Management (`/billing-management`)
-- Insurance Claims (`/billing/claims`)
-- Payment Processing (`/billing/payments`)
-- Accounts Receivable (`/billing/receivables`)
-- Financial Reports (`/billing/reports`)
+3. **Financial Reporting** (Week 3-4)
+   - Dashboard analytics
+   - Revenue trends
+   - Payment method breakdown
+   - Custom reports
 
-## 📚 Specifications Location
+4. **Security & Permissions** (Week 4)
+   - Permission middleware
+   - Frontend guards
+   - Multi-tenant verification
 
-All Team Gamma specifications are in `.kiro/specs/billing-finance-integration/`:
+---
+
+## 📚 Specifications
+
+All specifications are in `.kiro/specs/billing-finance-integration/`:
+
 - **requirements.md** - 10 user stories with acceptance criteria
 - **design.md** - Architecture, data models, API design
 - **tasks.md** - 18 phases with 60+ detailed tasks
 
-## 🛠️ Implementation Approach
+---
+
+## 🚀 Quick Start
+
+### 1. Verify Your Environment
+
+```bash
+# Check you're on the right branch
+git branch
+# Should show: * team-gamma-billing
+
+# Check latest from development
+git pull origin development
+
+# Verify backend is running
+cd backend
+npm run dev  # Port 3000
+
+# Verify frontend is running
+cd hospital-management-system
+npm run dev  # Port 3001
+```
+
+### 2. Review Specifications
+
+```bash
+# Read requirements
+cat .kiro/specs/billing-finance-integration/requirements.md
+
+# Read design
+cat .kiro/specs/billing-finance-integration/design.md
+
+# Read tasks
+cat .kiro/specs/billing-finance-integration/tasks.md
+```
+
+### 3. Start with Phase 1
+
+**Task 1.1**: Create billing API client
+- File: `hospital-management-system/lib/api/billing.ts`
+- Configure axios with auth headers
+- Implement request/response interceptors
+
+---
+
+## 📊 Implementation Phases
 
 ### Phase 1: Infrastructure Setup (Tasks 1-3)
 **Duration**: 2-3 days
-**Focus**: API client, TypeScript types, custom hooks
 
-**Key Tasks**:
-- Create billing API client with axios configuration
-- Define TypeScript interfaces (Invoice, Payment, BillingReport)
-- Implement custom React hooks (useInvoices, useInvoiceDetails, useBillingReport)
+**Tasks**:
+- [ ] 1.1 Create billing API client module
+- [ ] 1.2 Implement invoice API methods
+- [ ] 1.3 Implement payment API methods
+- [ ] 1.4 Implement reporting API methods
+- [ ] 2.1 Create billing types file
+- [ ] 2.2 Create request/response types
+- [ ] 3.1 Create useInvoices hook
+- [ ] 3.2 Create useInvoiceDetails hook
+- [ ] 3.3 Create useBillingReport hook
 
 **Verification**:
 ```bash
@@ -73,15 +119,13 @@ npm run test -- billing-api.test.ts
 npx tsc --noEmit
 ```
 
-### Phase 2: Dashboard Integration (Tasks 4)
+### Phase 2: Dashboard Integration (Task 4)
 **Duration**: 1-2 days
-**Focus**: Replace mock data with real backend data
 
-**Key Tasks**:
-- Integrate useBillingReport hook into dashboard
-- Display real metrics (revenue, pending, overdue)
-- Update charts with real trend data
-- Add loading states and error handling
+**Tasks**:
+- [ ] 4.1 Integrate billing report data
+- [ ] 4.2 Add loading and error states
+- [ ] 4.3 Update charts and trends
 
 **Verification**:
 ```bash
@@ -97,13 +141,15 @@ cd hospital-management-system && npm run dev
 
 ### Phase 3: Invoice Management (Tasks 5-6)
 **Duration**: 2-3 days
-**Focus**: Invoice list, details, and generation
 
-**Key Tasks**:
-- Integrate useInvoices hook into billing-management page
-- Implement invoice detail modal with real data
-- Add pagination, search, and filter functionality
-- Create invoice generation form and API integration
+**Tasks**:
+- [ ] 5.1 Integrate invoice list data
+- [ ] 5.2 Implement invoice detail modal
+- [ ] 5.3 Add pagination controls
+- [ ] 5.4 Add loading and error handling
+- [ ] 6.1 Create invoice generation modal
+- [ ] 6.2 Implement invoice generation logic
+- [ ] 6.3 Refresh invoice list after creation
 
 **Verification**:
 ```bash
@@ -120,15 +166,14 @@ curl -X POST http://localhost:3000/api/billing/generate-invoice \
   -d '{"tenant_id":"TENANT_ID","period_start":"2025-01-01","period_end":"2025-01-31"}'
 ```
 
-### Phase 4: Payment Processing (Tasks 7)
+### Phase 4: Payment Processing (Task 7)
 **Duration**: 2-3 days
-**Focus**: Razorpay integration and manual payments
 
-**Key Tasks**:
-- Integrate Razorpay SDK
-- Implement online payment flow
-- Add manual payment recording
-- Update invoice status after payment
+**Tasks**:
+- [ ] 7.1 Integrate Razorpay SDK
+- [ ] 7.2 Implement online payment flow
+- [ ] 7.3 Implement manual payment recording
+- [ ] 7.4 Update UI after payment
 
 **Verification**:
 ```bash
@@ -149,13 +194,14 @@ curl -X POST http://localhost:3000/api/billing/manual-payment \
 
 ### Phase 5: Security & Permissions (Tasks 8-9)
 **Duration**: 1-2 days
-**Focus**: Permission middleware and frontend guards
 
-**Key Tasks**:
-- Create billing permission middleware (read, write, admin)
-- Apply middleware to billing routes
-- Add billing permissions to database
-- Implement frontend permission guards
+**Tasks**:
+- [ ] 8.1 Create billing permission middleware
+- [ ] 8.2 Apply middleware to billing routes
+- [ ] 8.3 Add billing permissions to database
+- [ ] 9.1 Create permission check utility
+- [ ] 9.2 Add permission guards to billing pages
+- [ ] 9.3 Conditionally render UI elements
 
 **Verification**:
 ```bash
@@ -168,13 +214,17 @@ curl -X GET http://localhost:3000/api/billing/invoices/TENANT_ID \
 
 ### Phase 6: Error Handling & UX (Tasks 10-13)
 **Duration**: 2-3 days
-**Focus**: Error handling, loading states, real-time updates
 
-**Key Tasks**:
-- Implement centralized error handler
-- Add skeleton screens and loading states
-- Implement auto-refresh functionality
-- Add toast notifications
+**Tasks**:
+- [ ] 10.1 Create error handling utility
+- [ ] 10.2 Add error boundaries
+- [ ] 10.3 Implement toast notifications
+- [ ] 11.1 Add tenant context validation
+- [ ] 11.2 Test cross-tenant isolation
+- [ ] 12.1 Create skeleton components
+- [ ] 12.2 Add loading states to pages
+- [ ] 13.1 Add auto-refresh functionality
+- [ ] 13.2 Implement optimistic updates
 
 **Verification**:
 - Test with invalid tenant ID (should show error)
@@ -183,13 +233,20 @@ curl -X GET http://localhost:3000/api/billing/invoices/TENANT_ID \
 
 ### Phase 7: Testing (Tasks 14-17)
 **Duration**: 3-4 days
-**Focus**: Unit, integration, and E2E tests
 
-**Key Tasks**:
-- Write unit tests for API client and hooks
-- Write integration tests for invoice and payment flows
-- Write E2E tests for complete user workflows
-- Test multi-tenant isolation
+**Tasks**:
+- [ ] 14.1 Test billing API client
+- [ ] 14.2 Test custom hooks
+- [ ] 14.3 Test permission utilities
+- [ ] 15.1 Test invoice management flow
+- [ ] 15.2 Test payment processing flow
+- [ ] 15.3 Test multi-tenant isolation
+- [ ] 16.1 Create API integration guide
+- [ ] 16.2 Create hook usage guide
+- [ ] 16.3 Create permission guide
+- [ ] 17.1 Test billing clerk workflow
+- [ ] 17.2 Test billing admin workflow
+- [ ] 17.3 Test error scenarios
 
 **Verification**:
 ```bash
@@ -205,13 +262,13 @@ npm run test:e2e
 
 ### Phase 8: Deployment & Monitoring (Task 18)
 **Duration**: 1-2 days
-**Focus**: Deploy and monitor
 
-**Key Tasks**:
-- Deploy to staging environment
-- Set up monitoring and logging
-- Deploy to production
-- Monitor for errors
+**Tasks**:
+- [ ] 18.1 Deploy to staging environment
+- [ ] 18.2 Set up monitoring
+- [ ] 18.3 Deploy to production
+
+---
 
 ## 🔒 Security Requirements
 
@@ -229,6 +286,8 @@ npm run test:e2e
 - **VERIFY** Razorpay signature for all payments
 - **VALIDATE** webhook signatures
 - **NEVER** store sensitive payment data in frontend
+
+---
 
 ## 📊 Success Metrics
 
@@ -254,6 +313,8 @@ npm run test:e2e
 - [ ] Error messages are clear and actionable
 - [ ] Empty states provide helpful guidance
 - [ ] Real-time updates work correctly
+
+---
 
 ## 🚨 Common Pitfalls to Avoid
 
@@ -298,6 +359,8 @@ const tenantId = Cookies.get('tenant_id');
 const invoices = await getInvoices(tenantId);
 ```
 
+---
+
 ## 📖 Quick Reference
 
 ### API Endpoints
@@ -328,6 +391,8 @@ GET    /api/billing/razorpay-config        - Get Razorpay config
 - **billing:read** - View invoices and reports
 - **billing:write** - Create invoices
 - **billing:admin** - Process payments, record manual payments
+
+---
 
 ## 🎯 Getting Started
 
@@ -362,6 +427,8 @@ GET    /api/billing/razorpay-config        - Get Razorpay config
 2. Complete Tasks 14-17 (Testing)
 3. Deploy to staging
 
+---
+
 ## 📞 Team Coordination
 
 ### Dependencies
@@ -379,6 +446,8 @@ GET    /api/billing/razorpay-config        - Get Razorpay config
 - Code reviews: All PRs reviewed before merge
 - Documentation: Update docs as you implement
 
+---
+
 ## 🎉 Success Criteria
 
 Team Gamma is successful when:
@@ -392,9 +461,9 @@ Team Gamma is successful when:
 
 ---
 
-**Team Gamma Status**: Ready to Start
-**Estimated Duration**: 3-4 weeks
-**Total Tasks**: 60+ tasks across 18 phases
+**Team Gamma Status**: Ready to Start 🚀  
+**Estimated Duration**: 3-4 weeks  
+**Total Tasks**: 60+ tasks across 18 phases  
 **Priority**: High (Core financial system)
 
-**Let's build an amazing billing system! 🚀**
+**Let's build an amazing billing system! 💰**

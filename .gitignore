@@ -1,10 +1,16 @@
 # Logs
 *.log
 
-# Team Gamma - Exclude other team steering files
-.kiro/steering/team-delta-operations-analytics.md
+# Team Gamma - Exclude other team steering files (local working copies only)
+.kiro/steering/team-alpha-*.md
+.kiro/steering/team-beta-*.md
+.kiro/steering/team-delta-*.md
+.kiro/steering/team-epsilon-*.md
 .kiro/steering/phase-2-execution.md
 
 # Team-specific working files
-TEAM_GAMMA_*.md
+TEAM_ALPHA_*.md
+TEAM_BETA_*.md
+TEAM_DELTA_*.md
+TEAM_EPSILON_*.md
 GITHUB_CONNECTION_VERIFIED.md
