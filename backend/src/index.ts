@@ -103,6 +103,7 @@ import diagnosisTreatmentRouter from './routes/diagnosis-treatment.routes';
 import labTestsRouter from './routes/lab-tests.routes';
 import imagingRouter from './routes/imaging.routes';
 import labPanelsRouter from './routes/lab-panels.routes';
+import bedManagementRouter from './routes/bed-management.routes';
 import { requireApplicationAccess } from './middleware/authorization';
 
 // Apply tenant middleware, authentication, and application access control to hospital routes
@@ -117,6 +118,9 @@ app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, requir
 app.use('/api/lab-tests', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labTestsRouter);
 app.use('/api/imaging', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), imagingRouter);
 app.use('/api/lab-panels', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labPanelsRouter);
+
+// Bed Management routes - Team Beta Sprint 1
+app.use('/api/beds', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), bedManagementRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {
