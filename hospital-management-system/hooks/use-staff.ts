@@ -15,10 +15,6 @@ export function useStaff(filters?: UseStaffFilters) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchStaff();
-  }, [fetchStaff]);
-
   const fetchStaff = useCallback(async () => {
     try {
       setLoading(true);
@@ -43,6 +39,10 @@ export function useStaff(filters?: UseStaffFilters) {
       setLoading(false);
     }
   }, [filters?.department, filters?.status, filters?.search, filters?.limit, filters?.offset]);
+
+  useEffect(() => {
+    fetchStaff();
+  }, [fetchStaff]);
 
   const createStaff = async (data: Partial<StaffProfile>) => {
     try {
