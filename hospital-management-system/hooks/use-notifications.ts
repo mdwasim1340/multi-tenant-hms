@@ -7,7 +7,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { api } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 import {
   Notification,
   NotificationListResponse,
@@ -53,19 +53,24 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
       setLoading(true);
       setError(null);
 
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-        ...filters,
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('limit', limit.toString());
+      
+      // Add filters to params
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value));
+        }
       });
 
-      const response = await api.get<NotificationListResponse>(
+      const response = await apiClient.get<NotificationListResponse>(
         `/api/notifications?${params.toString()}`
       );
 
-      setNotifications(response.data.notifications);
-      setPagination(response.data.pagination);
-      setUnreadCount(response.data.unread_count);
+      setNotifications(response.notifications);
+      setPagination(response.pagination);
+      setUnreadCount(response.unread_count);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch notifications');
       console.error('Error fetching notifications:', err);
@@ -77,7 +82,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   // Mark as read
   const markAsRead = useCallback(async (notificationId: number) => {
     try {
-      await api.put(`/api/notifications/${notificationId}/read`);
+      await apiClient.put(`/api/notifications/${notificationId}/read`);
 
       // Update local state
       setNotifications(prev =>
@@ -95,7 +100,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   // Archive notification
   const archiveNotification = useCallback(async (notificationId: number) => {
     try {
-      await api.put(`/api/notifications/${notificationId}/archive`);
+      await apiClient.put(`/api/notifications/${notificationId}/archive`);
 
       // Update local state
       setNotifications(prev =>
@@ -112,7 +117,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   // Delete notification
   const deleteNotification = useCallback(async (notificationId: number) => {
     try {
-      await api.delete(`/api/notifications/${notificationId}`);
+      await apiClient.delete(`/api/notifications/${notificationId}`);
 
       // Remove from local state
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
@@ -125,7 +130,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   // Bulk mark as read
   const bulkMarkAsRead = useCallback(async (notificationIds: number[]) => {
     try {
-      await api.post('/api/notifications/bulk-read', { notification_ids: notificationIds });
+      await apiClient.post('/api/notifications/bulk-read', { notification_ids: notificationIds });
 
       // Update local state
       const now = new Date().toISOString();
@@ -142,7 +147,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   // Bulk archive
   const bulkArchive = useCallback(async (notificationIds: number[]) => {
     try {
-      await api.post('/api/notifications/bulk-archive', { notification_ids: notificationIds });
+      await apiClient.post('/api/notifications/bulk-archive', { notification_ids: notificationIds });
 
       // Update local state
       const now = new Date().toISOString();
@@ -158,7 +163,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   // Bulk delete
   const bulkDelete = useCallback(async (notificationIds: number[]) => {
     try {
-      await api.post('/api/notifications/bulk-delete', { notification_ids: notificationIds });
+      await apiClient.post('/api/notifications/bulk-delete', { notification_ids: notificationIds });
 
       // Remove from local state
       setNotifications(prev => prev.filter(n => !notificationIds.includes(n.id)));
@@ -220,8 +225,8 @@ export function useNotificationStats() {
       setLoading(true);
       setError(null);
 
-      const response = await api.get<{ stats: NotificationStats }>('/api/notifications/stats');
-      setStats(response.data.stats);
+      const response = await apiClient.get<{ stats: NotificationStats }>('/api/notifications/stats');
+      setStats(response.stats);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch statistics');
       console.error('Error fetching notification stats:', err);
@@ -248,10 +253,10 @@ export function useNotificationSettings() {
       setLoading(true);
       setError(null);
 
-      const response = await api.get<{ settings: NotificationSettings[] }>(
+      const response = await apiClient.get<{ settings: NotificationSettings[] }>(
         '/api/notification-settings'
       );
-      setSettings(response.data.settings);
+      setSettings(response.settings);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch settings');
       console.error('Error fetching notification settings:', err);
@@ -262,7 +267,7 @@ export function useNotificationSettings() {
 
   const updateSettings = useCallback(async (settingsData: Partial<NotificationSettings>) => {
     try {
-      const response = await api.put<{ settings: NotificationSettings }>(
+      const response = await apiClient.put<{ settings: NotificationSettings }>(
         '/api/notification-settings',
         settingsData
       );
@@ -270,17 +275,17 @@ export function useNotificationSettings() {
       // Update local state
       setSettings(prev => {
         const index = prev.findIndex(
-          s => s.notification_type === response.data.settings.notification_type
+          s => s.notification_type === response.settings.notification_type
         );
         if (index >= 0) {
           const newSettings = [...prev];
-          newSettings[index] = response.data.settings;
+          newSettings[index] = response.settings;
           return newSettings;
         }
-        return [...prev, response.data.settings];
+        return [...prev, response.settings];
       });
 
-      return response.data.settings;
+      return response.settings;
     } catch (err: any) {
       console.error('Error updating notification settings:', err);
       throw err;
@@ -289,7 +294,7 @@ export function useNotificationSettings() {
 
   const resetSettings = useCallback(async () => {
     try {
-      await api.post('/api/notification-settings/reset');
+      await apiClient.post('/api/notification-settings/reset');
       setSettings([]);
       await fetchSettings();
     } catch (err: any) {
@@ -316,8 +321,8 @@ export function useConnectionStats() {
       setLoading(true);
       setError(null);
 
-      const response = await api.get<ConnectionStats>('/api/notifications/connections');
-      setStats(response.data);
+      const response = await apiClient.get<ConnectionStats>('/api/notifications/connections');
+      setStats(response);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch connection stats');
       console.error('Error fetching connection stats:', err);
