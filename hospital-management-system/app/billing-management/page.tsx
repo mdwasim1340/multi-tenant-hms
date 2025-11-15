@@ -46,9 +46,20 @@ export default function BillingManagement() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [page, setPage] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [checkingPermissions, setCheckingPermissions] = useState(true)
   const limit = 10
   const router = useRouter()
+  
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+      setPage(0) // Reset to first page on search
+    }, 500)
+    
+    return () => clearTimeout(timer)
+  }, [searchQuery])
   
   // Check permissions on mount
   useEffect(() => {
@@ -62,6 +73,15 @@ export default function BillingManagement() {
   
   // Fetch invoices from backend
   const { invoices, loading, error, pagination, refetch } = useInvoices(limit, page * limit)
+  
+  // Filter invoices based on search query (client-side for now)
+  const filteredInvoices = debouncedSearch
+    ? invoices.filter(invoice => 
+        invoice.invoice_number.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        invoice.tenant_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        invoice.amount.toString().includes(debouncedSearch)
+      )
+    : invoices
   
   // Fetch invoice details when selected
   const { 
@@ -189,17 +209,24 @@ export default function BillingManagement() {
                       Try Again
                     </Button>
                   </div>
-                ) : invoices.length === 0 ? (
+                ) : filteredInvoices.length === 0 ? (
                   <div className="text-center py-12">
                     <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-foreground mb-2">No invoices found</h3>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      {debouncedSearch ? 'No matching invoices found' : 'No invoices found'}
+                    </h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Create your first invoice to get started
+                      {debouncedSearch 
+                        ? 'Try adjusting your search query'
+                        : 'Create your first invoice to get started'
+                      }
                     </p>
-                    <Button onClick={() => setShowGenerateModal(true)}>
-                      <FileText className="w-4 h-4 mr-2" />
-                      Create Invoice
-                    </Button>
+                    {!debouncedSearch && (
+                      <Button onClick={() => setShowGenerateModal(true)}>
+                        <FileText className="w-4 h-4 mr-2" />
+                        Create Invoice
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <>
@@ -215,7 +242,7 @@ export default function BillingManagement() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {invoices.map((invoice) => (
+                        {filteredInvoices.map((invoice) => (
                           <TableRow key={invoice.id}>
                             <TableCell className="font-medium">
                               {invoice.invoice_number}
@@ -248,7 +275,11 @@ export default function BillingManagement() {
                     {/* Pagination */}
                     <div className="flex items-center justify-between mt-6">
                       <p className="text-sm text-muted-foreground">
-                        Showing {page * limit + 1} to {Math.min((page + 1) * limit, pagination?.total || 0)} of {pagination?.total || 0} invoices
+                        {debouncedSearch ? (
+                          `Showing ${filteredInvoices.length} matching invoice${filteredInvoices.length !== 1 ? 's' : ''}`
+                        ) : (
+                          `Showing ${page * limit + 1} to ${Math.min((page + 1) * limit, pagination?.total || 0)} of ${pagination?.total || 0} invoices`
+                        )}
                       </p>
                       <div className="flex gap-2">
                         <Button
