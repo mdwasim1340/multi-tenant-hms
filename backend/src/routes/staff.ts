@@ -262,7 +262,7 @@ router.post('/credentials', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/::id/credentials', async (req: Request, res: Response) => {
+router.get('/:id/credentials', async (req: Request, res: Response) => {
   try {
     const staffId = parseInt(req.params.id);
     const credentials = await staffService.getStaffCredentials(staffId);
@@ -326,7 +326,7 @@ router.post('/attendance', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/::id/attendance', async (req: Request, res: Response) => {
+router.get('/:id/attendance', async (req: Request, res: Response) => {
   try {
     const staffId = parseInt(req.params.id);
     const attendance = await staffService.getStaffAttendance({ staff_id: staffId });
@@ -394,7 +394,7 @@ router.post('/performance', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/::id/performance', async (req: Request, res: Response) => {
+router.get('/:id/performance', async (req: Request, res: Response) => {
   try {
     const staffId = parseInt(req.params.id);
     const reviews = await staffService.getStaffPerformanceReviews(staffId);
@@ -462,7 +462,7 @@ router.post('/payroll', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/::id/payroll', async (req: Request, res: Response) => {
+router.get('/:id/payroll', async (req: Request, res: Response) => {
   try {
     const staffId = parseInt(req.params.id);
     const payroll = await staffService.getStaffPayroll(staffId);
