@@ -7,6 +7,7 @@
 import { Router, Request, Response } from 'express';
 import { NotificationService } from '../services/notification';
 import { NotificationBroadcaster } from '../services/notification-broadcaster';
+import { NotificationDeliveryService } from '../services/notification-delivery';
 import { getNotificationSSEService } from '../services/notification-sse';
 import {
   CreateNotificationSchema,
@@ -87,7 +88,7 @@ router.get('/', async (req: Request, res: Response) => {
 
 /**
  * POST /api/notifications
- * Create a new notification and broadcast in real-time
+ * Create a new notification and deliver via all channels
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
@@ -110,13 +111,37 @@ router.post('/', async (req: Request, res: Response) => {
       data.created_by = userId;
     }
 
-    // Create notification and broadcast
-    const notification = await NotificationBroadcaster.createAndBroadcast(tenantId, data);
+    // Check if multi-channel delivery is requested
+    const multiChannel = req.query.multi_channel === 'true';
 
-    res.status(201).json({
-      message: 'Notification created and broadcast successfully',
-      notification,
-    });
+    if (multiChannel) {
+      // Create notification in database
+      const notification = await NotificationService.createNotification(tenantId, data);
+
+      // Deliver via all enabled channels
+      const deliveryReport = await NotificationDeliveryService.deliverNotification(
+        tenantId,
+        notification
+      );
+
+      // Update user statistics
+      const stats = await NotificationService.getNotificationStats(tenantId, notification.user_id);
+      await NotificationBroadcaster.sendStatsUpdate(tenantId, notification.user_id, stats);
+
+      res.status(201).json({
+        message: 'Notification created and delivered via all channels',
+        notification,
+        delivery: deliveryReport,
+      });
+    } else {
+      // In-app only (WebSocket/SSE)
+      const notification = await NotificationBroadcaster.createAndBroadcast(tenantId, data);
+
+      res.status(201).json({
+        message: 'Notification created and broadcast successfully',
+        notification,
+      });
+    }
   } catch (error) {
     if (error instanceof ZodError) {
       return handleValidationError(error, res);
@@ -504,6 +529,48 @@ router.get('/:id/history', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error getting notification history:', error);
     res.status(500).json({ error: 'Failed to get notification history' });
+  }
+});
+
+/**
+ * GET /api/notifications/:id/delivery-stats
+ * Get notification delivery statistics
+ */
+router.get('/:id/delivery-stats', async (req: Request, res: Response) => {
+  try {
+    const tenantId = getTenantId(req);
+    const userId = getUserId(req);
+    const notificationId = parseInt(req.params.id);
+
+    if (!tenantId) {
+      return res.status(400).json({ error: 'X-Tenant-ID header is required' });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    if (isNaN(notificationId)) {
+      return res.status(400).json({ error: 'Invalid notification ID' });
+    }
+
+    // Verify notification belongs to user
+    const notification = await NotificationService.getNotificationById(
+      tenantId,
+      notificationId,
+      userId
+    );
+
+    if (!notification) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    const stats = await NotificationDeliveryService.getDeliveryStats(tenantId, notificationId);
+
+    res.json({ stats });
+  } catch (error) {
+    console.error('Error getting delivery stats:', error);
+    res.status(500).json({ error: 'Failed to get delivery statistics' });
   }
 });
 

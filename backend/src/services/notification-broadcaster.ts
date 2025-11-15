@@ -103,7 +103,8 @@ export class NotificationBroadcaster {
   }
 
   /**
-   * Create notification and broadcast immediately
+   * Create notification and broadcast immediately (in-app only)
+   * For multi-channel delivery, use NotificationDeliveryService
    */
   static async createAndBroadcast(
     tenantId: string,
@@ -112,7 +113,7 @@ export class NotificationBroadcaster {
     // Create notification in database
     const notification = await NotificationService.createNotification(tenantId, notificationData);
 
-    // Broadcast to user
+    // Broadcast to user via in-app channels (WebSocket/SSE)
     await this.broadcastToUser(tenantId, notification.user_id, notification);
 
     // Update user statistics
