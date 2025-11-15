@@ -26,6 +26,18 @@ export function useDashboardAnalytics() {
       setLoading(true);
       setError(null);
       
+      // Check if we have auth token and tenant ID
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      const tenantId = typeof window !== 'undefined' ? localStorage.getItem('tenant_id') : null;
+      
+      console.log('🔍 Fetching analytics with:', { token: !!token, tenantId });
+      
+      if (!token || !tenantId) {
+        setError('Not authenticated. Please sign in.');
+        setLoading(false);
+        return;
+      }
+      
       const response = await apiClient.get<ApiResponse<DashboardAnalytics>>(
         '/api/analytics/dashboard'
       );
@@ -34,8 +46,15 @@ export function useDashboardAnalytics() {
         setAnalytics(response.data);
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to fetch analytics');
-      console.error('Error fetching analytics:', err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to fetch analytics';
+      setError(errorMessage);
+      console.error('❌ Error fetching analytics:', {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        message: err.message,
+        url: err.config?.url
+      });
     } finally {
       setLoading(false);
     }

@@ -133,9 +133,20 @@ export default function StaffManagement() {
                 ) : staffError ? (
                   <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
                     <CardContent className="pt-6">
-                      <div className="flex items-center gap-2 text-red-600">
-                        <AlertCircle className="w-5 h-5" />
-                        <p>Error loading staff: {staffError}</p>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-2 text-red-600">
+                          <AlertCircle className="w-5 h-5" />
+                          <p className="font-semibold">Error loading staff</p>
+                        </div>
+                        <p className="text-sm text-red-800 dark:text-red-200">{staffError}</p>
+                        {staffError.includes('authenticated') && (
+                          <Button 
+                            onClick={() => window.location.href = '/auth/login'}
+                            className="mt-2 w-fit"
+                          >
+                            Go to Login
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

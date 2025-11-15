@@ -24,6 +24,18 @@ export function useStaff(filters?: UseStaffFilters) {
       setLoading(true);
       setError(null);
       
+      // Check if we have auth token and tenant ID
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      const tenantId = typeof window !== 'undefined' ? localStorage.getItem('tenant_id') : null;
+      
+      console.log('🔍 Fetching staff with:', { token: !!token, tenantId });
+      
+      if (!token || !tenantId) {
+        setError('Not authenticated. Please sign in.');
+        setLoading(false);
+        return;
+      }
+      
       const params = new URLSearchParams();
       if (filters?.department) params.append('department', filters.department);
       if (filters?.status) params.append('status', filters.status);
@@ -39,8 +51,15 @@ export function useStaff(filters?: UseStaffFilters) {
         setStaff(response.data);
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to fetch staff');
-      console.error('Error fetching staff:', err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to fetch staff';
+      setError(errorMessage);
+      console.error('❌ Error fetching staff:', {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        message: err.message,
+        url: err.config?.url
+      });
     } finally {
       setLoading(false);
     }
