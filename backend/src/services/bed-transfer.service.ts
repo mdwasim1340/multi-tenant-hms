@@ -1,21 +1,73 @@
-import { BedTransfer, CreateBedTransferData, UpdateBedTransferData } from '../types/bed';
-import { BedTransferNotFoundError, InvalidTransferError, TransferAlreadyCompletedError, SameBedTransferError, DestinationBedOccupiedError } from '../errors/BedError';
-import { CreateBedTransferSchema, UpdateBedTransferSchema, CompleteBedTransferSchema, CancelBedTransferSchema } from '../validation/bed.validation';
+import { Pool, PoolClient } from 'pg';
+import {
+  BedTransfer,
+  CreateBedTransferData,
+  UpdateBedTransferData
+} from '../types/bed';
+import {
+  BedTransferNotFoundError,
+  InvalidTransferError,
+  TransferAlreadyCompletedError,
+  SameBedTransferError,
+  DestinationBedOccupiedError
+} from '../errors/BedError';
+import {
+  CreateBedTransferSchema,
+  UpdateBedTransferSchema,
+  CompleteBedTransferSchema,
+  CancelBedTransferSchema
+} from '../validation/bed.validation';
 
 export class BedTransferService {
+  private pool: Pool;
+  constructor(pool: Pool) {
+    this.pool = pool;
+  }
+
   async createBedTransfer(data: CreateBedTransferData, tenantId: string, userId: number): Promise<BedTransfer> {
-    // Validate input
-    const payload = CreateBedTransferSchema.parse(data);
-    // TODO: Insert into DB, check all constraints
-    // Throw SameBedTransferError if transferring to same bed
-    // Throw DestinationBedOccupiedError if target not available
-    throw new Error('Not implemented');
+    const validated = CreateBedTransferSchema.parse(data);
+    const client = await this.pool.connect();
+    try {
+      await client.query(`SET search_path TO "${tenantId}"`);
+      if (validated.from_bed_id === validated.to_bed_id) {
+        throw new SameBedTransferError('Source and destination beds cannot be the same');
+      }
+      // Ensure destination bed is available
+      const toBedRow = await client.query('SELECT status, is_active FROM beds WHERE id = $1', [validated.to_bed_id]);
+      if (!toBedRow.rows.length || !toBedRow.rows[0].is_active || toBedRow.rows[0].status !== 'available') {
+        throw new DestinationBedOccupiedError('Destination bed is not available');
+      }
+      // Insert transfer record
+      const transferData = {
+        ...validated,
+        status: 'pending',
+        transfer_date: validated.transfer_date || new Date().toISOString(),
+        created_by: userId,
+        updated_by: userId,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      const columns = Object.keys(transferData);
+      const values = Object.values(transferData);
+      const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+      const insertQuery = `INSERT INTO bed_transfers (${columns.join(', ')}) VALUES (${placeholders}) RETURNING *`;
+      const result = await client.query(insertQuery, values);
+      return result.rows[0];
+    } finally {
+      client.release();
+    }
   }
 
   async getBedTransferById(transferId: number, tenantId: string): Promise<BedTransfer> {
-    // TODO: Query bed_transfer by ID
-    // If not found, throw BedTransferNotFoundError
-    throw new Error('Not implemented');
+    const client = await this.pool.connect();
+    try {
+      await client.query(`SET search_path TO "${tenantId}"`);
+      const res = await client.query('SELECT * FROM bed_transfers WHERE id = $1', [transferId]);
+      if (!res.rows.length) throw new BedTransferNotFoundError(transferId);
+      return res.rows[0];
+    } finally {
+      client.release();
+    }
   }
 
   async updateBedTransfer(
@@ -24,10 +76,24 @@ export class BedTransferService {
     tenantId: string,
     userId: number
   ): Promise<BedTransfer> {
-    // Validate input
-    const payload = UpdateBedTransferSchema.parse(data);
-    // TODO: Status workflow
-    throw new Error('Not implemented');
+    const validated = UpdateBedTransferSchema.parse(data);
+    const client = await this.pool.connect();
+    try {
+      await client.query(`SET search_path TO "${tenantId}"`);
+      const existing = await this.getBedTransferById(transferId, tenantId);
+      if (existing.status === 'completed' || existing.status === 'cancelled') {
+        throw new TransferAlreadyCompletedError('Cannot update completed/cancelled transfer');
+      }
+      const updateData = { ...validated, updated_by: userId, updated_at: new Date() };
+      const entries = Object.entries(updateData).filter(([_, v]) => v !== undefined);
+      if (!entries.length) throw new InvalidTransferError('No data to update');
+      const setClause = entries.map(([k], i) => `${k} = $${i + 2}`).join(', ');
+      const values = entries.map(([, v]) => v);
+      await client.query(`UPDATE bed_transfers SET ${setClause} WHERE id = $1`, [transferId, ...values]);
+      return await this.getBedTransferById(transferId, tenantId);
+    } finally {
+      client.release();
+    }
   }
 
   async completeBedTransfer(
@@ -36,11 +102,34 @@ export class BedTransferService {
     tenantId: string,
     userId: number
   ): Promise<BedTransfer> {
-    // Validate input
-    const payload = CompleteBedTransferSchema.parse(data);
-    // TODO: Transition status to completed, update beds and assignments
-    // Throw TransferAlreadyCompletedError if already completed
-    throw new Error('Not implemented');
+    const validated = CompleteBedTransferSchema.parse(data);
+    const client = await this.pool.connect();
+    try {
+      await client.query(`SET search_path TO "${tenantId}"`);
+      const transfer = await this.getBedTransferById(transferId, tenantId);
+      if (transfer.status === 'completed') {
+        throw new TransferAlreadyCompletedError('Transfer is already completed');
+      }
+      // Mark old assignment as transferred
+      await client.query(
+        `UPDATE bed_assignments SET status = 'transferred', actual_discharge_date = $2, updated_by = $3, updated_at = CURRENT_TIMESTAMP WHERE bed_id = $1 AND status = 'active'`, [transfer.from_bed_id, new Date().toISOString(), userId]
+      );
+      // Create new active assignment
+      await client.query(
+        `INSERT INTO bed_assignments (bed_id, patient_id, admission_date, status, created_by, updated_by, created_at, updated_at) VALUES ($1, $2, $3, 'active', $4, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, [transfer.to_bed_id, transfer.patient_id, new Date().toISOString(), userId]
+      );
+      // Update bed statuses
+      await client.query(`UPDATE beds SET status = 'available', updated_by = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [transfer.from_bed_id, userId]);
+      await client.query(`UPDATE beds SET status = 'occupied', updated_by = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [transfer.to_bed_id, userId]);
+      // Update transfer
+      await client.query(
+        `UPDATE bed_transfers SET status = 'completed', performed_by = $2, notes = $3, updated_by = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        [transferId, validated.performed_by || userId, validated.notes || '', userId]
+      );
+      return await this.getBedTransferById(transferId, tenantId);
+    } finally {
+      client.release();
+    }
   }
 
   async cancelBedTransfer(
@@ -49,14 +138,32 @@ export class BedTransferService {
     tenantId: string,
     userId: number
   ): Promise<BedTransfer> {
-    // Validate input
-    const payload = CancelBedTransferSchema.parse(data);
-    // TODO: Transition status to cancelled
-    throw new Error('Not implemented');
+    const validated = CancelBedTransferSchema.parse(data);
+    const client = await this.pool.connect();
+    try {
+      await client.query(`SET search_path TO "${tenantId}"`);
+      const transfer = await this.getBedTransferById(transferId, tenantId);
+      if (transfer.status === 'completed' || transfer.status === 'cancelled') {
+        throw new TransferAlreadyCompletedError('Transfer is already finalized');
+      }
+      await client.query(
+        `UPDATE bed_transfers SET status = 'cancelled', notes = $2, updated_by = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        [transferId, validated.notes || '', userId]
+      );
+      return await this.getBedTransferById(transferId, tenantId);
+    } finally {
+      client.release();
+    }
   }
 
   async getTransferHistory(patientId: number, tenantId: string): Promise<BedTransfer[]> {
-    // TODO: Full transfer history for a patient
-    throw new Error('Not implemented');
+    const client = await this.pool.connect();
+    try {
+      await client.query(`SET search_path TO "${tenantId}"`);
+      const result = await client.query('SELECT * FROM bed_transfers WHERE patient_id = $1 ORDER BY transfer_date DESC', [patientId]);
+      return result.rows;
+    } finally {
+      client.release();
+    }
   }
 }
