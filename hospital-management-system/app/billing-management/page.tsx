@@ -35,11 +35,13 @@ import {
 } from "lucide-react"
 import { useInvoices, useInvoiceDetails } from "@/hooks/use-billing"
 import { InvoiceGenerationModal } from "@/components/billing/invoice-generation-modal"
+import { PaymentModal } from "@/components/billing/payment-modal"
 
 export default function BillingManagement() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null)
   const [showGenerateModal, setShowGenerateModal] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [page, setPage] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
   const limit = 10
@@ -369,8 +371,13 @@ export default function BillingManagement() {
 
               {/* Actions */}
               <div className="flex gap-2 pt-4 border-t">
-                {selectedInvoice.status === 'pending' && (
-                  <Button className="flex-1">
+                {(selectedInvoice.status === 'pending' || selectedInvoice.status === 'overdue') && (
+                  <Button 
+                    className="flex-1"
+                    onClick={() => {
+                      setShowPaymentModal(true)
+                    }}
+                  >
                     <CreditCard className="w-4 h-4 mr-2" />
                     Process Payment
                   </Button>
@@ -391,6 +398,19 @@ export default function BillingManagement() {
         onSuccess={() => {
           refetch()
           setPage(0)
+        }}
+      />
+
+      {/* Payment Modal */}
+      <PaymentModal
+        open={showPaymentModal}
+        onOpenChange={setShowPaymentModal}
+        invoice={selectedInvoice}
+        onSuccess={() => {
+          if (selectedInvoiceId) {
+            // Refetch invoice details to show updated status
+            refetch()
+          }
         }}
       />
     </div>
