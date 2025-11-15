@@ -57,7 +57,9 @@ app.use('/api/billing', billingRouter);
 app.use(tenantMiddleware);
 
 import filesRouter from './routes/files';
+import staffRouter from './routes/staff';
 app.use('/files', authMiddleware, filesRouter);
+app.use('/api', authMiddleware, staffRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {
