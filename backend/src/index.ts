@@ -104,6 +104,8 @@ import medicalRecordsRouter from './routes/medical-records.routes';
 import prescriptionsRouter from './routes/prescriptions.routes';
 import diagnosisTreatmentRouter from './routes/diagnosis-treatment.routes';
 import labTestsRouter from './routes/lab-tests.routes';
+import labOrdersRouter from './routes/lab-orders.routes';
+import labResultsRouter from './routes/lab-results.routes';
 import imagingRouter from './routes/imaging.routes';
 import labPanelsRouter from './routes/lab-panels.routes';
 import staffRouter from './routes/staff';
@@ -118,6 +120,8 @@ app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, requir
 app.use('/api/prescriptions', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), prescriptionsRouter);
 app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), diagnosisTreatmentRouter);
 app.use('/api/lab-tests', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labTestsRouter);
+app.use('/api/lab-orders', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labOrdersRouter);
+app.use('/api/lab-results', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labResultsRouter);
 app.use('/api/imaging', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), imagingRouter);
 app.use('/api/lab-panels', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labPanelsRouter);
 app.use('/api/staff', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), staffRouter);
