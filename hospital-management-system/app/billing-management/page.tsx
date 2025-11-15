@@ -34,10 +34,12 @@ import {
   AlertCircle,
 } from "lucide-react"
 import { useInvoices, useInvoiceDetails } from "@/hooks/use-billing"
+import { InvoiceGenerationModal } from "@/components/billing/invoice-generation-modal"
 
 export default function BillingManagement() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null)
+  const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [page, setPage] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
   const limit = 10
@@ -109,7 +111,10 @@ export default function BillingManagement() {
                   <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
-                <Button className="bg-primary hover:bg-primary/90">
+                <Button 
+                  className="bg-primary hover:bg-primary/90"
+                  onClick={() => setShowGenerateModal(true)}
+                >
                   <FileText className="w-4 h-4 mr-2" />
                   Create Invoice
                 </Button>
@@ -161,7 +166,7 @@ export default function BillingManagement() {
                     <p className="text-sm text-muted-foreground mb-4">
                       Create your first invoice to get started
                     </p>
-                    <Button>
+                    <Button onClick={() => setShowGenerateModal(true)}>
                       <FileText className="w-4 h-4 mr-2" />
                       Create Invoice
                     </Button>
@@ -378,6 +383,16 @@ export default function BillingManagement() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Generation Modal */}
+      <InvoiceGenerationModal
+        open={showGenerateModal}
+        onOpenChange={setShowGenerateModal}
+        onSuccess={() => {
+          refetch()
+          setPage(0)
+        }}
+      />
     </div>
   )
 }
