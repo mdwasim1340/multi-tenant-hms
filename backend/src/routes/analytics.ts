@@ -1,137 +1,427 @@
-import express from 'express';
-import pool from '../database';
-import { authMiddleware } from '../middleware/auth';
+import { Router, Request, Response } from 'express';
+import * as analyticsService from '../services/analytics';
 
-const router = express.Router();
+const router = Router();
 
-// Get system-wide statistics
-router.get('/system-stats', authMiddleware, async (req, res) => {
+// Dashboard Analytics
+router.get('/analytics/dashboard', async (req: Request, res: Response) => {
   try {
-    // Get total tenants
-    const tenantsResult = await pool.query(
-      'SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status = $1) as active FROM tenants',
-      ['active']
-    );
-
-    // Get total users
-    const usersResult = await pool.query('SELECT COUNT(*) FROM users');
-
-    // Get total patients (sum across all tenant schemas)
-    let totalPatients = 0;
-    try {
-      const patientsResult = await pool.query(`
-        SELECT SUM(patients_count) as total
-        FROM usage_summary
-        WHERE period_start = CURRENT_DATE
-      `);
-      totalPatients = parseInt(patientsResult.rows[0]?.total || 0);
-    } catch (error) {
-      console.log('usage_summary table not found, using 0 for patients');
-    }
-
-    // Get API calls today
-    let apiCallsToday = 0;
-    try {
-      const apiCallsResult = await pool.query(`
-        SELECT SUM(api_calls_count) as total
-        FROM usage_summary
-        WHERE period_start = CURRENT_DATE
-      `);
-      apiCallsToday = parseInt(apiCallsResult.rows[0]?.total || 0);
-    } catch (error) {
-      console.log('usage_summary table not found, using 0 for API calls');
-    }
-
-    // Get total appointments (Phase 2 feature)
-    let totalAppointments = 0;
-    try {
-      const appointmentsResult = await pool.query('SELECT COUNT(*) FROM appointments');
-      totalAppointments = parseInt(appointmentsResult.rows[0].count);
-    } catch (error) {
-      console.log('appointments table not found, using 0');
-    }
-
-    // Get total storage used in GB
-    let storageUsedGb = 0;
-    try {
-      const storageResult = await pool.query('SELECT SUM(size) FROM files');
-      storageUsedGb = storageResult.rows[0].sum ? storageResult.rows[0].sum / (1024 * 1024 * 1024) : 0;
-    } catch (error) {
-      console.log('files table not found, using 0 for storage');
-    }
-
+    const analytics = await analyticsService.getDashboardAnalytics();
+    
     res.json({
-      total_tenants: parseInt(tenantsResult.rows[0].total),
-      active_tenants: parseInt(tenantsResult.rows[0].active),
-      total_users: parseInt(usersResult.rows[0].count),
-      total_patients: totalPatients,
-      total_appointments: totalAppointments,
-      storage_used_gb: storageUsedGb,
-      api_calls_today: apiCallsToday
+      success: true,
+      data: analytics
     });
-  } catch (error) {
-    console.error('Error fetching system stats:', error);
-    res.status(500).json({ error: 'Failed to fetch system stats' });
+  } catch (error: any) {
+    console.error('Error fetching dashboard analytics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch dashboard analytics',
+      message: error.message
+    });
   }
 });
 
-// Get all tenants usage
-router.get('/tenants-usage', authMiddleware, async (req, res) => {
+// Staff Analytics
+router.get('/analytics/staff', async (req: Request, res: Response) => {
   try {
-    // First get basic tenant info
-    const basicResult = await pool.query(`
-      SELECT
-        t.id as tenant_id,
-        t.name as tenant_name,
-        ts.tier_id,
-        t.joindate as last_active
-      FROM tenants t
-      LEFT JOIN tenant_subscriptions ts ON t.id = ts.tenant_id
-      WHERE t.status = 'active'
-      ORDER BY t.name
-    `);
+    const filters = {
+      department: req.query.department as string,
+      start_date: req.query.start_date as string,
+      end_date: req.query.end_date as string
+    };
 
-    // Try to get usage data if table exists
-    let tenantsWithUsage = basicResult.rows.map(tenant => ({
-      ...tenant,
-      patients_count: 0,
-      users_count: 0,
-      storage_used_gb: 0,
-      api_calls_count: 0
-    }));
+    const analytics = await analyticsService.getStaffAnalytics(filters);
+    
+    res.json({
+      success: true,
+      data: analytics,
+      count: analytics.length
+    });
+  } catch (error: any) {
+    console.error('Error fetching staff analytics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch staff analytics',
+      message: error.message
+    });
+  }
+});
 
-    try {
-      const usageResult = await pool.query(`
-        SELECT
-          t.id as tenant_id,
-          t.name as tenant_name,
-          ts.tier_id,
-          COALESCE(us.patients_count, 0) as patients_count,
-          COALESCE(us.users_count, 0) as users_count,
-          COALESCE(us.storage_used_gb, 0) as storage_used_gb,
-          COALESCE(us.api_calls_count, 0) as api_calls_count,
-          COALESCE(us.updated_at, t.joindate) as last_active
-        FROM tenants t
-        LEFT JOIN tenant_subscriptions ts ON t.id = ts.tenant_id
-        LEFT JOIN usage_summary us ON t.id = us.tenant_id AND us.period_start = CURRENT_DATE
-        WHERE t.status = 'active'
-        ORDER BY us.patients_count DESC NULLS LAST
-      `);
-      tenantsWithUsage = usageResult.rows.map(row => ({
-        ...row,
-        patients_count: parseInt(row.patients_count) || 0,
-        users_count: parseInt(row.users_count) || 0,
-        storage_used_gb: parseFloat(row.storage_used_gb) || 0,
-        api_calls_count: parseInt(row.api_calls_count) || 0
-      }));
-    } catch (error) {
-      console.log('usage_summary table not found, using basic tenant data');
+// Staff Trends
+router.get('/analytics/staff/trends', async (req: Request, res: Response) => {
+  try {
+    const filters = {
+      start_date: req.query.start_date as string,
+      end_date: req.query.end_date as string
+    };
+
+    const analytics = await analyticsService.getStaffAnalytics(filters);
+    
+    // Calculate trends
+    const trends = {
+      hiring_trend: analytics.map(a => ({
+        month: a.month,
+        new_hires: a.new_hires
+      })),
+      employment_type_distribution: analytics.reduce((acc: any, curr) => {
+        acc.full_time = (acc.full_time || 0) + curr.full_time_count;
+        acc.part_time = (acc.part_time || 0) + curr.part_time_count;
+        acc.contract = (acc.contract || 0) + curr.contract_count;
+        return acc;
+      }, {})
+    };
+    
+    res.json({
+      success: true,
+      data: trends
+    });
+  } catch (error: any) {
+    console.error('Error fetching staff trends:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch staff trends',
+      message: error.message
+    });
+  }
+});
+
+// Schedule Analytics
+router.get('/analytics/schedules', async (req: Request, res: Response) => {
+  try {
+    const filters = {
+      start_date: req.query.start_date as string,
+      end_date: req.query.end_date as string
+    };
+
+    const analytics = await analyticsService.getScheduleAnalytics(filters);
+    
+    res.json({
+      success: true,
+      data: analytics,
+      count: analytics.length
+    });
+  } catch (error: any) {
+    console.error('Error fetching schedule analytics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch schedule analytics',
+      message: error.message
+    });
+  }
+});
+
+// Attendance Analytics
+router.get('/analytics/attendance', async (req: Request, res: Response) => {
+  try {
+    const filters = {
+      start_date: req.query.start_date as string,
+      end_date: req.query.end_date as string
+    };
+
+    const analytics = await analyticsService.getAttendanceAnalytics(filters);
+    
+    res.json({
+      success: true,
+      data: analytics,
+      count: analytics.length
+    });
+  } catch (error: any) {
+    console.error('Error fetching attendance analytics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch attendance analytics',
+      message: error.message
+    });
+  }
+});
+
+// Performance Analytics
+router.get('/analytics/performance', async (req: Request, res: Response) => {
+  try {
+    const filters = {
+      start_date: req.query.start_date as string,
+      end_date: req.query.end_date as string
+    };
+
+    const analytics = await analyticsService.getPerformanceAnalytics(filters);
+    
+    res.json({
+      success: true,
+      data: analytics,
+      count: analytics.length
+    });
+  } catch (error: any) {
+    console.error('Error fetching performance analytics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch performance analytics',
+      message: error.message
+    });
+  }
+});
+
+// Payroll Analytics
+router.get('/analytics/payroll', async (req: Request, res: Response) => {
+  try {
+    const filters = {
+      start_date: req.query.start_date as string,
+      end_date: req.query.end_date as string
+    };
+
+    const analytics = await analyticsService.getPayrollAnalytics(filters);
+    
+    res.json({
+      success: true,
+      data: analytics,
+      count: analytics.length
+    });
+  } catch (error: any) {
+    console.error('Error fetching payroll analytics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch payroll analytics',
+      message: error.message
+    });
+  }
+});
+
+// Financial Summary
+router.get('/analytics/financial', async (req: Request, res: Response) => {
+  try {
+    const filters = {
+      start_date: req.query.start_date as string,
+      end_date: req.query.end_date as string
+    };
+
+    const payrollAnalytics = await analyticsService.getPayrollAnalytics(filters);
+    
+    // Calculate financial summary
+    const summary = payrollAnalytics.reduce((acc, curr) => ({
+      total_payroll: acc.total_payroll + Number(curr.total_net_pay || 0),
+      total_overtime: acc.total_overtime + Number(curr.total_overtime_pay || 0),
+      total_bonuses: acc.total_bonuses + Number(curr.total_bonuses || 0),
+      total_deductions: acc.total_deductions + Number(curr.total_deductions || 0),
+      avg_salary: acc.avg_salary + Number(curr.avg_net_pay || 0)
+    }), {
+      total_payroll: 0,
+      total_overtime: 0,
+      total_bonuses: 0,
+      total_deductions: 0,
+      avg_salary: 0
+    });
+    
+    if (payrollAnalytics.length > 0) {
+      summary.avg_salary = summary.avg_salary / payrollAnalytics.length;
     }
+    
+    res.json({
+      success: true,
+      data: {
+        summary,
+        monthly_breakdown: payrollAnalytics
+      }
+    });
+  } catch (error: any) {
+    console.error('Error fetching financial analytics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch financial analytics',
+      message: error.message
+    });
+  }
+});
 
-    res.json({ tenants: tenantsWithUsage });
-  } catch (error) {
-    console.error('Error fetching tenants usage:', error);
-    res.status(500).json({ error: 'Failed to fetch tenants usage' });
+// Credentials Expiry
+router.get('/analytics/credentials/expiry', async (req: Request, res: Response) => {
+  try {
+    const filters = {
+      expiry_status: req.query.expiry_status as string,
+      department: req.query.department as string
+    };
+
+    const credentials = await analyticsService.getCredentialsExpiry(filters);
+    
+    res.json({
+      success: true,
+      data: credentials,
+      count: credentials.length
+    });
+  } catch (error: any) {
+    console.error('Error fetching credentials expiry:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch credentials expiry',
+      message: error.message
+    });
+  }
+});
+
+// Department Statistics
+router.get('/analytics/departments', async (req: Request, res: Response) => {
+  try {
+    const department = req.query.department as string;
+    const statistics = await analyticsService.getDepartmentStatistics(department);
+    
+    res.json({
+      success: true,
+      data: statistics,
+      count: statistics.length
+    });
+  } catch (error: any) {
+    console.error('Error fetching department statistics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch department statistics',
+      message: error.message
+    });
+  }
+});
+
+// Operational Reports
+router.get('/analytics/operational', async (req: Request, res: Response) => {
+  try {
+    const [
+      dashboardData,
+      scheduleData,
+      attendanceData,
+      departmentData
+    ] = await Promise.all([
+      analyticsService.getDashboardAnalytics(),
+      analyticsService.getScheduleAnalytics({ 
+        start_date: req.query.start_date as string,
+        end_date: req.query.end_date as string
+      }),
+      analyticsService.getAttendanceAnalytics({
+        start_date: req.query.start_date as string,
+        end_date: req.query.end_date as string
+      }),
+      analyticsService.getDepartmentStatistics()
+    ]);
+    
+    res.json({
+      success: true,
+      data: {
+        overview: dashboardData,
+        schedules: scheduleData,
+        attendance: attendanceData,
+        departments: departmentData
+      }
+    });
+  } catch (error: any) {
+    console.error('Error fetching operational reports:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch operational reports',
+      message: error.message
+    });
+  }
+});
+
+// Custom Report Generation
+router.post('/analytics/custom', async (req: Request, res: Response) => {
+  try {
+    const reportConfig = req.body;
+    
+    // Validate report configuration
+    if (!reportConfig.metrics || !Array.isArray(reportConfig.metrics)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid report configuration',
+        message: 'metrics array is required'
+      });
+    }
+    
+    const reportData = await analyticsService.generateCustomReport(reportConfig);
+    
+    res.json({
+      success: true,
+      data: reportData,
+      config: reportConfig
+    });
+  } catch (error: any) {
+    console.error('Error generating custom report:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate custom report',
+      message: error.message
+    });
+  }
+});
+
+// Export Analytics Data
+router.get('/analytics/export', async (req: Request, res: Response) => {
+  try {
+    const dataType = req.query.type as string;
+    const format = req.query.format as string || 'json';
+    
+    if (!dataType) {
+      return res.status(400).json({
+        success: false,
+        error: 'Data type is required',
+        message: 'Specify type parameter (dashboard, staff, schedule, attendance, performance, payroll, credentials, departments)'
+      });
+    }
+    
+    const exportData = await analyticsService.exportAnalyticsData(dataType, format);
+    
+    res.json({
+      success: true,
+      export: exportData
+    });
+  } catch (error: any) {
+    console.error('Error exporting analytics data:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to export analytics data',
+      message: error.message
+    });
+  }
+});
+
+// Business Intelligence Dashboard
+router.get('/analytics/business-intelligence', async (req: Request, res: Response) => {
+  try {
+    const [
+      dashboard,
+      staffTrends,
+      performanceData,
+      payrollData,
+      departmentStats
+    ] = await Promise.all([
+      analyticsService.getDashboardAnalytics(),
+      analyticsService.getStaffAnalytics({
+        start_date: req.query.start_date as string,
+        end_date: req.query.end_date as string
+      }),
+      analyticsService.getPerformanceAnalytics({
+        start_date: req.query.start_date as string,
+        end_date: req.query.end_date as string
+      }),
+      analyticsService.getPayrollAnalytics({
+        start_date: req.query.start_date as string,
+        end_date: req.query.end_date as string
+      }),
+      analyticsService.getDepartmentStatistics()
+    ]);
+    
+    res.json({
+      success: true,
+      data: {
+        overview: dashboard,
+        staff_trends: staffTrends,
+        performance: performanceData,
+        financial: payrollData,
+        departments: departmentStats
+      }
+    });
+  } catch (error: any) {
+    console.error('Error fetching business intelligence data:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch business intelligence data',
+      message: error.message
+    });
   }
 });
 

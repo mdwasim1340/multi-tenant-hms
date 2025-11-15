@@ -77,7 +77,8 @@ app.use('/auth', authRouter);
 // Global admin routes that operate on global data (no tenant context needed)
 import tenantsRouter from './routes/tenants';
 import brandingRouter from './routes/branding';
-import analyticsRoutes from './routes/analytics';
+import systemAnalyticsRoutes from './routes/system-analytics';
+import staffAnalyticsRoutes from './routes/analytics';
 import adminRouter from './routes/admin';
 import { adminAuthMiddleware, hospitalAuthMiddleware } from './middleware/auth';
 app.use('/api/tenants', tenantsRouter);
@@ -89,7 +90,8 @@ app.use('/api/subscriptions', subscriptionsRouter);
 app.use('/api/usage', usageRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api/backups', backupRouter);
-app.use('/api/analytics', adminAuthMiddleware, analyticsRoutes);
+app.use('/api/system-analytics', adminAuthMiddleware, systemAnalyticsRoutes);
+app.use('/api/analytics', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), staffAnalyticsRoutes);
 
 // Routes that need tenant context - apply tenant middleware first
 import filesRouter from './routes/files';
@@ -103,6 +105,7 @@ import diagnosisTreatmentRouter from './routes/diagnosis-treatment.routes';
 import labTestsRouter from './routes/lab-tests.routes';
 import imagingRouter from './routes/imaging.routes';
 import labPanelsRouter from './routes/lab-panels.routes';
+import staffRouter from './routes/staff';
 import { requireApplicationAccess } from './middleware/authorization';
 
 // Apply tenant middleware, authentication, and application access control to hospital routes
@@ -117,6 +120,7 @@ app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, requir
 app.use('/api/lab-tests', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labTestsRouter);
 app.use('/api/imaging', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), imagingRouter);
 app.use('/api/lab-panels', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labPanelsRouter);
+app.use('/api/staff', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), staffRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {
