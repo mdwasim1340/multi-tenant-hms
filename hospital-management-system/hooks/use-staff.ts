@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { apiClient } from '@/lib/api-client';
-import { StaffProfile, ApiResponse } from '@/lib/types/staff';
+import { useState, useEffect, useCallback } from 'react';
+import { getStaff, createStaff as createStaffApi, updateStaff as updateStaffApi, deleteStaff as deleteStaffApi } from '@/lib/staff';
+import { StaffProfile } from '@/lib/types/staff';
 
 interface UseStaffFilters {
   department?: string;
@@ -17,90 +17,59 @@ export function useStaff(filters?: UseStaffFilters) {
 
   useEffect(() => {
     fetchStaff();
-  }, [filters?.department, filters?.status, filters?.search]);
+  }, [fetchStaff]);
 
-  const fetchStaff = async () => {
+  const fetchStaff = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Check if we have auth token and tenant ID
-      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-      const tenantId = typeof window !== 'undefined' ? localStorage.getItem('tenant_id') : null;
-      
-      console.log('🔍 Fetching staff with:', { token: !!token, tenantId });
-      
-      if (!token || !tenantId) {
-        setError('Not authenticated. Please sign in.');
-        setLoading(false);
-        return;
-      }
-      
-      const params = new URLSearchParams();
-      if (filters?.department) params.append('department', filters.department);
-      if (filters?.status) params.append('status', filters.status);
-      if (filters?.search) params.append('search', filters.search);
-      if (filters?.limit) params.append('limit', filters.limit.toString());
-      if (filters?.offset) params.append('offset', filters.offset.toString());
-
-      const response = await apiClient.get<ApiResponse<StaffProfile[]>>(
-        `/api/staff?${params.toString()}`
-      );
+      const response = await getStaff({
+        department: filters?.department,
+        status: filters?.status,
+        search: filters?.search,
+        limit: filters?.limit,
+        offset: filters?.offset,
+      });
       
       if (response.success) {
         setStaff(response.data);
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to fetch staff';
+      const errorMessage = err.message || 'Failed to fetch staff';
       setError(errorMessage);
-      console.error('❌ Error fetching staff:', {
-        status: err.response?.status,
-        statusText: err.response?.statusText,
-        data: err.response?.data,
-        message: err.message,
-        url: err.config?.url
-      });
+      console.error('❌ Error fetching staff:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters?.department, filters?.status, filters?.search, filters?.limit, filters?.offset]);
 
   const createStaff = async (data: Partial<StaffProfile>) => {
     try {
-      const response = await apiClient.post<ApiResponse<StaffProfile>>(
-        '/api/staff',
-        data
-      );
-      if (response.success) {
-        await fetchStaff();
-        return response.data;
-      }
+      const result = await createStaffApi(data);
+      await fetchStaff();
+      return result;
     } catch (err: any) {
-      throw new Error(err.response?.data?.message || err.message || 'Failed to create staff');
+      throw err;
     }
   };
 
   const updateStaff = async (id: number, data: Partial<StaffProfile>) => {
     try {
-      const response = await apiClient.put<ApiResponse<StaffProfile>>(
-        `/api/staff/${id}`,
-        data
-      );
-      if (response.success) {
-        await fetchStaff();
-        return response.data;
-      }
+      const result = await updateStaffApi(id, data);
+      await fetchStaff();
+      return result;
     } catch (err: any) {
-      throw new Error(err.response?.data?.message || err.message || 'Failed to update staff');
+      throw err;
     }
   };
 
   const deleteStaff = async (id: number) => {
     try {
-      await apiClient.delete(`/api/staff/${id}`);
+      await deleteStaffApi(id);
       await fetchStaff();
     } catch (err: any) {
-      throw new Error(err.response?.data?.message || err.message || 'Failed to delete staff');
+      throw err;
     }
   };
 
@@ -120,31 +89,27 @@ export function useStaffById(id: number) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (id) {
-      fetchStaff();
-    }
-  }, [id]);
-
-  const fetchStaff = async () => {
+  const fetchStaff = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await apiClient.get<ApiResponse<StaffProfile>>(
-        `/api/staff/${id}`
-      );
-      
-      if (response.success) {
-        setStaff(response.data);
-      }
+      const { getStaffById } = await import('@/lib/staff');
+      const result = await getStaffById(id);
+      setStaff(result);
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to fetch staff');
+      setError(err.message || 'Failed to fetch staff');
       console.error('Error fetching staff:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      fetchStaff();
+    }
+  }, [id, fetchStaff]);
 
   return {
     staff,
