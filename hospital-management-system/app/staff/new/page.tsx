@@ -18,21 +18,28 @@ export default function NewStaffPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Mock users - in real app, fetch from API
-  const users = [
-    { id: 1, name: 'Dr. John Smith', email: 'john.smith@hospital.com' },
-    { id: 2, name: 'Dr. Sarah Johnson', email: 'sarah.johnson@hospital.com' },
-    { id: 3, name: 'Nurse Emily Davis', email: 'emily.davis@hospital.com' },
-  ];
-
   const handleSubmit = async (data: any) => {
     setIsLoading(true);
     try {
-      await createStaff(data);
-      toast.success('Staff member created successfully');
-      router.push('/staff');
-    } catch (error) {
-      toast.error('Failed to create staff member');
+      const result = await createStaff(data);
+      
+      // Show success message with credentials
+      if (result && (result as any).credentials) {
+        const creds = (result as any).credentials;
+        toast.success(
+          `Staff member created successfully!\n\nLogin Credentials:\nEmail: ${creds.email}\nTemporary Password: ${creds.temporaryPassword}\n\nPlease save these credentials and share them securely with the staff member.`,
+          { duration: 10000 }
+        );
+      } else {
+        toast.success('Staff member created successfully');
+      }
+      
+      // Wait a bit for user to see the credentials
+      setTimeout(() => {
+        router.push('/staff');
+      }, 2000);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create staff member');
       console.error('Create error:', error);
     } finally {
       setIsLoading(false);
@@ -71,7 +78,6 @@ export default function NewStaffPage() {
               </CardHeader>
               <CardContent>
                 <StaffForm
-                  users={users}
                   onSubmit={handleSubmit}
                   onCancel={handleCancel}
                   isLoading={isLoading}

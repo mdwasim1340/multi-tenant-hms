@@ -19,7 +19,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 
 const staffSchema = z.object({
-  user_id: z.number(),
+  // User information (will create user account)
+  name: z.string().min(1, 'Full name is required'),
+  email: z.string().email('Valid email is required'),
+  role: z.string().min(1, 'Role is required'),
+  
+  // Staff profile information
   employee_id: z.string().min(1, 'Employee ID is required'),
   department: z.string().optional(),
   specialization: z.string().optional(),
@@ -41,18 +46,26 @@ type StaffFormData = z.infer<typeof staffSchema>;
 
 interface StaffFormProps {
   initialData?: Partial<StaffFormData>;
-  users: Array<{ id: number; name: string; email: string }>;
   onSubmit: (data: StaffFormData) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
+  availableRoles?: Array<{ id: number; name: string; description: string }>;
 }
 
 export function StaffForm({
   initialData,
-  users,
   onSubmit,
   onCancel,
   isLoading = false,
+  availableRoles = [
+    { id: 2, name: 'Hospital Admin', description: 'Hospital administrator' },
+    { id: 3, name: 'Doctor', description: 'Medical practitioner' },
+    { id: 4, name: 'Nurse', description: 'Nursing staff' },
+    { id: 5, name: 'Receptionist', description: 'Front desk staff' },
+    { id: 6, name: 'Manager', description: 'Department manager' },
+    { id: 7, name: 'Lab Technician', description: 'Laboratory staff' },
+    { id: 8, name: 'Pharmacist', description: 'Pharmacy staff' },
+  ],
 }: StaffFormProps) {
   const [emergencyContact, setEmergencyContact] = useState(
     initialData?.emergency_contact || {}
@@ -90,25 +103,56 @@ export function StaffForm({
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="user_id">User Account *</Label>
+              <Label htmlFor="name">Full Name *</Label>
+              <Input
+                id="name"
+                {...register('name')}
+                placeholder="John Doe"
+              />
+              {errors.name && (
+                <p className="text-sm text-destructive">
+                  {errors.name.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
+                type="email"
+                {...register('email')}
+                placeholder="john.doe@hospital.com"
+              />
+              {errors.email && (
+                <p className="text-sm text-destructive">
+                  {errors.email.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="role">Role *</Label>
               <Select
-                onValueChange={(value) => setValue('user_id', parseInt(value))}
-                defaultValue={initialData?.user_id?.toString()}
+                onValueChange={(value) => setValue('role', value)}
+                defaultValue={initialData?.role}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select user account" />
+                  <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id.toString()}>
-                      {user.name} ({user.email})
+                  {availableRoles.map((role) => (
+                    <SelectItem key={role.id} value={role.name}>
+                      {role.name} - {role.description}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.user_id && (
+              {errors.role && (
                 <p className="text-sm text-destructive">
-                  {errors.user_id.message}
+                  {errors.role.message}
                 </p>
               )}
             </div>

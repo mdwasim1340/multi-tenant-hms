@@ -59,18 +59,32 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const profile = await staffService.createStaffProfile(req.body);
-    
-    res.status(201).json({
-      success: true,
-      message: 'Staff profile created successfully',
-      data: profile
-    });
+    // Check if this is a new staff with user creation or just staff profile
+    if (req.body.name && req.body.email && req.body.role) {
+      // Create staff with user account
+      const result = await staffService.createStaffWithUser(req.body);
+      
+      res.status(201).json({
+        success: true,
+        message: 'Staff member and user account created successfully',
+        data: result.staff,
+        credentials: result.credentials
+      });
+    } else {
+      // Legacy: just create staff profile (requires user_id)
+      const profile = await staffService.createStaffProfile(req.body);
+      
+      res.status(201).json({
+        success: true,
+        message: 'Staff profile created successfully',
+        data: profile
+      });
+    }
   } catch (error: any) {
-    console.error('Error creating staff profile:', error);
+    console.error('Error creating staff:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to create staff profile',
+      error: 'Failed to create staff',
       message: error.message
     });
   }

@@ -1,4 +1,5 @@
 import pool from '../database';
+import * as authService from './auth';
 
 export interface StaffProfile {
   id?: number;
@@ -77,6 +78,82 @@ export interface StaffPayroll {
 }
 
 // Staff Profile Operations
+
+/**
+ * Create staff member with user account
+ * This creates both a Cognito user and a staff profile
+ */
+export const createStaffWithUser = async (data: {
+  name: string;
+  email: string;
+  role: string;
+  employee_id: string;
+  department?: string;
+  specialization?: string;
+  license_number?: string;
+  hire_date: string;
+  employment_type?: string;
+  status?: string;
+  emergency_contact?: any;
+}) => {
+  // Generate temporary password
+  const temporaryPassword = generateTemporaryPassword();
+  
+  // Create user in Cognito and database
+  const user = await authService.createUser({
+    name: data.name,
+    email: data.email,
+    password: temporaryPassword,
+    tenant: '', // Will be set by middleware
+    role: data.role
+  });
+  
+  // Create staff profile
+  const staffProfile = await createStaffProfile({
+    user_id: user.id,
+    employee_id: data.employee_id,
+    department: data.department,
+    specialization: data.specialization,
+    license_number: data.license_number,
+    hire_date: data.hire_date,
+    employment_type: data.employment_type,
+    status: data.status || 'active',
+    emergency_contact: data.emergency_contact
+  });
+  
+  return {
+    staff: staffProfile,
+    credentials: {
+      email: data.email,
+      temporaryPassword: temporaryPassword,
+      userId: user.id
+    }
+  };
+};
+
+/**
+ * Generate a secure temporary password
+ */
+function generateTemporaryPassword(): string {
+  const length = 12;
+  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+  let password = '';
+  
+  // Ensure password has at least one of each required character type
+  password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)]; // Uppercase
+  password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]; // Lowercase
+  password += '0123456789'[Math.floor(Math.random() * 10)]; // Number
+  password += '!@#$%^&*'[Math.floor(Math.random() * 8)]; // Special char
+  
+  // Fill the rest randomly
+  for (let i = password.length; i < length; i++) {
+    password += charset[Math.floor(Math.random() * charset.length)];
+  }
+  
+  // Shuffle the password
+  return password.split('').sort(() => Math.random() - 0.5).join('');
+}
+
 export const createStaffProfile = async (profile: StaffProfile) => {
   const result = await pool.query(
     `INSERT INTO staff_profiles 
