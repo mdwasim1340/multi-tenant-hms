@@ -58,8 +58,10 @@ app.use(tenantMiddleware);
 
 import filesRouter from './routes/files';
 import staffRouter from './routes/staff';
+import analyticsRouter from './routes/analytics';
 app.use('/files', authMiddleware, filesRouter);
 app.use('/api', authMiddleware, staffRouter);
+app.use('/api', authMiddleware, analyticsRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {
