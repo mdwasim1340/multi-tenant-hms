@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { Button } from "@/components/ui/button"
@@ -12,6 +13,7 @@ import { useStaff } from "@/hooks/use-staff"
 import { useDashboardAnalytics } from "@/hooks/use-analytics"
 
 export default function StaffManagement() {
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeTab, setActiveTab] = useState("staff")
   const [filters, setFilters] = useState({
@@ -28,6 +30,10 @@ export default function StaffManagement() {
   console.log('Staff data:', { staff, loading: staffLoading, error: staffError })
   console.log('Analytics data:', { analytics, loading: analyticsLoading })
 
+  const handleAddStaff = () => {
+    router.push('/staff/new')
+  }
+
   return (
     <div className="flex h-screen bg-background">
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
@@ -42,7 +48,7 @@ export default function StaffManagement() {
                 <h1 className="text-3xl font-bold text-foreground">Staff Management</h1>
                 <p className="text-muted-foreground mt-1">Scheduling, performance, and credentials</p>
               </div>
-              <Button className="bg-primary hover:bg-primary/90">
+              <Button className="bg-primary hover:bg-primary/90" onClick={handleAddStaff}>
                 <Users2 className="w-4 h-4 mr-2" />
                 Add Staff Member
               </Button>
@@ -130,7 +136,7 @@ export default function StaffManagement() {
                     <Loader2 className="w-8 h-8 animate-spin text-accent" />
                     <span className="ml-2 text-muted-foreground">Loading staff...</span>
                   </div>
-                ) : staffError ? (
+                ) : staffError && staff.length === 0 ? (
                   <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
                     <CardContent className="pt-6">
                       <div className="flex flex-col gap-3">
@@ -139,14 +145,23 @@ export default function StaffManagement() {
                           <p className="font-semibold">Error loading staff</p>
                         </div>
                         <p className="text-sm text-red-800 dark:text-red-200">{staffError}</p>
-                        {staffError.includes('authenticated') && (
+                        <div className="flex gap-2 mt-2">
+                          {staffError.includes('authenticated') && (
+                            <Button 
+                              onClick={() => window.location.href = '/auth/login'}
+                              className="w-fit"
+                            >
+                              Go to Login
+                            </Button>
+                          )}
                           <Button 
-                            onClick={() => window.location.href = '/auth/login'}
-                            className="mt-2 w-fit"
+                            variant="outline"
+                            onClick={() => window.location.reload()}
+                            className="w-fit"
                           >
-                            Go to Login
+                            Retry
                           </Button>
-                        )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -155,8 +170,12 @@ export default function StaffManagement() {
                     <CardContent className="pt-6">
                       <div className="text-center py-12">
                         <Users2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-muted-foreground">No staff members found</p>
-                        <Button className="mt-4">Add First Staff Member</Button>
+                        <p className="text-lg font-medium text-foreground mb-2">No staff members yet</p>
+                        <p className="text-muted-foreground mb-4">Get started by adding your first staff member</p>
+                        <Button className="mt-4" onClick={handleAddStaff}>
+                          <Users2 className="w-4 h-4 mr-2" />
+                          Add First Staff Member
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>

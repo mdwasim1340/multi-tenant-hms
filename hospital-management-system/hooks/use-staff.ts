@@ -29,12 +29,16 @@ export function useStaff(filters?: UseStaffFilters) {
       });
       
       if (response.success) {
-        setStaff(response.data);
+        // Set staff even if empty array - this is not an error
+        setStaff(response.data || []);
       }
     } catch (err: any) {
+      // Only set error for actual errors, not empty results
       const errorMessage = err.message || 'Failed to fetch staff';
       setError(errorMessage);
       console.error('❌ Error fetching staff:', err);
+      // Set empty array on error so UI can show empty state
+      setStaff([]);
     } finally {
       setLoading(false);
     }
