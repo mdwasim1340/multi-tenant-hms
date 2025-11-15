@@ -9,6 +9,13 @@ export interface DashboardAnalytics {
   present_count: number;
   absent_count: number;
   avg_performance_score: number;
+  // Additional fields for comprehensive dashboard
+  total_patients?: number;
+  active_patients?: number;
+  total_appointments?: number;
+  completed_appointments?: number;
+  total_revenue?: number;
+  avg_wait_time_hours?: number;
 }
 
 export interface StaffAnalytics {

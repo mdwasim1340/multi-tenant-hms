@@ -354,3 +354,105 @@ export function useDepartmentStatistics(department?: string) {
     refetch: fetchStatistics
   };
 }
+
+// Additional analytics hooks for comprehensive reporting
+
+export function usePatientAnalytics() {
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, []);
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiClient.get('/api/analytics/patients');
+      setAnalytics(response);
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Failed to fetch patient analytics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { analytics, loading, error, refetch: fetchAnalytics };
+}
+
+export function useClinicalAnalytics() {
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, []);
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiClient.get('/api/analytics/clinical');
+      setAnalytics(response);
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Failed to fetch clinical analytics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { analytics, loading, error, refetch: fetchAnalytics };
+}
+
+export function useFinancialAnalytics() {
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, []);
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiClient.get('/api/analytics/financial');
+      setAnalytics(response);
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Failed to fetch financial analytics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { analytics, loading, error, refetch: fetchAnalytics };
+}
+
+export function useOperationalAnalytics() {
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, []);
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiClient.get('/api/analytics/operational');
+      setAnalytics(response);
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Failed to fetch operational analytics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { analytics, loading, error, refetch: fetchAnalytics };
+}
