@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { tenantMiddleware } from './middleware/tenant';
+import { requireApplicationAccess } from './middleware/authorization';
 import authRouter from './routes/auth';
 import usersRouter from './routes/users';
 import rolesRouter from './routes/roles';
@@ -106,7 +107,6 @@ import labTestsRouter from './routes/lab-tests.routes';
 import imagingRouter from './routes/imaging.routes';
 import labPanelsRouter from './routes/lab-panels.routes';
 import staffRouter from './routes/staff';
-import { requireApplicationAccess } from './middleware/authorization';
 
 // Apply tenant middleware, authentication, and application access control to hospital routes
 app.use('/files', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), filesRouter);
