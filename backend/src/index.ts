@@ -139,10 +139,13 @@ app.get('/', async (req: Request, res: Response) => {
 
 import { errorHandler } from './middleware/errorHandler';
 import { initializeWebSocketServer } from './websocket/server';
+import { initializeNotificationWebSocket } from './websocket/notification-server';
 app.use(errorHandler);
 
 const server = app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
 
+// Initialize WebSocket servers
 initializeWebSocketServer(server);
+initializeNotificationWebSocket(server);

@@ -6,6 +6,8 @@
 
 import { Router, Request, Response } from 'express';
 import { NotificationService } from '../services/notification';
+import { NotificationBroadcaster } from '../services/notification-broadcaster';
+import { getNotificationSSEService } from '../services/notification-sse';
 import {
   CreateNotificationSchema,
   UpdateNotificationSchema,
@@ -85,7 +87,7 @@ router.get('/', async (req: Request, res: Response) => {
 
 /**
  * POST /api/notifications
- * Create a new notification
+ * Create a new notification and broadcast in real-time
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
@@ -108,11 +110,11 @@ router.post('/', async (req: Request, res: Response) => {
       data.created_by = userId;
     }
 
-    // Create notification
-    const notification = await NotificationService.createNotification(tenantId, data);
+    // Create notification and broadcast
+    const notification = await NotificationBroadcaster.createAndBroadcast(tenantId, data);
 
     res.status(201).json({
-      message: 'Notification created successfully',
+      message: 'Notification created and broadcast successfully',
       notification,
     });
   } catch (error) {
@@ -121,6 +123,67 @@ router.post('/', async (req: Request, res: Response) => {
     }
     console.error('Error creating notification:', error);
     res.status(500).json({ error: 'Failed to create notification' });
+  }
+});
+
+/**
+ * GET /api/notifications/stream
+ * SSE endpoint for real-time notifications
+ */
+router.get('/stream', async (req: Request, res: Response) => {
+  try {
+    const tenantId = getTenantId(req);
+    const userId = getUserId(req);
+
+    if (!tenantId) {
+      return res.status(400).json({ error: 'X-Tenant-ID header is required' });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Add client to SSE service
+    const sseService = getNotificationSSEService();
+    sseService.addClient(userId, tenantId, res);
+
+    // Connection will be kept alive by SSE service
+  } catch (error) {
+    console.error('Error setting up SSE stream:', error);
+    res.status(500).json({ error: 'Failed to establish SSE connection' });
+  }
+});
+
+/**
+ * GET /api/notifications/connections
+ * Get real-time connection statistics
+ */
+router.get('/connections', async (req: Request, res: Response) => {
+  try {
+    const tenantId = getTenantId(req);
+    const userId = getUserId(req);
+
+    if (!tenantId) {
+      return res.status(400).json({ error: 'X-Tenant-ID header is required' });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Get connection statistics
+    const globalStats = NotificationBroadcaster.getConnectionStats();
+    const tenantStats = NotificationBroadcaster.getTenantConnectionStats(tenantId);
+    const userStats = NotificationBroadcaster.getUserConnectionStats(tenantId, userId);
+
+    res.json({
+      global: globalStats,
+      tenant: tenantStats,
+      user: userStats,
+    });
+  } catch (error) {
+    console.error('Error getting connection stats:', error);
+    res.status(500).json({ error: 'Failed to get connection statistics' });
   }
 });
 
