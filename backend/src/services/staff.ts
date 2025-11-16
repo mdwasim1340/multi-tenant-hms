@@ -100,14 +100,20 @@ export const createStaffWithUser = async (data: {
   // Generate temporary password
   const temporaryPassword = generateTemporaryPassword();
   
-  // Create user in Cognito and database
-  const user = await authService.createUser({
+  // Create user in Cognito and database using signUp
+  const signUpResult = await authService.signUp({
     name: data.name,
     email: data.email,
     password: temporaryPassword,
-    tenant: data.tenantId,
     role: data.role
-  });
+  }, data.tenantId);
+  
+  // Get the created user from database
+  const userResult = await pool.query(
+    'SELECT * FROM users WHERE email = $1',
+    [data.email]
+  );
+  const user = userResult.rows[0];
   
   // Create staff profile
   const staffProfile = await createStaffProfile({
