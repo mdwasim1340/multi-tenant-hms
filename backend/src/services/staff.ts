@@ -1,5 +1,6 @@
 import pool from '../database';
 import * as authService from './auth';
+import * as userService from './userService';
 
 export interface StaffProfile {
   id?: number;
@@ -104,30 +105,25 @@ export const createStaffWithUser = async (data: {
     const temporaryPassword = generateTemporaryPassword();
     console.log('Generated temporary password');
     
-    // Create user in Cognito and database using signUp
-    console.log('Calling signUp...');
+    // Create user in Cognito (skip email for staff creation)
+    console.log('Creating Cognito user...');
     const signUpResult = await authService.signUp({
+      email: data.email,
+      password: temporaryPassword
+    }, data.tenantId, true); // Skip email verification - third parameter
+    console.log('Cognito user created:', signUpResult);
+    
+    // Create user in database
+    console.log('Creating database user...');
+    const user = await userService.createUser({
       name: data.name,
       email: data.email,
       password: temporaryPassword,
-      role: data.role
-    }, data.tenantId);
-    console.log('SignUp completed:', signUpResult);
-    
-    // Get the created user from database (users table is in public schema)
-    console.log('Querying user from database...');
-    const userResult = await pool.query(
-      'SELECT * FROM public.users WHERE email = $1',
-      [data.email]
-    );
-    console.log('User query result:', userResult.rows.length, 'rows');
-    
-    if (!userResult.rows.length) {
-      throw new Error(`User not found after signup: ${data.email}`);
-    }
-    
-    const user = userResult.rows[0];
-    console.log('Found user:', user.id);
+      status: 'active',
+      tenant_id: data.tenantId,
+      role_id: null // Role will be assigned separately if needed
+    });
+    console.log('Database user created:', user.id);
   
     // Create staff profile
     console.log('Creating staff profile...');
