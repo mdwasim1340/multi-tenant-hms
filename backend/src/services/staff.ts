@@ -88,6 +88,7 @@ export const createStaffWithUser = async (data: {
   email: string;
   role: string;
   employee_id: string;
+  tenantId: string;
   department?: string;
   specialization?: string;
   license_number?: string;
@@ -104,7 +105,7 @@ export const createStaffWithUser = async (data: {
     name: data.name,
     email: data.email,
     password: temporaryPassword,
-    tenant: '', // Will be set by middleware
+    tenant: data.tenantId,
     role: data.role
   });
   

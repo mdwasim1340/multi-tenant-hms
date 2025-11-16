@@ -59,10 +59,22 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 router.post('/', async (req: Request, res: Response) => {
   try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    
+    if (!tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'X-Tenant-ID header is required'
+      });
+    }
+    
     // Check if this is a new staff with user creation or just staff profile
     if (req.body.name && req.body.email && req.body.role) {
       // Create staff with user account
-      const result = await staffService.createStaffWithUser(req.body);
+      const result = await staffService.createStaffWithUser({
+        ...req.body,
+        tenantId
+      });
       
       res.status(201).json({
         success: true,
@@ -82,6 +94,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
   } catch (error: any) {
     console.error('Error creating staff:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       error: 'Failed to create staff',
