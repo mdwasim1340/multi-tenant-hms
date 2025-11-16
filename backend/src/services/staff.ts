@@ -97,45 +97,70 @@ export const createStaffWithUser = async (data: {
   status?: string;
   emergency_contact?: any;
 }) => {
-  // Generate temporary password
-  const temporaryPassword = generateTemporaryPassword();
-  
-  // Create user in Cognito and database using signUp
-  const signUpResult = await authService.signUp({
-    name: data.name,
-    email: data.email,
-    password: temporaryPassword,
-    role: data.role
-  }, data.tenantId);
-  
-  // Get the created user from database
-  const userResult = await pool.query(
-    'SELECT * FROM users WHERE email = $1',
-    [data.email]
-  );
-  const user = userResult.rows[0];
-  
-  // Create staff profile
-  const staffProfile = await createStaffProfile({
-    user_id: user.id,
-    employee_id: data.employee_id,
-    department: data.department,
-    specialization: data.specialization,
-    license_number: data.license_number,
-    hire_date: data.hire_date,
-    employment_type: data.employment_type,
-    status: data.status || 'active',
-    emergency_contact: data.emergency_contact
-  });
-  
-  return {
-    staff: staffProfile,
-    credentials: {
+  try {
+    console.log('Creating staff with user:', { email: data.email, tenantId: data.tenantId });
+    
+    // Generate temporary password
+    const temporaryPassword = generateTemporaryPassword();
+    console.log('Generated temporary password');
+    
+    // Create user in Cognito and database using signUp
+    console.log('Calling signUp...');
+    const signUpResult = await authService.signUp({
+      name: data.name,
       email: data.email,
-      temporaryPassword: temporaryPassword,
-      userId: user.id
+      password: temporaryPassword,
+      role: data.role
+    }, data.tenantId);
+    console.log('SignUp completed:', signUpResult);
+    
+    // Get the created user from database (users table is in public schema)
+    console.log('Querying user from database...');
+    const userResult = await pool.query(
+      'SELECT * FROM public.users WHERE email = $1',
+      [data.email]
+    );
+    console.log('User query result:', userResult.rows.length, 'rows');
+    
+    if (!userResult.rows.length) {
+      throw new Error(`User not found after signup: ${data.email}`);
     }
-  };
+    
+    const user = userResult.rows[0];
+    console.log('Found user:', user.id);
+  
+    // Create staff profile
+    console.log('Creating staff profile...');
+    const staffProfile = await createStaffProfile({
+      user_id: user.id,
+      employee_id: data.employee_id,
+      department: data.department,
+      specialization: data.specialization,
+      license_number: data.license_number,
+      hire_date: data.hire_date,
+      employment_type: data.employment_type,
+      status: data.status || 'active',
+      emergency_contact: data.emergency_contact
+    });
+    console.log('Staff profile created:', staffProfile.id);
+    
+    return {
+      staff: staffProfile,
+      credentials: {
+        email: data.email,
+        temporaryPassword: temporaryPassword,
+        userId: user.id
+      }
+    };
+  } catch (error: any) {
+    console.error('Error in createStaffWithUser:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      data: data
+    });
+    throw error;
+  }
 };
 
 /**
