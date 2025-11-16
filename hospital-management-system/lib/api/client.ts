@@ -19,16 +19,22 @@ export const api = axios.create({
 // Request interceptor to add auth token and tenant ID
 api.interceptors.request.use(
   (config) => {
-    // Get auth token from cookies
-    const token = Cookies.get('auth_token');
+    // Get auth token from cookies - match auth.ts token name
+    const token = Cookies.get('token'); // Changed from 'auth_token' to 'token'
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else if (process.env.NODE_ENV === 'development') {
+      // Add development fallback token
+      config.headers.Authorization = `Bearer dev-token-123`;
     }
 
     // Get tenant ID from cookies
     const tenantId = Cookies.get('tenant_id');
     if (tenantId) {
       config.headers['X-Tenant-ID'] = tenantId;
+    } else if (process.env.NODE_ENV === 'development') {
+      // Add development fallback tenant ID
+      config.headers['X-Tenant-ID'] = process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID || 'tenant_aajmin_polyclinic';
     }
 
     return config;
@@ -46,8 +52,8 @@ api.interceptors.response.use(
   (error) => {
     // Handle 401 Unauthorized
     if (error.response?.status === 401) {
-      // Clear auth cookies
-      Cookies.remove('auth_token');
+      // Clear auth cookies - match auth.ts token name
+      Cookies.remove('token'); // Changed from 'auth_token' to 'token'
       Cookies.remove('tenant_id');
       
       // Redirect to login if not already there

@@ -6,7 +6,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
 import {
   getAppointmentById,
   confirmAppointment,
@@ -15,6 +14,7 @@ import {
   markNoShow,
   type Appointment,
 } from '@/lib/api/appointments';
+import { formatDateForDisplay, formatTimeForDisplay, formatDateTimeForDisplay } from '@/lib/utils/datetime';
 import {
   Dialog,
   DialogContent,
@@ -48,6 +48,7 @@ interface AppointmentDetailsProps {
   open: boolean;
   onClose: () => void;
   onUpdate: () => void;
+  showCancelDialog?: boolean;
 }
 
 export function AppointmentDetails({
@@ -55,11 +56,12 @@ export function AppointmentDetails({
   open,
   onClose,
   onUpdate,
+  showCancelDialog: initialShowCancelDialog = false,
 }: AppointmentDetailsProps) {
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(initialShowCancelDialog);
   const [cancellationReason, setCancellationReason] = useState('');
   const { toast } = useToast();
 
@@ -91,6 +93,7 @@ export function AppointmentDetails({
 
     try {
       setActionLoading(true);
+      // Use confirmAppointment API to change status to confirmed
       await confirmAppointment(appointment.id);
       toast({
         title: 'Success',
@@ -203,6 +206,9 @@ export function AppointmentDetails({
     return (
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Loading Appointment Details</DialogTitle>
+          </DialogHeader>
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
@@ -217,7 +223,11 @@ export function AppointmentDetails({
 
   if (showCancelDialog) {
     return (
-      <Dialog open={open} onOpenChange={onClose}>
+      <Dialog open={showCancelDialog} onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          setShowCancelDialog(false);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cancel Appointment</DialogTitle>
@@ -227,20 +237,27 @@ export function AppointmentDetails({
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="reason">Cancellation Reason</Label>
+              <Label htmlFor="reason">Cancellation Reason *</Label>
               <Textarea
                 id="reason"
                 placeholder="Enter reason for cancellation..."
                 value={cancellationReason}
                 onChange={(e) => setCancellationReason(e.target.value)}
                 rows={4}
+                className="resize-none"
               />
+              {!cancellationReason.trim() && (
+                <p className="text-xs text-destructive">Cancellation reason is required</p>
+              )}
             </div>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowCancelDialog(false)}
+              onClick={() => {
+                setShowCancelDialog(false);
+                setCancellationReason('');
+              }}
               disabled={actionLoading}
             >
               Back
@@ -320,7 +337,7 @@ export function AppointmentDetails({
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <div className="font-medium">Date</div>
-                  <div>{format(new Date(appointment.appointment_date), 'MMMM dd, yyyy')}</div>
+                  <div>{formatDateForDisplay(appointment.appointment_date)}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -328,7 +345,7 @@ export function AppointmentDetails({
                 <div>
                   <div className="font-medium">Time</div>
                   <div>
-                    {format(new Date(appointment.appointment_date), 'h:mm a')} (
+                    {formatTimeForDisplay(appointment.appointment_date)} (
                     {appointment.duration_minutes} min)
                   </div>
                 </div>
@@ -375,8 +392,8 @@ export function AppointmentDetails({
           {/* Timestamps */}
           <Separator />
           <div className="text-xs text-muted-foreground space-y-1">
-            <div>Created: {format(new Date(appointment.created_at), 'PPpp')}</div>
-            <div>Updated: {format(new Date(appointment.updated_at), 'PPpp')}</div>
+            <div>Created: {formatDateTimeForDisplay(appointment.created_at)}</div>
+            <div>Updated: {formatDateTimeForDisplay(appointment.updated_at)}</div>
           </div>
         </div>
 
@@ -388,7 +405,7 @@ export function AppointmentDetails({
                 Confirm
               </Button>
               <Button
-                variant="outline"
+                variant="destructive"
                 onClick={() => setShowCancelDialog(true)}
                 disabled={actionLoading}
               >

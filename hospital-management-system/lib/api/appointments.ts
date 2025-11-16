@@ -132,7 +132,7 @@ export async function updateAppointment(id: number, data: UpdateAppointmentData)
  */
 export async function cancelAppointment(id: number, reason: string): Promise<{ success: boolean; data: { appointment: Appointment }; message: string }> {
   const response = await api.delete(`/api/appointments/${id}`, {
-    data: { cancellation_reason: reason }
+    data: { reason }
   });
   return response.data;
 }

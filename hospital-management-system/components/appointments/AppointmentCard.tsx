@@ -6,10 +6,11 @@
 'use client';
 
 import { useState } from 'react';
-import { format } from 'date-fns';
+import { useRouter } from 'next/navigation';
 import { type Appointment } from '@/lib/api/appointments';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { formatDateForDisplay, formatTimeForDisplay } from '@/lib/utils/datetime';
 import {
   Calendar,
   Clock,
@@ -29,6 +30,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { AppointmentDetails } from './AppointmentDetails';
+import { useToast } from '@/hooks/use-toast';
 
 interface AppointmentCardProps {
   appointment: Appointment;
@@ -37,6 +39,9 @@ interface AppointmentCardProps {
 
 export function AppointmentCard({ appointment, onUpdate }: AppointmentCardProps) {
   const [showDetails, setShowDetails] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -68,9 +73,10 @@ export function AppointmentCard({ appointment, onUpdate }: AppointmentCardProps)
     }
   };
 
+  // Use utility functions for consistent timezone handling
   const formatDate = (dateString: string) => {
     try {
-      return format(new Date(dateString), 'MMM dd, yyyy');
+      return formatDateForDisplay(dateString);
     } catch {
       return dateString;
     }
@@ -78,10 +84,32 @@ export function AppointmentCard({ appointment, onUpdate }: AppointmentCardProps)
 
   const formatTime = (dateString: string) => {
     try {
-      return format(new Date(dateString), 'h:mm a');
+      return formatTimeForDisplay(dateString);
     } catch {
       return dateString;
     }
+  };
+
+  const handleConfirm = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDetails(true);
+  };
+
+  const handleReschedule = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Navigate to new appointment page with pre-filled data
+    router.push(`/appointments/new?reschedule=${appointment.id}`);
+  };
+
+  const handleMarkComplete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDetails(true);
+  };
+
+  const handleCancelAppointment = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Show cancel dialog directly
+    setShowCancelDialog(true);
   };
 
   return (
@@ -171,22 +199,22 @@ export function AppointmentCard({ appointment, onUpdate }: AppointmentCardProps)
               </DropdownMenuItem>
               {appointment.status === 'scheduled' && (
                 <>
-                  <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuItem onClick={handleConfirm}>
                     Confirm
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuItem onClick={handleReschedule}>
                     Reschedule
                   </DropdownMenuItem>
                 </>
               )}
               {appointment.status === 'confirmed' && (
-                <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuItem onClick={handleMarkComplete}>
                   Mark Complete
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={(e) => e.stopPropagation()}
+                onClick={handleCancelAppointment}
                 className="text-destructive"
               >
                 Cancel Appointment
@@ -206,6 +234,20 @@ export function AppointmentCard({ appointment, onUpdate }: AppointmentCardProps)
             onUpdate();
             setShowDetails(false);
           }}
+        />
+      )}
+
+      {/* Cancel Dialog */}
+      {showCancelDialog && (
+        <AppointmentDetails
+          appointmentId={appointment.id}
+          open={showCancelDialog}
+          onClose={() => setShowCancelDialog(false)}
+          onUpdate={() => {
+            onUpdate();
+            setShowCancelDialog(false);
+          }}
+          showCancelDialog={true}
         />
       )}
     </>

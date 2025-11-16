@@ -28,7 +28,7 @@ subdomainCache.connect().catch(err => {
 });
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5000;
 
 // CORS configuration for authorized applications only
 app.use(cors({
@@ -114,8 +114,20 @@ import staffRouter from './routes/staff';
 app.use('/files', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), filesRouter);
 app.use('/api/realtime', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), realtimeRouter);
 app.use('/api/custom-fields', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), customFieldsRouter);
-app.use('/api/patients', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), patientsRouter);
-app.use('/api/appointments', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), appointmentsRouter);
+// Development vs Production middleware for patients
+if (process.env.NODE_ENV === 'development') {
+  const { devTenantMiddleware, devAuthMiddleware, devApplicationAccessMiddleware } = require('./middleware/devAuth');
+  app.use('/api/patients', devTenantMiddleware, devAuthMiddleware, devApplicationAccessMiddleware('hospital_system'), patientsRouter);
+} else {
+  app.use('/api/patients', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), patientsRouter);
+}
+// Development vs Production middleware for appointments
+if (process.env.NODE_ENV === 'development') {
+  const { devTenantMiddleware, devAuthMiddleware, devApplicationAccessMiddleware } = require('./middleware/devAuth');
+  app.use('/api/appointments', devTenantMiddleware, devAuthMiddleware, devApplicationAccessMiddleware('hospital_system'), appointmentsRouter);
+} else {
+  app.use('/api/appointments', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), appointmentsRouter);
+}
 app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), medicalRecordsRouter);
 app.use('/api/prescriptions', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), prescriptionsRouter);
 app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), diagnosisTreatmentRouter);

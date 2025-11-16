@@ -68,7 +68,7 @@ export function useAppointmentsCalendar(dateFrom: string, dateTo: string, doctor
   return useAppointments({
     date_from: dateFrom,
     date_to: dateTo,
-    doctor_id: doctorId,
-    limit: 1000, // Get all appointments in range
+    ...(doctorId !== undefined ? { doctor_id: doctorId } : {}),
+    limit: 100,
   });
 }

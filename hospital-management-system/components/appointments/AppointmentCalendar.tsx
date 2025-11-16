@@ -117,31 +117,10 @@ export default function AppointmentCalendar({
     );
   }
 
-  // Error state
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-[700px] bg-white rounded-lg border border-red-200">
-        <div className="text-center">
-          <div className="text-red-600 mb-4">
-            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <p className="text-gray-900 font-medium mb-2">Failed to load appointments</p>
-          <p className="text-gray-600 text-sm mb-4">{error}</p>
-          <button
-            onClick={() => refetch()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // In case of error, continue to render the calendar with an empty state
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
+    <div className="bg-white rounded-lg border border-gray-200 p-4 relative">
       {/* Calendar Header Info */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-4">

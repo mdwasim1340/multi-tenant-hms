@@ -6,7 +6,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
 import { getAppointments, type Appointment, type AppointmentFilters } from '@/lib/api/appointments';
 import { AppointmentCard } from './AppointmentCard';
 import { AppointmentFilters as Filters } from './AppointmentFilters';

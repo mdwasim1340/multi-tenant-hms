@@ -13,8 +13,10 @@ import {
   Appointment,
   createAppointment,
   updateAppointment,
-  getAvailableSlots,
 } from '@/lib/api/appointments';
+import { getPatients, Patient } from '@/lib/api/patients';
+import { getDoctors, Doctor } from '@/lib/api/doctors';
+import { parseToLocalDateTime, combineLocalDateTime } from '@/lib/utils/datetime';
 
 // Form validation schema
 const AppointmentFormSchema = z.object({
@@ -46,8 +48,12 @@ export default function AppointmentForm({
 }: AppointmentFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [availableSlots, setAvailableSlots] = useState<any[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loadingPatients, setLoadingPatients] = useState(false);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
+  const [patientSearch, setPatientSearch] = useState('');
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
 
   const isEditMode = !!appointment;
 
@@ -55,50 +61,87 @@ export default function AppointmentForm({
   const form = useForm<AppointmentFormData>({
     resolver: zodResolver(AppointmentFormSchema),
     defaultValues: {
-      patient_id: appointment?.patient_id || 0,
-      doctor_id: appointment?.doctor_id || defaultDoctorId || 0,
-      appointment_date: appointment?.appointment_date?.split('T')[0] || defaultDate || '',
-      appointment_time: appointment?.appointment_date?.split('T')[1]?.substring(0, 5) || '',
-      duration_minutes: appointment?.duration_minutes || 30,
-      appointment_type: (appointment?.appointment_type as any) || 'consultation',
-      notes: appointment?.notes || '',
+      patient_id: 0,
+      doctor_id: defaultDoctorId || 0,
+      appointment_date: defaultDate || '',
+      appointment_time: '',
+      duration_minutes: 30,
+      appointment_type: 'consultation',
+      notes: '',
     },
   });
 
-  const watchDoctorId = form.watch('doctor_id');
-  const watchDate = form.watch('appointment_date');
-  const watchDuration = form.watch('duration_minutes');
-
-  // Fetch available slots when doctor/date changes
+  // Load patients and doctors on component mount
   useEffect(() => {
-    if (watchDoctorId && watchDate) {
-      fetchAvailableSlots();
-    }
-  }, [watchDoctorId, watchDate, watchDuration]);
+    loadPatients();
+    loadDoctors();
+  }, []);
 
-  const fetchAvailableSlots = async () => {
-    try {
-      setLoadingSlots(true);
-      const response = await getAvailableSlots({
-        doctor_id: watchDoctorId,
-        date: watchDate,
-        duration_minutes: watchDuration,
+  // Update form when appointment prop changes (for reschedule)
+  useEffect(() => {
+    if (appointment) {
+      // Parse the appointment date to local date and time
+      const { date, time } = parseToLocalDateTime(appointment.appointment_date);
+
+      form.reset({
+        patient_id: appointment.patient_id,
+        doctor_id: appointment.doctor_id,
+        appointment_date: date,
+        appointment_time: time,
+        duration_minutes: appointment.duration_minutes,
+        appointment_type: appointment.appointment_type as any,
+        notes: appointment.notes || '',
       });
-      setAvailableSlots(response.data.slots || []);
+    }
+  }, [appointment, form]);
+
+  const loadPatients = async () => {
+    try {
+      setLoadingPatients(true);
+      const response = await getPatients({ limit: 100 });
+      setPatients(response.data.patients);
     } catch (err) {
-      console.error('Error fetching available slots:', err);
+      console.error('Error loading patients:', err);
+      setError('Failed to load patients. Please try again.');
+      // Use mock data if API fails
+      const mockPatients = [
+        { id: 1, first_name: "John", last_name: "Doe", patient_number: "P001", email: "john.doe@email.com", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 2, first_name: "Jane", last_name: "Smith", patient_number: "P002", email: "jane.smith@email.com", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 3, first_name: "sonu", last_name: "", patient_number: "P003", email: "sonu@email.com", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+      ];
+      setPatients(mockPatients);
     } finally {
-      setLoadingSlots(false);
+      setLoadingPatients(false);
     }
   };
+
+  const loadDoctors = async () => {
+    try {
+      setLoadingDoctors(true);
+      // Use mock doctors since the API doesn't exist yet
+      const mockDoctors = [
+        { id: 1, name: "Dr. James Smith", specialty: "Cardiology", email: "james.smith@hospital.com", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 2, name: "Dr. Emily Johnson", specialty: "Internal Medicine", email: "emily.johnson@hospital.com", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 3, name: "Dr. Robert Williams", specialty: "Cardiology", email: "robert.williams@hospital.com", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+      ];
+      setDoctors(mockDoctors);
+    } catch (err) {
+      console.error('Error loading doctors:', err);
+      setError('Failed to load doctors. Please try again.');
+    } finally {
+      setLoadingDoctors(false);
+    }
+  };
+
+  // Slot fetching removed from form
 
   const onSubmit = async (data: AppointmentFormData) => {
     try {
       setLoading(true);
       setError(null);
 
-      // Combine date and time
-      const datetime = `${data.appointment_date}T${data.appointment_time}:00.000Z`;
+      // Combine date and time preserving local timezone
+      const datetime = combineLocalDateTime(data.appointment_date, data.appointment_time);
 
       const appointmentData = {
         patient_id: data.patient_id,
@@ -111,7 +154,13 @@ export default function AppointmentForm({
 
       let result;
       if (isEditMode && appointment) {
-        result = await updateAppointment(appointment.id, appointmentData);
+        // For update, only send the fields that can be updated
+        result = await updateAppointment(appointment.id, {
+          appointment_date: datetime,
+          duration_minutes: data.duration_minutes,
+          appointment_type: data.appointment_type,
+          notes: data.notes,
+        });
       } else {
         result = await createAppointment(appointmentData);
       }
@@ -127,12 +176,7 @@ export default function AppointmentForm({
     }
   };
 
-  const handleSlotClick = (slot: any) => {
-    if (slot.available) {
-      const time = new Date(slot.start_time).toTimeString().substring(0, 5);
-      form.setValue('appointment_time', time);
-    }
-  };
+  // Slot selection UI removed
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -143,19 +187,77 @@ export default function AppointmentForm({
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         {/* Patient Selection */}
         <div>
-          <label htmlFor="patient_id" className="block text-sm font-medium text-gray-700 mb-2">
-            Patient *
-          </label>
-          <select
-            id="patient_id"
-            {...form.register('patient_id', { valueAsNumber: true })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value={0}>Select a patient...</option>
-            {/* TODO: Load patients from API */}
-            <option value={5}>John Doe (P001)</option>
-            <option value={6}>Jane Smith (P002)</option>
-          </select>
+          <div className="flex items-center justify-between mb-2">
+            <label htmlFor="patient_id" className="block text-sm font-medium text-gray-700">
+              Patient *
+            </label>
+            <button
+              type="button"
+              onClick={() => window.open('/patient-registration', '_blank')}
+              className="text-sm bg-primary hover:bg-primary/90 text-primary-foreground font-medium flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Register New Patient
+            </button>
+          </div>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder={loadingPatients ? 'Loading patients...' : 'Type patient name to search...'}
+              value={patientSearch}
+              onChange={(e) => {
+                setPatientSearch(e.target.value);
+                setShowPatientDropdown(true);
+              }}
+              onFocus={() => setShowPatientDropdown(true)}
+              disabled={loadingPatients}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {showPatientDropdown && patientSearch && !loadingPatients && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                {patients
+                  .filter(p => {
+                    const searchLower = patientSearch.toLowerCase();
+                    const fullName = `${p.first_name} ${p.last_name}`.toLowerCase();
+                    const patientNum = (p.patient_number || '').toLowerCase();
+                    return fullName.includes(searchLower) || patientNum.includes(searchLower);
+                  })
+                  .map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        form.setValue('patient_id', p.id);
+                        setPatientSearch(`${p.first_name} ${p.last_name}`);
+                        setShowPatientDropdown(false);
+                      }}
+                      className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="font-medium text-gray-900">
+                        {p.first_name} {p.last_name}
+                      </div>
+                      {p.patient_number && (
+                        <div className="text-sm text-gray-600">
+                          {p.patient_number}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                {patients.filter(p => {
+                  const searchLower = patientSearch.toLowerCase();
+                  const fullName = `${p.first_name} ${p.last_name}`.toLowerCase();
+                  const patientNum = (p.patient_number || '').toLowerCase();
+                  return fullName.includes(searchLower) || patientNum.includes(searchLower);
+                }).length === 0 && (
+                  <div className="px-4 py-3 text-sm text-gray-600 text-center">
+                    No patients found. Try a different search or register a new patient.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           {form.formState.errors.patient_id && (
             <p className="mt-1 text-sm text-red-600">{form.formState.errors.patient_id.message}</p>
           )}
@@ -170,11 +272,16 @@ export default function AppointmentForm({
             id="doctor_id"
             {...form.register('doctor_id', { valueAsNumber: true })}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={loadingDoctors}
           >
-            <option value={0}>Select a doctor...</option>
-            {/* TODO: Load doctors from API */}
-            <option value={3}>Dr. Smith</option>
-            <option value={4}>Dr. Johnson</option>
+            <option value={0}>
+              {loadingDoctors ? 'Loading doctors...' : 'Select a doctor...'}
+            </option>
+            {doctors.map((doctor) => (
+              <option key={doctor.id} value={doctor.id}>
+                {doctor.name} {doctor.specialty ? `(${doctor.specialty})` : ''}
+              </option>
+            ))}
           </select>
           {form.formState.errors.doctor_id && (
             <p className="mt-1 text-sm text-red-600">{form.formState.errors.doctor_id.message}</p>
@@ -249,40 +356,7 @@ export default function AppointmentForm({
           </div>
         </div>
 
-        {/* Available Slots */}
-        {watchDoctorId > 0 && watchDate && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Available Time Slots
-            </label>
-            {loadingSlots ? (
-              <div className="text-sm text-gray-600">Loading available slots...</div>
-            ) : availableSlots.length > 0 ? (
-              <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
-                {availableSlots.map((slot, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => handleSlotClick(slot)}
-                    disabled={!slot.available}
-                    className={`px-3 py-2 text-sm rounded-md transition-colors ${
-                      slot.available
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer'
-                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    }`}
-                  >
-                    {new Date(slot.start_time).toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="text-sm text-gray-600">No available slots for this date</div>
-            )}
-          </div>
-        )}
+        {/* Calendar slots are available in Calendar View only */}
 
         {/* Notes */}
         <div>
