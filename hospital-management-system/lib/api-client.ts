@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+import Cookies from 'js-cookie';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -19,8 +20,9 @@ class ApiClient {
     this.client.interceptors.request.use(
       (config) => {
         if (typeof window !== 'undefined') {
-          const token = localStorage.getItem('auth_token');
-          const tenantId = localStorage.getItem('tenant_id');
+          // Use cookies to match auth.ts token storage
+          const token = Cookies.get('token'); // Match auth.ts token name
+          const tenantId = Cookies.get('tenant_id'); // Use cookies for consistency
 
           if (token) {
             config.headers.Authorization = `Bearer ${token}`;
@@ -41,11 +43,13 @@ class ApiClient {
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
-          // Handle unauthorized - redirect to login
+          // Handle unauthorized - clear cookies to match auth.ts
           if (typeof window !== 'undefined') {
-            localStorage.removeItem('auth_token');
+            Cookies.remove('token'); // Match auth.ts token name
+            Cookies.remove('tenant_id');
+            // Clear localStorage as backup
             localStorage.removeItem('tenant_id');
-            window.location.href = '/auth/signin';
+            window.location.href = '/auth/login'; // Correct login path
           }
         }
         return Promise.reject(error);
