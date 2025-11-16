@@ -9,7 +9,11 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT
 });
 
 async function applyMigration() {
@@ -82,23 +86,42 @@ async function applyMigration() {
     `);
     console.log('✅ Indexes created\n');
     
-    // Insert default subscription tiers
-    console.log('Inserting default subscription tiers...');
-    await client.query(`
-      INSERT INTO subscription_tiers (name, display_name, description, price_monthly, price_yearly, features, limits)
-      VALUES 
-        ('basic', 'Basic', 'Basic plan for small clinics', 29.99, 299.99, 
-         '{"appointments": true, "patients": true, "records": true}'::jsonb,
-         '{"users": 5, "patients": 100, "storage_gb": 10}'::jsonb),
-        ('premium', 'Premium', 'Premium plan for growing practices', 79.99, 799.99,
-         '{"appointments": true, "patients": true, "records": true, "lab_tests": true, "analytics": true}'::jsonb,
-         '{"users": 20, "patients": 1000, "storage_gb": 100}'::jsonb),
-        ('enterprise', 'Enterprise', 'Enterprise plan for large hospitals', 199.99, 1999.99,
-         '{"appointments": true, "patients": true, "records": true, "lab_tests": true, "analytics": true, "custom_fields": true, "api_access": true}'::jsonb,
-         '{"users": -1, "patients": -1, "storage_gb": -1}'::jsonb)
-      ON CONFLICT (name) DO NOTHING;
+    // Check existing columns first
+    console.log('Checking subscription_tiers schema...');
+    const columnsResult = await client.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'subscription_tiers'
+      ORDER BY ordinal_position;
     `);
-    console.log('✅ Default subscription tiers inserted\n');
+    console.log('Existing columns:', columnsResult.rows.map(r => r.column_name).join(', '));
+    
+    // Check if tiers already exist
+    const existingTiers = await client.query('SELECT COUNT(*) FROM subscription_tiers');
+    
+    if (existingTiers.rows[0].count === '0') {
+      // Insert default subscription tiers (matching actual schema)
+      console.log('Inserting default subscription tiers...');
+      await client.query(`
+        INSERT INTO subscription_tiers (name, price, currency, features, limits, display_order, is_active)
+        VALUES 
+          ('basic', 29.99, 'USD',
+           '{"appointments": true, "patients": true, "records": true}'::jsonb,
+           '{"users": 5, "patients": 100, "storage_gb": 10}'::jsonb,
+           1, true),
+          ('premium', 79.99, 'USD',
+           '{"appointments": true, "patients": true, "records": true, "lab_tests": true, "analytics": true}'::jsonb,
+           '{"users": 20, "patients": 1000, "storage_gb": 100}'::jsonb,
+           2, true),
+          ('enterprise', 199.99, 'USD',
+           '{"appointments": true, "patients": true, "records": true, "lab_tests": true, "analytics": true, "custom_fields": true, "api_access": true}'::jsonb,
+           '{"users": -1, "patients": -1, "storage_gb": -1}'::jsonb,
+           3, true);
+      `);
+      console.log('✅ Default subscription tiers inserted\n');
+    } else {
+      console.log(`ℹ️  Subscription tiers already exist (${existingTiers.rows[0].count} tiers), skipping insert\n`);
+    }
     
     // Create default subscriptions for existing tenants
     console.log('Creating default subscriptions for existing tenants...');
