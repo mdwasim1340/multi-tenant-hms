@@ -107,6 +107,7 @@ import labTestsRouter from './routes/lab-tests.routes';
 import imagingRouter from './routes/imaging.routes';
 import labPanelsRouter from './routes/lab-panels.routes';
 import staffRouter from './routes/staff';
+import staffOnboardingRouter from './routes/staff-onboarding';
 import notificationsRouter from './routes/notifications';
 
 // Apply tenant middleware, authentication, and application access control to hospital routes
@@ -122,6 +123,7 @@ app.use('/api/lab-tests', tenantMiddleware, hospitalAuthMiddleware, requireAppli
 app.use('/api/imaging', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), imagingRouter);
 app.use('/api/lab-panels', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labPanelsRouter);
 app.use('/api/staff', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), staffRouter);
+app.use('/api/staff-onboarding', staffOnboardingRouter); // Public routes for staff onboarding
 app.use('/api/notifications', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), notificationsRouter);
 
 app.get('/', async (req: Request, res: Response) => {

@@ -11,6 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Users2, Calendar, TrendingUp, AlertCircle, CheckCircle, Clock, Award, Loader2 } from "lucide-react"
 import { useStaff } from "@/hooks/use-staff"
 import { useDashboardAnalytics } from "@/hooks/use-analytics"
+import { StaffList } from "@/components/staff/staff-list"
+import { deleteStaff } from "@/lib/staff"
+import { toast } from "sonner"
 
 export default function StaffManagement() {
   const router = useRouter()
@@ -19,7 +22,9 @@ export default function StaffManagement() {
   const [filters, setFilters] = useState({
     department: '',
     status: '',
-    search: ''
+    search: '',
+    include_unverified: true, // Show all users by default
+    verification_status: ''
   })
 
   // Use real API data
@@ -32,6 +37,30 @@ export default function StaffManagement() {
 
   const handleAddStaff = () => {
     router.push('/staff/new')
+  }
+
+  const handleEdit = (id: number) => {
+    router.push(`/staff/${id}/edit`)
+  }
+
+  const handleDelete = async (id: number) => {
+    if (confirm('Are you sure you want to delete this staff member?')) {
+      try {
+        await deleteStaff(id)
+        toast.success('Staff member deleted successfully')
+        window.location.reload()
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to delete staff member')
+      }
+    }
+  }
+
+  const handleViewSchedule = (id: number) => {
+    toast.info('Schedule feature coming soon')
+  }
+
+  const handleViewPerformance = (id: number) => {
+    toast.info('Performance feature coming soon')
   }
 
   return (
@@ -131,6 +160,62 @@ export default function StaffManagement() {
 
               {/* Staff Directory Tab */}
               <TabsContent value="staff" className="space-y-4">
+                {/* Filter Controls */}
+                <Card className="border-border/50">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <Button
+                          variant={filters.include_unverified ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setFilters(prev => ({ ...prev, include_unverified: !prev.include_unverified }))}
+                        >
+                          {filters.include_unverified ? (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Showing All Users
+                            </>
+                          ) : (
+                            <>
+                              <Users2 className="w-4 h-4 mr-2" />
+                              Show All Users
+                            </>
+                          )}
+                        </Button>
+                        {filters.include_unverified && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant={filters.verification_status === 'verified' ? "default" : "ghost"}
+                              size="sm"
+                              onClick={() => setFilters(prev => ({ 
+                                ...prev, 
+                                verification_status: prev.verification_status === 'verified' ? '' : 'verified' 
+                              }))}
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Verified Only
+                            </Button>
+                            <Button
+                              variant={filters.verification_status === 'pending' ? "default" : "ghost"}
+                              size="sm"
+                              onClick={() => setFilters(prev => ({ 
+                                ...prev, 
+                                verification_status: prev.verification_status === 'pending' ? '' : 'pending' 
+                              }))}
+                            >
+                              <Clock className="w-4 h-4 mr-2" />
+                              Pending Only
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <Badge variant="secondary">
+                        {staff?.length || 0} {filters.include_unverified ? 'users' : 'staff members'}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {staffLoading ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="w-8 h-8 animate-spin text-accent" />
@@ -180,63 +265,13 @@ export default function StaffManagement() {
                     </CardContent>
                   </Card>
                 ) : (
-                  (staff || []).map((member) => (
-                    <Card key={member.id} className="border-border/50 hover:shadow-md transition-shadow">
-                      <CardContent className="pt-6">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                <span className="text-sm font-semibold text-primary">
-                                  {member.user_name?.charAt(0) || member.employee_id.charAt(0)}
-                                </span>
-                              </div>
-                              <div>
-                                <h3 className="font-semibold text-foreground">{member.user_name || 'Unknown'}</h3>
-                                <p className="text-sm text-muted-foreground">{member.specialization || member.department}</p>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-                              <div>
-                                <p className="text-xs text-muted-foreground">Employee ID</p>
-                                <p className="font-semibold text-foreground">{member.employee_id}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-muted-foreground">Department</p>
-                                <p className="font-semibold text-foreground">{member.department || 'N/A'}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-muted-foreground">Status</p>
-                                <Badge variant="outline" className="mt-1">
-                                  {member.status || 'active'}
-                                </Badge>
-                              </div>
-                              <div>
-                                <p className="text-xs text-muted-foreground">Employment Type</p>
-                                <Badge variant="secondary" className="mt-1">
-                                  {member.employment_type || 'N/A'}
-                                </Badge>
-                              </div>
-                            </div>
-
-                            <div className="bg-accent/5 border border-accent/20 rounded-lg p-3">
-                              <div className="flex items-start gap-2">
-                                <TrendingUp className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                                <div>
-                                  <p className="text-xs font-semibold text-accent mb-1">Staff Info</p>
-                                  <p className="text-sm text-foreground">
-                                    Hired: {new Date(member.hire_date).toLocaleDateString()} • 
-                                    Email: {member.user_email || 'N/A'}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
+                  <StaffList
+                    staff={staff || []}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onViewSchedule={handleViewSchedule}
+                    onViewPerformance={handleViewPerformance}
+                  />
                 )}
               </TabsContent>
 

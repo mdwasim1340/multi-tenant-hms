@@ -13,8 +13,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Edit, Trash2, Calendar, Award } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Calendar, Award, Eye } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface StaffListProps {
   staff: StaffProfile[];
@@ -31,13 +32,15 @@ export function StaffList({
   onViewSchedule,
   onViewPerformance,
 }: StaffListProps) {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
 
   const filteredStaff = staff.filter((member) => {
     const matchesSearch =
-      member.employee_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      member.employee_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      member.user_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.department?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesDepartment =
@@ -179,13 +182,13 @@ export function StaffList({
               </TableRow>
             ) : (
               filteredStaff.map((member) => (
-                <TableRow key={member.id}>
+                <TableRow key={member.id || member.user_id}>
                   <TableCell className="font-medium">
-                    {member.employee_id}
+                    {member.employee_id || 'Pending'}
                   </TableCell>
                   <TableCell>
                     <Link
-                      href={`/staff/${member.id}`}
+                      href={`/staff/${member.staff_id || member.user_id}`}
                       className="hover:underline"
                     >
                       {member.user_name || 'N/A'}
@@ -198,7 +201,7 @@ export function StaffList({
                       ? getEmploymentTypeBadge(member.employment_type)
                       : 'N/A'}
                   </TableCell>
-                  <TableCell>{getStatusBadge(member.status)}</TableCell>
+                  <TableCell>{member.status ? getStatusBadge(member.status) : <Badge variant="secondary">Pending Verification</Badge>}</TableCell>
                   <TableCell>
                     {member.hire_date
                       ? new Date(member.hire_date.toString()).toLocaleDateString()
@@ -209,7 +212,15 @@ export function StaffList({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onViewSchedule(member.id)}
+                        onClick={() => router.push(`/staff/${member.staff_id || member.user_id}`)}
+                        title="View Details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onViewSchedule(member.staff_id || member.user_id)}
                         title="View Schedule"
                       >
                         <Calendar className="h-4 w-4" />
@@ -217,7 +228,7 @@ export function StaffList({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onViewPerformance(member.id)}
+                        onClick={() => onViewPerformance(member.staff_id || member.user_id)}
                         title="View Performance"
                       >
                         <Award className="h-4 w-4" />
@@ -225,14 +236,16 @@ export function StaffList({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onEdit(member.id)}
+                        onClick={() => router.push(`/staff/${member.staff_id || member.user_id}/edit`)}
+                        title="Edit"
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onDelete(member.id)}
+                        onClick={() => onDelete(member.staff_id || member.user_id)}
+                        title="Delete"
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
