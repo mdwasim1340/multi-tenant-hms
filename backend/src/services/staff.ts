@@ -1,6 +1,7 @@
 import pool from '../database';
 import * as authService from './auth';
 import * as userService from './userService';
+import * as staffOnboarding from './staff-onboarding';
 
 export interface StaffProfile {
   id?: number;
@@ -97,36 +98,34 @@ export const createStaffWithUser = async (data: {
   employment_type?: string;
   status?: string;
   emergency_contact?: any;
-}) => {
+}, tenantId: string) => {
   try {
-    console.log('Creating staff with user:', { email: data.email, tenantId: data.tenantId });
-    
     // Generate temporary password
     const temporaryPassword = generateTemporaryPassword();
-    console.log('Generated temporary password');
     
-    // Create user in Cognito (skip email for staff creation)
-    console.log('Creating Cognito user...');
-    const signUpResult = await authService.signUp({
-      email: data.email,
-      password: temporaryPassword
-    }, data.tenantId, true); // Skip email verification - third parameter
-    console.log('Cognito user created:', signUpResult);
+    // Get role_id from role name
+    const roleResult = await pool.query(
+      'SELECT id FROM roles WHERE name = $1',
+      [data.role]
+    );
+    
+    if (roleResult.rows.length === 0) {
+      throw new Error(`Role '${data.role}' not found`);
+    }
+    
+    const role_id = roleResult.rows[0].id;
     
     // Create user in database
-    console.log('Creating database user...');
     const user = await userService.createUser({
       name: data.name,
       email: data.email,
       password: temporaryPassword,
       status: 'active',
-      tenant_id: data.tenantId,
-      role_id: null // Role will be assigned separately if needed
+      tenant_id: tenantId,
+      role_id: role_id
     });
-    console.log('Database user created:', user.id);
-  
+    
     // Create staff profile
-    console.log('Creating staff profile...');
     const staffProfile = await createStaffProfile({
       user_id: user.id,
       employee_id: data.employee_id,
@@ -138,7 +137,6 @@ export const createStaffWithUser = async (data: {
       status: data.status || 'active',
       emergency_contact: data.emergency_contact
     });
-    console.log('Staff profile created:', staffProfile.id);
     
     return {
       staff: staffProfile,
@@ -150,12 +148,25 @@ export const createStaffWithUser = async (data: {
     };
   } catch (error: any) {
     console.error('Error in createStaffWithUser:', error);
-    console.error('Error details:', {
-      message: error.message,
-      stack: error.stack,
-      data: data
-    });
-    throw error;
+    
+    // Handle specific database errors
+    if (error.code === '23505') { // PostgreSQL unique constraint violation
+      if (error.constraint === 'users_email_key') {
+        throw new Error(`Email address '${data.email}' is already registered in the system`);
+      }
+      if (error.constraint === 'staff_profiles_employee_id_key') {
+        throw new Error(`Employee ID '${data.employee_id}' already exists`);
+      }
+      throw new Error('A record with this information already exists');
+    }
+    
+    // Handle role not found
+    if (error.message.includes('not found')) {
+      throw error; // Re-throw as-is for clear message
+    }
+    
+    // Generic error
+    throw new Error(error.message || 'Failed to create staff member');
   }
 };
 
@@ -183,32 +194,50 @@ function generateTemporaryPassword(): string {
 }
 
 export const createStaffProfile = async (profile: StaffProfile) => {
-  const result = await pool.query(
-    `INSERT INTO staff_profiles 
-    (user_id, employee_id, department, specialization, license_number, hire_date, 
-     employment_type, status, emergency_contact)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    RETURNING *`,
-    [
-      profile.user_id,
-      profile.employee_id,
-      profile.department,
-      profile.specialization,
-      profile.license_number,
-      profile.hire_date,
-      profile.employment_type,
-      profile.status || 'active',
-      profile.emergency_contact ? JSON.stringify(profile.emergency_contact) : null
-    ]
-  );
-  return result.rows[0];
+  try {
+    const result = await pool.query(
+      `INSERT INTO staff_profiles 
+      (user_id, employee_id, department, specialization, license_number, hire_date, 
+       employment_type, status, emergency_contact)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *`,
+      [
+        profile.user_id,
+        profile.employee_id,
+        profile.department,
+        profile.specialization,
+        profile.license_number,
+        profile.hire_date,
+        profile.employment_type,
+        profile.status || 'active',
+        profile.emergency_contact ? JSON.stringify(profile.emergency_contact) : null
+      ]
+    );
+    return result.rows[0];
+  } catch (error: any) {
+    // Handle duplicate employee_id
+    if (error.code === '23505' && error.constraint === 'staff_profiles_employee_id_key') {
+      throw new Error(`Employee ID '${profile.employee_id}' already exists`);
+    }
+    throw error;
+  }
 };
 
-export const getStaffProfiles = async (filters: any = {}) => {
+export const getStaffProfiles = async (filters: any = {}, client: any = pool) => {
   let query = `
-    SELECT sp.*, u.name as user_name, u.email as user_email
+    SELECT 
+      sp.*, 
+      u.name as user_name, 
+      u.email as user_email,
+      (
+        SELECT r.name 
+        FROM public.user_roles ur 
+        JOIN public.roles r ON ur.role_id = r.id 
+        WHERE ur.user_id = sp.user_id 
+        LIMIT 1
+      ) as role
     FROM staff_profiles sp
-    JOIN users u ON sp.user_id = u.id
+    JOIN public.users u ON sp.user_id = u.id
     WHERE 1=1
   `;
   const params: any[] = [];
@@ -240,28 +269,116 @@ export const getStaffProfiles = async (filters: any = {}) => {
     query += ` OFFSET $${params.length}`;
   }
 
-  const result = await pool.query(query, params);
+  const result = await client.query(query, params);
   return result.rows;
 };
 
-export const getStaffProfileById = async (id: number) => {
-  const result = await pool.query(
-    `SELECT sp.*, u.name as user_name, u.email as user_email, u.phone as user_phone
+// Get all users including those without staff profiles (unverified)
+export const getAllUsers = async (filters: any = {}, client: any = pool) => {
+  let query = `
+    SELECT 
+      u.id as user_id,
+      u.name as user_name,
+      u.email as user_email,
+      u.phone_number as user_phone,
+      u.status as user_status,
+      u.created_at as user_created_at,
+      sp.id as staff_id,
+      sp.employee_id,
+      sp.department,
+      sp.specialization,
+      sp.hire_date,
+      sp.employment_type,
+      sp.status as staff_status,
+      (
+        SELECT r.name 
+        FROM public.user_roles ur 
+        JOIN public.roles r ON ur.role_id = r.id 
+        WHERE ur.user_id = u.id 
+        LIMIT 1
+      ) as role,
+      CASE 
+        WHEN sp.id IS NULL THEN 'pending_verification'
+        ELSE 'verified'
+      END as verification_status
+    FROM public.users u
+    LEFT JOIN staff_profiles sp ON u.id = sp.user_id
+    WHERE u.tenant_id = $1
+  `;
+  const params: any[] = [filters.tenant_id];
+
+  if (filters.department) {
+    params.push(filters.department);
+    query += ` AND sp.department = $${params.length}`;
+  }
+
+  if (filters.status) {
+    params.push(filters.status);
+    query += ` AND (sp.status = $${params.length} OR u.status = $${params.length})`;
+  }
+
+  if (filters.search) {
+    params.push(`%${filters.search}%`);
+    query += ` AND (u.name ILIKE $${params.length} OR u.email ILIKE $${params.length} OR sp.employee_id ILIKE $${params.length})`;
+  }
+
+  // Filter by verification status
+  if (filters.verification_status === 'verified') {
+    query += ` AND sp.id IS NOT NULL`;
+  } else if (filters.verification_status === 'pending') {
+    query += ` AND sp.id IS NULL`;
+  }
+  // If no filter, show all
+
+  query += ' ORDER BY u.created_at DESC';
+
+  if (filters.limit) {
+    params.push(filters.limit);
+    query += ` LIMIT $${params.length}`;
+  }
+
+  if (filters.offset) {
+    params.push(filters.offset);
+    query += ` OFFSET $${params.length}`;
+  }
+
+  const result = await client.query(query, params);
+  return result.rows;
+};
+
+export const getStaffProfileById = async (id: number, client: any = pool) => {
+  const result = await client.query(
+    `SELECT 
+      sp.*, 
+      u.name as user_name, 
+      u.email as user_email, 
+      u.phone_number as user_phone,
+      (
+        SELECT r.name 
+        FROM public.user_roles ur 
+        JOIN public.roles r ON ur.role_id = r.id 
+        WHERE ur.user_id = sp.user_id 
+        LIMIT 1
+      ) as role
     FROM staff_profiles sp
-    JOIN users u ON sp.user_id = u.id
+    JOIN public.users u ON sp.user_id = u.id
     WHERE sp.id = $1`,
     [id]
   );
   return result.rows[0];
 };
 
-export const updateStaffProfile = async (id: number, updates: Partial<StaffProfile>) => {
+export const updateStaffProfile = async (id: number, updates: Partial<StaffProfile>, client: any = pool) => {
   const fields: string[] = [];
   const values: any[] = [];
   let paramCount = 1;
 
+  // Only update fields that exist in staff_profiles table
+  const allowedFields = ['employee_id', 'department', 'specialization', 'license_number', 
+                         'hire_date', 'employment_type', 'status', 'emergency_contact', 'notes'];
+
   Object.entries(updates).forEach(([key, value]) => {
-    if (key !== 'id' && value !== undefined) {
+    if (key !== 'id' && value !== undefined && allowedFields.includes(key)) {
       fields.push(`${key} = $${paramCount}`);
       values.push(key === 'emergency_contact' ? JSON.stringify(value) : value);
       paramCount++;
@@ -273,15 +390,15 @@ export const updateStaffProfile = async (id: number, updates: Partial<StaffProfi
   fields.push(`updated_at = CURRENT_TIMESTAMP`);
   values.push(id);
 
-  const result = await pool.query(
+  const result = await client.query(
     `UPDATE staff_profiles SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`,
     values
   );
   return result.rows[0];
 };
 
-export const deleteStaffProfile = async (id: number) => {
-  await pool.query('DELETE FROM staff_profiles WHERE id = $1', [id]);
+export const deleteStaffProfile = async (id: number, client: any = pool) => {
+  await client.query('DELETE FROM staff_profiles WHERE id = $1', [id]);
 };
 
 // Staff Schedule Operations

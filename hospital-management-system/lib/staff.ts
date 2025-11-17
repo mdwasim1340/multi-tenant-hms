@@ -20,6 +20,8 @@ export async function getStaff(params: {
   search?: string;
   limit?: number;
   offset?: number;
+  include_unverified?: boolean;
+  verification_status?: string;
 } = {}): Promise<ApiResponse<StaffProfile[]>> {
   try {
     const response = await api.get<ApiResponse<StaffProfile[]>>('/api/staff', {
@@ -29,6 +31,8 @@ export async function getStaff(params: {
         search: params.search,
         limit: params.limit || 25,
         offset: params.offset || 0,
+        include_unverified: params.include_unverified,
+        verification_status: params.verification_status,
       },
     });
 
@@ -59,9 +63,12 @@ export async function createStaff(
     console.error('Error response status:', error.response?.status);
     console.error('Error response data:', error.response?.data);
     
-    // Handle specific error cases
+    // Handle specific error cases (409 Conflict - duplicate data)
     if (error.response?.status === 409) {
-      throw new Error('Employee ID already exists');
+      const errorMessage = error.response?.data?.message || 
+                           error.response?.data?.error || 
+                           'A record with this information already exists';
+      throw new Error(errorMessage);
     }
     
     if (error.response?.status === 400) {
@@ -91,9 +98,15 @@ export async function createStaff(
       throw new Error('Authentication required. Please log in to continue.');
     }
     
-    throw new Error(
-      error.response?.data?.error || 'Failed to create staff'
-    );
+    // Handle server errors with detailed message
+    if (error.response?.status === 500) {
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Internal server error';
+      throw new Error(`Server error: ${errorMessage}`);
+    }
+    
+    // Handle other errors
+    const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to create staff';
+    throw new Error(errorMessage);
   }
 }
 

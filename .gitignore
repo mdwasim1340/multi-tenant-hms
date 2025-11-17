@@ -1,2 +1,6 @@
 # Logs
 *.log
+
+# Team Epsilon specific steering files (not to be committed to avoid conflicts)
+.kiro/steering/team-epsilon-mission.md
+.kiro/steering/team-epsilon-*.md
