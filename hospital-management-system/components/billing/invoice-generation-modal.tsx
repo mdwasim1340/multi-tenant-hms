@@ -1,342 +1,373 @@
 "use client"
 
 import { useState } from "react"
-import { useForm, useFieldArray } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Plus, Trash2, Loader2 } from "lucide-react"
-import { billingAPI, InvoiceGenerationData } from "@/lib/api/billing"
-import { useToast } from "@/hooks/use-toast"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent } from "@/components/ui/card"
+import { Plus, X, Calendar, DollarSign, FileText, Loader2 } from "lucide-react"
+import { billingAPI } from "@/lib/api/billing"
 import Cookies from "js-cookie"
 
-const lineItemSchema = z.object({
-  description: z.string().min(1, "Description is required"),
-  quantity: z.number().min(1, "Quantity must be at least 1"),
-  amount: z.number().min(0, "Amount must be positive"),
-})
-
-const invoiceGenerationSchema = z.object({
-  period_start: z.string().min(1, "Start date is required"),
-  period_end: z.string().min(1, "End date is required"),
-  custom_line_items: z.array(lineItemSchema).optional(),
-  notes: z.string().optional(),
-  due_days: z.number().min(1, "Due days must be at least 1").default(30),
-  include_overage_charges: z.boolean().default(false),
-})
-
-type InvoiceGenerationFormData = z.infer<typeof invoiceGenerationSchema>
+interface LineItem {
+  description: string
+  quantity: number
+  unit_price: number
+  amount: number
+}
 
 interface InvoiceGenerationModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess: () => void
+  onSuccess?: () => void
 }
 
-export function InvoiceGenerationModal({
-  open,
-  onOpenChange,
-  onSuccess,
-}: InvoiceGenerationModalProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const { toast } = useToast()
-
-  const form = useForm<InvoiceGenerationFormData>({
-    resolver: zodResolver(invoiceGenerationSchema),
-    defaultValues: {
-      period_start: "",
-      period_end: "",
-      custom_line_items: [
-        { description: "", quantity: 1, amount: 0 }
-      ],
-      notes: "",
-      due_days: 30,
-      include_overage_charges: false,
-    },
-  })
-
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "custom_line_items",
-  })
-
-  const onSubmit = async (data: InvoiceGenerationFormData) => {
-    try {
-      setIsSubmitting(true)
-      
-      const tenantId = Cookies.get("tenant_id")
-      if (!tenantId) {
-        toast({
-          title: "Error",
-          description: "Tenant ID not found. Please log in again.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      const invoiceData: InvoiceGenerationData = {
-        tenant_id: tenantId,
-        period_start: data.period_start,
-        period_end: data.period_end,
-        include_overage_charges: data.include_overage_charges,
-        custom_line_items: data.custom_line_items?.filter(
-          item => item.description && item.amount > 0
-        ),
-        notes: data.notes,
-        due_days: data.due_days,
-      }
-
-      await billingAPI.generateInvoice(invoiceData)
-
-      toast({
-        title: "Success",
-        description: "Invoice generated successfully",
-      })
-
-      form.reset()
-      onOpenChange(false)
-      onSuccess()
-    } catch (error: any) {
-      console.error("Error generating invoice:", error)
-      toast({
-        title: "Error",
-        description: error.response?.data?.error || "Failed to generate invoice",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSubmitting(false)
+export function InvoiceGenerationModal({ open, onOpenChange, onSuccess }: InvoiceGenerationModalProps) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  
+  // Form state
+  const [periodStart, setPeriodStart] = useState("")
+  const [periodEnd, setPeriodEnd] = useState("")
+  const [dueDays, setDueDays] = useState("30")
+  const [notes, setNotes] = useState("")
+  const [includeOverage, setIncludeOverage] = useState(true)
+  const [lineItems, setLineItems] = useState<LineItem[]>([])
+  
+  // New line item state
+  const [newItemDescription, setNewItemDescription] = useState("")
+  const [newItemQuantity, setNewItemQuantity] = useState("1")
+  const [newItemUnitPrice, setNewItemUnitPrice] = useState("")
+  
+  const addLineItem = () => {
+    if (!newItemDescription || !newItemQuantity || !newItemUnitPrice) {
+      return
     }
+    
+    const quantity = parseFloat(newItemQuantity)
+    const unitPrice = parseFloat(newItemUnitPrice)
+    const amount = quantity * unitPrice
+    
+    setLineItems([
+      ...lineItems,
+      {
+        description: newItemDescription,
+        quantity,
+        unit_price: unitPrice,
+        amount
+      }
+    ])
+    
+    // Reset form
+    setNewItemDescription("")
+    setNewItemQuantity("1")
+    setNewItemUnitPrice("")
+  }
+  
+  const removeLineItem = (index: number) => {
+    setLineItems(lineItems.filter((_, i) => i !== index))
+  }
+  
+  const calculateTotal = () => {
+    return lineItems.reduce((sum, item) => sum + item.amount, 0)
+  }
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    
+    if (!periodStart || !periodEnd) {
+      setError("Please select billing period")
+      return
+    }
+    
+    const tenantId = Cookies.get('tenant_id')
+    if (!tenantId) {
+      setError("Tenant ID not found")
+      return
+    }
+    
+    setLoading(true)
+    
+    try {
+      await billingAPI.generateInvoice({
+        tenant_id: tenantId,
+        period_start: periodStart,
+        period_end: periodEnd,
+        include_overage_charges: includeOverage,
+        custom_line_items: lineItems.length > 0 ? lineItems : undefined,
+        notes: notes || undefined,
+        due_days: parseInt(dueDays)
+      })
+      
+      // Success
+      onOpenChange(false)
+      if (onSuccess) {
+        onSuccess()
+      }
+      
+      // Reset form
+      setPeriodStart("")
+      setPeriodEnd("")
+      setDueDays("30")
+      setNotes("")
+      setLineItems([])
+      setIncludeOverage(true)
+    } catch (err: any) {
+      console.error('Error generating invoice:', err)
+      setError(err.response?.data?.error || 'Failed to generate invoice')
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Generate Invoice</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            Generate Invoice
+          </DialogTitle>
           <DialogDescription>
-            Create a new invoice for the billing period
+            Create a new invoice for the current tenant
           </DialogDescription>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Billing Period */}
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="period_start"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Period Start Date</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="period_end"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Period End Date</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Due Days */}
-            <FormField
-              control={form.control}
-              name="due_days"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Due Days</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="1"
-                      {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value))}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Include Overage Charges */}
-            <FormField
-              control={form.control}
-              name="include_overage_charges"
-              render={({ field }) => (
-                <FormItem className="flex items-center gap-2">
-                  <FormControl>
-                    <input
-                      type="checkbox"
-                      checked={field.value}
-                      onChange={field.onChange}
-                      className="w-4 h-4"
-                    />
-                  </FormControl>
-                  <FormLabel className="!mt-0">Include overage charges from usage tracking</FormLabel>
-                </FormItem>
-              )}
-            />
-
-            {/* Custom Line Items */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Custom Line Items</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => append({ description: "", quantity: 1, amount: 0 })}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Item
-                </Button>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Billing Period */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-foreground">Billing Period</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="period-start">Start Date</Label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="period-start"
+                    type="date"
+                    value={periodStart}
+                    onChange={(e) => setPeriodStart(e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
               </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="period-end">End Date</Label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="period-end"
+                    type="date"
+                    value={periodEnd}
+                    onChange={(e) => setPeriodEnd(e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
 
-              {fields.map((field, index) => (
-                <div key={field.id} className="flex gap-2 items-start">
-                  <div className="flex-1 grid grid-cols-3 gap-2">
-                    <FormField
-                      control={form.control}
-                      name={`custom_line_items.${index}.description`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Input placeholder="Description" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+          {/* Invoice Settings */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-foreground">Invoice Settings</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="due-days">Due Days</Label>
+                <Select value={dueDays} onValueChange={setDueDays}>
+                  <SelectTrigger id="due-days">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7">7 days</SelectItem>
+                    <SelectItem value="15">15 days</SelectItem>
+                    <SelectItem value="30">30 days</SelectItem>
+                    <SelectItem value="60">60 days</SelectItem>
+                    <SelectItem value="90">90 days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="include-overage">Include Overage Charges</Label>
+                <Select 
+                  value={includeOverage ? "yes" : "no"} 
+                  onValueChange={(v) => setIncludeOverage(v === "yes")}
+                >
+                  <SelectTrigger id="include-overage">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="yes">Yes</SelectItem>
+                    <SelectItem value="no">No</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
 
-                    <FormField
-                      control={form.control}
-                      name={`custom_line_items.${index}.quantity`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="1"
-                              placeholder="Qty"
-                              {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value))}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name={`custom_line_items.${index}.amount`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="Amount"
-                              {...field}
-                              onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+          {/* Custom Line Items */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-foreground">Custom Line Items (Optional)</h3>
+            
+            {/* Existing Line Items */}
+            {lineItems.length > 0 && (
+              <div className="space-y-2">
+                {lineItems.map((item, index) => (
+                  <Card key={index} className="border-border/50">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <p className="font-medium text-foreground">{item.description}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {item.quantity} × {formatCurrency(item.unit_price)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <p className="font-semibold text-foreground">
+                            {formatCurrency(item.amount)}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeLineItem(index)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                
+                <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg">
+                  <p className="font-semibold text-foreground">Subtotal</p>
+                  <p className="font-bold text-foreground text-lg">
+                    {formatCurrency(calculateTotal())}
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Add New Line Item */}
+            <Card className="border-dashed border-2">
+              <CardContent className="pt-4">
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="item-description">Description</Label>
+                    <Input
+                      id="item-description"
+                      placeholder="e.g., Subscription fee, Setup charge"
+                      value={newItemDescription}
+                      onChange={(e) => setNewItemDescription(e.target.value)}
                     />
                   </div>
-
-                  {fields.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => remove(index)}
-                      className="mt-0"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
-                  )}
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="item-quantity">Quantity</Label>
+                      <Input
+                        id="item-quantity"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="1"
+                        value={newItemQuantity}
+                        onChange={(e) => setNewItemQuantity(e.target.value)}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="item-price">Unit Price</Label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          id="item-price"
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={newItemUnitPrice}
+                          onChange={(e) => setNewItemUnitPrice(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={addLineItem}
+                    disabled={!newItemDescription || !newItemQuantity || !newItemUnitPrice}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Line Item
+                  </Button>
                 </div>
-              ))}
-            </div>
+              </CardContent>
+            </Card>
+          </div>
 
-            {/* Notes */}
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes (Optional)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Add any additional notes for this invoice..."
-                      className="resize-none"
-                      rows={3}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+          {/* Notes */}
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes (Optional)</Label>
+            <Textarea
+              id="notes"
+              placeholder="Add any additional notes or instructions..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
             />
+          </div>
 
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  "Generate Invoice"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+          {/* Error Message */}
+          {error && (
+            <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg">
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            </div>
+          )}
+
+          {/* Footer */}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Generate Invoice
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

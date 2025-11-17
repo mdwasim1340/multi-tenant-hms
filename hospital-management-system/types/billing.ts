@@ -27,6 +27,13 @@ export interface Invoice {
   tenant_name?: string;
   tenant_email?: string;
   tier_name?: string;
+  // Patient fields (for diagnostic invoices)
+  patient_id?: number;
+  patient_name?: string;
+  patient_number?: string;
+  referring_doctor?: string;
+  report_delivery_date?: string;
+  advance_paid?: number;
 }
 
 export interface LineItem {

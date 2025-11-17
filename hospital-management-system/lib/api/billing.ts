@@ -44,7 +44,7 @@ class BillingAPI {
     // Request interceptor - add auth headers
     this.api.interceptors.request.use(
       (config) => {
-        const token = Cookies.get('auth_token');
+        const token = Cookies.get('token'); // Fixed: use 'token' instead of 'auth_token'
         const tenantId = Cookies.get('tenant_id');
 
         if (token) {
@@ -95,6 +95,35 @@ class BillingAPI {
 
   async generateInvoice(data: InvoiceGenerationData): Promise<GenerateInvoiceResponse> {
     const response = await this.api.post('/api/billing/generate-invoice', data);
+    return response.data;
+  }
+
+  async generateDiagnosticInvoice(data: {
+    tenant_id: string;
+    patient_id: number;
+    patient_name: string;
+    patient_number: string;
+    line_items: Array<{
+      description: string;
+      category?: string;
+      quantity: number;
+      unit_price: number;
+      discount_percent?: number;
+      tax_percent?: number;
+      amount: number;
+    }>;
+    notes?: string;
+    due_days?: number;
+    invoice_date?: string;
+    referring_doctor?: string;
+    report_delivery_date?: string;
+    payment_method?: string;
+    payment_status?: string;
+    advance_paid?: number;
+    emergency_surcharge?: boolean;
+    insurance_coverage_percent?: number;
+  }): Promise<GenerateInvoiceResponse> {
+    const response = await this.api.post('/api/billing/generate-diagnostic-invoice', data);
     return response.data;
   }
 

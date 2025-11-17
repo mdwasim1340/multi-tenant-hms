@@ -1,13 +1,13 @@
 import express from 'express';
 import { billingService } from '../services/billing';
 import { razorpayService } from '../services/razorpay';
-import { authMiddleware } from '../middleware/auth';
+import { hospitalAuthMiddleware } from '../middleware/auth';
 import { requireBillingRead, requireBillingWrite, requireBillingAdmin } from '../middleware/billing-auth';
 
 const router = express.Router();
 
-// Generate invoice for tenant (requires billing:write permission)
-router.post('/generate-invoice', authMiddleware, requireBillingWrite, async (req, res) => {
+// Generate invoice for tenant subscription (requires billing:write permission)
+router.post('/generate-invoice', hospitalAuthMiddleware, requireBillingWrite, async (req, res) => {
   try {
     const { tenant_id, period_start, period_end, include_overage_charges, custom_line_items, notes, due_days } = req.body;
     
@@ -44,8 +44,70 @@ router.post('/generate-invoice', authMiddleware, requireBillingWrite, async (req
   }
 });
 
+// Generate diagnostic invoice for patient (requires billing:write permission)
+router.post('/generate-diagnostic-invoice', hospitalAuthMiddleware, requireBillingWrite, async (req, res) => {
+  try {
+    const { 
+      tenant_id, 
+      patient_id,
+      patient_name,
+      patient_number,
+      line_items, 
+      notes, 
+      due_days,
+      invoice_date,
+      referring_doctor,
+      report_delivery_date,
+      payment_method,
+      payment_status,
+      advance_paid,
+      emergency_surcharge,
+      insurance_coverage_percent
+    } = req.body;
+    
+    if (!tenant_id || !patient_id || !line_items || line_items.length === 0) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: tenant_id, patient_id, line_items',
+        code: 'MISSING_REQUIRED_FIELDS'
+      });
+    }
+    
+    const invoice = await billingService.generateDiagnosticInvoice(
+      tenant_id,
+      patient_id,
+      patient_name,
+      patient_number,
+      line_items,
+      {
+        notes,
+        due_days,
+        invoice_date: invoice_date ? new Date(invoice_date) : new Date(),
+        referring_doctor,
+        report_delivery_date: report_delivery_date ? new Date(report_delivery_date) : undefined,
+        payment_method,
+        payment_status,
+        advance_paid,
+        emergency_surcharge,
+        insurance_coverage_percent
+      }
+    );
+
+    res.json({ 
+      success: true,
+      message: 'Diagnostic invoice generated successfully', 
+      invoice 
+    });
+  } catch (error: any) {
+    console.error('Error generating diagnostic invoice:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'DIAGNOSTIC_INVOICE_GENERATION_ERROR'
+    });
+  }
+});
+
 // Get all invoices (requires billing:read permission)
-router.get('/invoices', authMiddleware, requireBillingRead, async (req, res) => {
+router.get('/invoices', hospitalAuthMiddleware, requireBillingRead, async (req, res) => {
   try {
     const { limit = 50, offset = 0 } = req.query;
     
@@ -73,7 +135,7 @@ router.get('/invoices', authMiddleware, requireBillingRead, async (req, res) => 
 });
 
 // Get invoices for specific tenant (requires billing:read permission)
-router.get('/invoices/:tenantId', authMiddleware, requireBillingRead, async (req, res) => {
+router.get('/invoices/:tenantId', hospitalAuthMiddleware, requireBillingRead, async (req, res) => {
   try {
     const { tenantId } = req.params;
     const { limit = 50, offset = 0 } = req.query;
@@ -112,7 +174,7 @@ router.get('/invoices/:tenantId', authMiddleware, requireBillingRead, async (req
 });
 
 // Get specific invoice details (requires billing:read permission)
-router.get('/invoice/:invoiceId', authMiddleware, requireBillingRead, async (req, res) => {
+router.get('/invoice/:invoiceId', hospitalAuthMiddleware, requireBillingRead, async (req, res) => {
   try {
     const { invoiceId } = req.params;
     
@@ -142,8 +204,100 @@ router.get('/invoice/:invoiceId', authMiddleware, requireBillingRead, async (req
   }
 });
 
+// Update invoice (requires billing:write permission)
+router.put('/invoice/:invoiceId', hospitalAuthMiddleware, requireBillingWrite, async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    const { 
+      patient_name, 
+      patient_number, 
+      referring_doctor, 
+      due_date, 
+      status, 
+      notes, 
+      line_items 
+    } = req.body;
+    
+    // Get existing invoice
+    const existingInvoice = await billingService.getInvoiceById(parseInt(invoiceId));
+    
+    if (!existingInvoice) {
+      return res.status(404).json({ 
+        error: 'Invoice not found',
+        code: 'INVOICE_NOT_FOUND'
+      });
+    }
+    
+    // Calculate new total amount from line items
+    const totalAmount = line_items?.reduce((sum: number, item: any) => sum + item.amount, 0) || existingInvoice.amount;
+    
+    // Update invoice in database
+    const result = await billingService.updateInvoice(parseInt(invoiceId), {
+      patient_name,
+      patient_number,
+      referring_doctor,
+      due_date,
+      status,
+      notes,
+      line_items,
+      amount: totalAmount
+    });
+    
+    res.json({ 
+      success: true,
+      message: 'Invoice updated successfully',
+      invoice: result
+    });
+  } catch (error: any) {
+    console.error('Error updating invoice:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to update invoice',
+      code: 'UPDATE_INVOICE_ERROR'
+    });
+  }
+});
+
+// Delete invoice (requires billing:admin permission)
+router.delete('/invoice/:invoiceId', hospitalAuthMiddleware, requireBillingAdmin, async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    
+    // Get existing invoice to check if it exists
+    const existingInvoice = await billingService.getInvoiceById(parseInt(invoiceId));
+    
+    if (!existingInvoice) {
+      return res.status(404).json({ 
+        error: 'Invoice not found',
+        code: 'INVOICE_NOT_FOUND'
+      });
+    }
+    
+    // Check if invoice is paid - prevent deletion of paid invoices
+    if (existingInvoice.status === 'paid') {
+      return res.status(400).json({ 
+        error: 'Cannot delete paid invoices',
+        code: 'CANNOT_DELETE_PAID_INVOICE'
+      });
+    }
+    
+    // Delete the invoice
+    await billingService.deleteInvoice(parseInt(invoiceId));
+    
+    res.json({ 
+      success: true,
+      message: 'Invoice deleted successfully'
+    });
+  } catch (error: any) {
+    console.error('Error deleting invoice:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to delete invoice',
+      code: 'DELETE_INVOICE_ERROR'
+    });
+  }
+});
+
 // Create Razorpay payment order (requires billing:admin permission)
-router.post('/create-order', authMiddleware, requireBillingAdmin, async (req, res) => {
+router.post('/create-order', hospitalAuthMiddleware, requireBillingAdmin, async (req, res) => {
   try {
     const { invoice_id } = req.body;
     
@@ -171,7 +325,7 @@ router.post('/create-order', authMiddleware, requireBillingAdmin, async (req, re
 });
 
 // Verify and process Razorpay payment (requires billing:admin permission)
-router.post('/verify-payment', authMiddleware, requireBillingAdmin, async (req, res) => {
+router.post('/verify-payment', hospitalAuthMiddleware, requireBillingAdmin, async (req, res) => {
   try {
     const {
       invoice_id,
@@ -208,7 +362,7 @@ router.post('/verify-payment', authMiddleware, requireBillingAdmin, async (req, 
 });
 
 // Record manual payment (requires billing:admin permission)
-router.post('/manual-payment', authMiddleware, requireBillingAdmin, async (req, res) => {
+router.post('/manual-payment', hospitalAuthMiddleware, requireBillingAdmin, async (req, res) => {
   try {
     const { invoice_id, amount, payment_method, notes } = req.body;
     
@@ -246,7 +400,7 @@ router.post('/manual-payment', authMiddleware, requireBillingAdmin, async (req, 
 });
 
 // Get all payments (requires billing:read permission)
-router.get('/payments', authMiddleware, requireBillingRead, async (req, res) => {
+router.get('/payments', hospitalAuthMiddleware, requireBillingRead, async (req, res) => {
   try {
     const { limit = 50, offset = 0 } = req.query;
     
@@ -274,7 +428,7 @@ router.get('/payments', authMiddleware, requireBillingRead, async (req, res) => 
 });
 
 // Get billing report (requires billing:read permission)
-router.get('/report', authMiddleware, requireBillingRead, async (req, res) => {
+router.get('/report', hospitalAuthMiddleware, requireBillingRead, async (req, res) => {
   try {
     const report = await billingService.generateBillingReport();
     
@@ -292,7 +446,7 @@ router.get('/report', authMiddleware, requireBillingRead, async (req, res) => {
 });
 
 // Update overdue invoices (admin/cron job)
-router.post('/update-overdue', authMiddleware, async (req, res) => {
+router.post('/update-overdue', hospitalAuthMiddleware, async (req, res) => {
   try {
     const updatedCount = await billingService.updateOverdueInvoices();
     
@@ -360,6 +514,59 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     res.status(500).json({ 
       error: 'Webhook processing failed',
       code: 'WEBHOOK_ERROR'
+    });
+  }
+});
+
+// Email invoice (requires billing:read permission)
+router.post('/email-invoice', hospitalAuthMiddleware, requireBillingRead, async (req, res) => {
+  try {
+    const { invoice_id, recipient_email, subject, message, attach_pdf } = req.body;
+    
+    if (!invoice_id || !recipient_email || !subject) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: invoice_id, recipient_email, subject',
+        code: 'MISSING_EMAIL_FIELDS'
+      });
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(recipient_email)) {
+      return res.status(400).json({ 
+        error: 'Invalid email address format',
+        code: 'INVALID_EMAIL_FORMAT'
+      });
+    }
+    
+    // Get invoice details
+    const invoice = await billingService.getInvoiceById(invoice_id);
+    if (!invoice) {
+      return res.status(404).json({ 
+        error: 'Invoice not found',
+        code: 'INVOICE_NOT_FOUND'
+      });
+    }
+    
+    // Send email via SES
+    const result = await billingService.emailInvoice(
+      invoice,
+      recipient_email,
+      subject,
+      message,
+      attach_pdf !== false
+    );
+    
+    res.json({ 
+      success: true,
+      message: 'Invoice email sent successfully',
+      result
+    });
+  } catch (error: any) {
+    console.error('Error sending invoice email:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to send invoice email',
+      code: 'EMAIL_INVOICE_ERROR'
     });
   }
 });

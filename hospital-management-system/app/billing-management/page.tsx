@@ -25,6 +25,25 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
+import Cookies from "js-cookie"
+import {
   CreditCard,
   Eye,
   Search,
@@ -33,11 +52,19 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertCircle,
+  MoreVertical,
+  Download,
+  Trash2,
+  Edit,
+  Send,
+  Printer,
 } from "lucide-react"
 import { useInvoices, useInvoiceDetails } from "@/hooks/use-billing"
-import { InvoiceGenerationModal } from "@/components/billing/invoice-generation-modal"
+import { DiagnosticInvoiceModal } from "@/components/billing/diagnostic-invoice-modal"
+import { EditInvoiceModal } from "@/components/billing/edit-invoice-modal"
 import { PaymentModal } from "@/components/billing/payment-modal"
 import { canAccessBilling, canCreateInvoices, canProcessPayments } from "@/lib/permissions"
+import { downloadInvoicePDF } from "@/lib/pdf/invoice-generator"
 
 export default function BillingManagement() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -48,8 +75,13 @@ export default function BillingManagement() {
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [checkingPermissions, setCheckingPermissions] = useState(true)
+  const [editingInvoice, setEditingInvoice] = useState<any>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [deletingInvoiceId, setDeletingInvoiceId] = useState<number | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const limit = 10
   const router = useRouter()
+  const { toast } = useToast()
   
   // Debounce search query
   useEffect(() => {
@@ -79,9 +111,65 @@ export default function BillingManagement() {
     ? invoices.filter(invoice => 
         invoice.invoice_number.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         invoice.tenant_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        invoice.patient_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        invoice.patient_number?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         invoice.amount.toString().includes(debouncedSearch)
       )
     : invoices
+  
+  // Handle edit invoice
+  const handleEditInvoice = (invoice: any) => {
+    setEditingInvoice(invoice)
+    setShowEditModal(true)
+  }
+  
+  // Handle delete invoice
+  const handleDeleteInvoice = async () => {
+    if (!deletingInvoiceId) return
+    
+    try {
+      const token = Cookies.get("token")
+      const tenantId = Cookies.get("tenant_id")
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/billing/invoice/${deletingInvoiceId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "X-Tenant-ID": tenantId || "",
+          "X-App-ID": "hospital-management",
+          "X-API-Key": process.env.NEXT_PUBLIC_API_KEY || "",
+        },
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete invoice")
+      }
+      
+      toast({
+        title: "Invoice Deleted",
+        description: "The invoice has been successfully deleted.",
+      })
+      
+      refetch()
+      setShowDeleteDialog(false)
+      setDeletingInvoiceId(null)
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete invoice. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+  
+  // Handle send email
+  const handleSendEmail = (invoice: any) => {
+    toast({
+      title: "Send Email",
+      description: "Email functionality coming soon!",
+    })
+  }
   
   // Fetch invoice details when selected
   const { 
@@ -233,6 +321,7 @@ export default function BillingManagement() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead>Patient/Tenant</TableHead>
                           <TableHead>Invoice #</TableHead>
                           <TableHead>Date</TableHead>
                           <TableHead>Due Date</TableHead>
@@ -243,8 +332,24 @@ export default function BillingManagement() {
                       </TableHeader>
                       <TableBody>
                         {filteredInvoices.map((invoice) => (
-                          <TableRow key={invoice.id}>
-                            <TableCell className="font-medium">
+                          <TableRow 
+                            key={invoice.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setSelectedInvoiceId(invoice.id)}
+                          >
+                            <TableCell>
+                              <div>
+                                <p className="font-bold text-base">
+                                  {invoice.patient_name || invoice.tenant_name || 'N/A'}
+                                </p>
+                                {invoice.patient_number && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Patient #: {invoice.patient_number}
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-medium text-muted-foreground">
                               {invoice.invoice_number}
                             </TableCell>
                             <TableCell>{formatDate(invoice.created_at)}</TableCell>
@@ -258,14 +363,82 @@ export default function BillingManagement() {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setSelectedInvoiceId(invoice.id)}
-                              >
-                                <Eye className="w-4 h-4 mr-2" />
-                                View
-                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                    <span className="sr-only">Open menu</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setSelectedInvoiceId(invoice.id)
+                                    }}
+                                  >
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    View Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      try {
+                                        downloadInvoicePDF(invoice)
+                                      } catch (err) {
+                                        console.error('Failed to download PDF:', err)
+                                      }
+                                    }}
+                                  >
+                                    <Download className="w-4 h-4 mr-2" />
+                                    Download PDF
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      window.print()
+                                    }}
+                                  >
+                                    <Printer className="w-4 h-4 mr-2" />
+                                    Print Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleSendEmail(invoice)
+                                    }}
+                                  >
+                                    <Send className="w-4 h-4 mr-2" />
+                                    Send Email
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleEditInvoice(invoice)
+                                    }}
+                                  >
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    Edit Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setDeletingInvoiceId(invoice.id)
+                                      setShowDeleteDialog(true)
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete Invoice
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -450,8 +623,8 @@ export default function BillingManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Invoice Generation Modal */}
-      <InvoiceGenerationModal
+      {/* Diagnostic Invoice Modal */}
+      <DiagnosticInvoiceModal
         open={showGenerateModal}
         onOpenChange={setShowGenerateModal}
         onSuccess={() => {
@@ -472,6 +645,47 @@ export default function BillingManagement() {
           }
         }}
       />
+      
+      {/* Edit Invoice Modal */}
+      <EditInvoiceModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        invoice={editingInvoice}
+        onSuccess={() => {
+          refetch()
+          toast({
+            title: "Success",
+            description: "Invoice updated successfully!",
+          })
+        }}
+      />
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the invoice
+              and remove the data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowDeleteDialog(false)
+              setDeletingInvoiceId(null)
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteInvoice}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

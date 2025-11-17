@@ -19,7 +19,7 @@ export interface Role {
  */
 export function hasPermission(resource: string, action: string): boolean {
   try {
-    const permissionsStr = Cookies.get('permissions');
+    const permissionsStr = Cookies.get('user_permissions'); // Fixed: use 'user_permissions' to match auth.ts
     if (!permissionsStr) {
       return false;
     }
@@ -59,7 +59,7 @@ export function hasAllPermissions(checks: [string, string][]): boolean {
  */
 export function getUserPermissions(): Permission[] {
   try {
-    const permissionsStr = Cookies.get('permissions');
+    const permissionsStr = Cookies.get('user_permissions'); // Fixed: use 'user_permissions' to match auth.ts
     if (!permissionsStr) {
       return [];
     }
@@ -77,7 +77,7 @@ export function getUserPermissions(): Permission[] {
  */
 export function getUserRoles(): Role[] {
   try {
-    const rolesStr = Cookies.get('roles');
+    const rolesStr = Cookies.get('user_roles'); // Fixed: use 'user_roles' to match auth.ts
     if (!rolesStr) {
       return [];
     }

@@ -9,16 +9,44 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CreditCard, FileText, TrendingUp, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw, ShieldAlert, BarChart3, PieChart } from "lucide-react"
+import { CreditCard, FileText, TrendingUp, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw, ShieldAlert, BarChart3, PieChart, MoreVertical, Eye, Download, Printer, Send, Edit, Trash2 } from "lucide-react"
 import { useBillingReport, useInvoices } from "@/hooks/use-billing"
 import { canAccessBilling } from "@/lib/permissions"
 import { LineChart, Line, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { DiagnosticInvoiceModal } from "@/components/billing/diagnostic-invoice-modal"
+import { EditInvoiceModal } from "@/components/billing/edit-invoice-modal"
+import { downloadInvoicePDF } from "@/lib/pdf/invoice-generator"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
+import Cookies from "js-cookie"
 
 export default function Billing() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeTab, setActiveTab] = useState("invoices")
   const [checkingPermissions, setCheckingPermissions] = useState(true)
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
+  const [editingInvoice, setEditingInvoice] = useState<any>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [deletingInvoiceId, setDeletingInvoiceId] = useState<number | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
   
   // Check permissions on mount
   useEffect(() => {
@@ -33,6 +61,65 @@ export default function Billing() {
   // Fetch real billing data from backend
   const { report, loading: reportLoading, error: reportError, refetch: refetchReport } = useBillingReport()
   const { invoices, loading: invoicesLoading, error: invoicesError, refetch: refetchInvoices } = useInvoices(5, 0) // Get latest 5 invoices
+  
+  // Handle edit invoice
+  const handleEditInvoice = (invoice: any) => {
+    setEditingInvoice(invoice)
+    setShowEditModal(true)
+  }
+  
+  // Handle delete invoice
+  const handleDeleteInvoice = async () => {
+    if (!deletingInvoiceId) return
+    
+    try {
+      const token = Cookies.get("token")
+      const tenantId = Cookies.get("tenant_id")
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/billing/invoice/${deletingInvoiceId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "X-Tenant-ID": tenantId || "",
+          "X-App-ID": "hospital-management",
+          "X-API-Key": process.env.NEXT_PUBLIC_API_KEY || "",
+        },
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete invoice")
+      }
+      
+      toast({
+        title: "Invoice Deleted",
+        description: "The invoice has been successfully deleted.",
+      })
+      
+      // Refresh invoice list
+      refetchInvoices()
+      refetchReport()
+      
+      // Close dialog
+      setShowDeleteDialog(false)
+      setDeletingInvoiceId(null)
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete invoice. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+  
+  // Handle send email
+  const handleSendEmail = (invoice: any) => {
+    toast({
+      title: "Send Email",
+      description: "Email functionality coming soon!",
+    })
+    // TODO: Implement send email functionality
+  }
   
   // Show loading while checking permissions
   if (checkingPermissions) {
@@ -64,25 +151,30 @@ export default function Billing() {
   const error = reportError || invoicesError
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Paid":
+    const statusLower = status?.toLowerCase()
+    switch (statusLower) {
+      case "paid":
         return "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200"
-      case "Pending":
+      case "pending":
         return "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200"
-      case "Overdue":
+      case "overdue":
         return "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200"
+      case "cancelled":
+      case "canceled":
+        return "bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-200"
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200"
     }
   }
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "Paid":
+    const statusLower = status?.toLowerCase()
+    switch (statusLower) {
+      case "paid":
         return <CheckCircle className="w-4 h-4 text-green-600" />
-      case "Pending":
+      case "pending":
         return <Clock className="w-4 h-4 text-yellow-600" />
-      case "Overdue":
+      case "overdue":
         return <AlertCircle className="w-4 h-4 text-red-600" />
       default:
         return null
@@ -103,7 +195,10 @@ export default function Billing() {
                 <h1 className="text-3xl font-bold text-foreground">Billing & Invoicing</h1>
                 <p className="text-muted-foreground mt-1">Manage claims, payments, and financial reports</p>
               </div>
-              <Button className="bg-primary hover:bg-primary/90">
+              <Button 
+                className="bg-primary hover:bg-primary/90"
+                onClick={() => setInvoiceModalOpen(true)}
+              >
                 <FileText className="w-4 h-4 mr-2" />
                 New Invoice
               </Button>
@@ -278,7 +373,7 @@ export default function Billing() {
                       <p className="text-sm text-muted-foreground mb-4">
                         Create your first invoice to get started with billing
                       </p>
-                      <Button>
+                      <Button onClick={() => setInvoiceModalOpen(true)}>
                         <FileText className="w-4 h-4 mr-2" />
                         Create Invoice
                       </Button>
@@ -288,19 +383,120 @@ export default function Billing() {
                   // Real invoice data
                   <>
                     {invoices.map((invoice) => (
-                      <Card key={invoice.id} className="border-border/50 hover:shadow-md transition-shadow">
+                      <Card 
+                        key={invoice.id} 
+                        className="border-border/50 hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => router.push(`/billing/invoices/${invoice.id}`)}
+                      >
                         <CardContent className="pt-6">
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-3">
-                                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                <div 
+                                  className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    router.push(`/billing/invoices/${invoice.id}`);
+                                  }}
+                                >
                                   <CreditCard className="w-5 h-5 text-primary" />
                                 </div>
                                 <div>
-                                  <h3 className="font-semibold text-foreground">{invoice.invoice_number}</h3>
-                                  <p className="text-sm text-muted-foreground">{invoice.tenant_name || 'N/A'}</p>
+                                  <h3 
+                                    className="text-lg font-bold text-foreground cursor-pointer hover:text-primary transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      router.push(`/billing/invoices/${invoice.id}`);
+                                    }}
+                                  >
+                                    {invoice.patient_name || invoice.tenant_name || 'N/A'}
+                                  </h3>
+                                  {invoice.patient_number && (
+                                    <p className="text-xs text-muted-foreground">Patient #: {invoice.patient_number}</p>
+                                  )}
+                                  <p className="text-sm text-muted-foreground mt-1">{invoice.invoice_number}</p>
                                 </div>
                               </div>
+                              
+                              {/* Three-dot menu */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                    <span className="sr-only">Open menu</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      router.push(`/billing/invoices/${invoice.id}`)
+                                    }}
+                                  >
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    View Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      try {
+                                        downloadInvoicePDF(invoice)
+                                      } catch (err) {
+                                        console.error('Failed to download PDF:', err)
+                                      }
+                                    }}
+                                  >
+                                    <Download className="w-4 h-4 mr-2" />
+                                    Download PDF
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      window.print()
+                                    }}
+                                  >
+                                    <Printer className="w-4 h-4 mr-2" />
+                                    Print Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleSendEmail(invoice)
+                                    }}
+                                  >
+                                    <Send className="w-4 h-4 mr-2" />
+                                    Send Email
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleEditInvoice(invoice)
+                                    }}
+                                  >
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    Edit Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setDeletingInvoiceId(invoice.id)
+                                      setShowDeleteDialog(true)
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete Invoice
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
 
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
                                 <div>
@@ -358,7 +554,7 @@ export default function Billing() {
                     <div className="text-center pt-4">
                       <Button 
                         variant="outline" 
-                        onClick={() => router.push('/billing-management')}
+                        onClick={() => router.push('/billing/invoices')}
                       >
                         View All Invoices
                       </Button>
@@ -538,7 +734,10 @@ export default function Billing() {
                                   cx="50%"
                                   cy="50%"
                                   labelLine={false}
-                                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                  label={(entry: any) => {
+                                    const percent = entry.percent || 0
+                                    return `${entry.name}: ${(percent * 100).toFixed(0)}%`
+                                  }}
                                   outerRadius={80}
                                   fill="#8884d8"
                                   dataKey="value"
@@ -637,6 +836,59 @@ export default function Billing() {
           </div>
         </main>
       </div>
+
+      {/* Diagnostic Invoice Modal */}
+      <DiagnosticInvoiceModal
+        open={invoiceModalOpen}
+        onOpenChange={setInvoiceModalOpen}
+        onSuccess={() => {
+          // Refresh invoices after successful creation
+          refetchInvoices()
+          refetchReport()
+        }}
+      />
+      
+      {/* Edit Invoice Modal */}
+      <EditInvoiceModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        invoice={editingInvoice}
+        onSuccess={() => {
+          refetchInvoices()
+          refetchReport()
+          toast({
+            title: "Success",
+            description: "Invoice updated successfully!",
+          })
+        }}
+      />
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the invoice
+              and remove the data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowDeleteDialog(false)
+              setDeletingInvoiceId(null)
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteInvoice}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

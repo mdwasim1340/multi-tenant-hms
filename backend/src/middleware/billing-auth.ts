@@ -11,7 +11,7 @@ export const requireBillingRead = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).userId || (req as any).user?.id;
     
     if (!userId) {
       return res.status(401).json({
@@ -52,7 +52,7 @@ export const requireBillingWrite = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).userId || (req as any).user?.id;
     
     if (!userId) {
       return res.status(401).json({
@@ -93,7 +93,7 @@ export const requireBillingAdmin = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).userId || (req as any).user?.id;
     
     if (!userId) {
       return res.status(401).json({
