@@ -1,7 +1,7 @@
 # Logs
 *.log
 
-# Team Gamma - Exclude other team steering files (local working copies only)
+# Team-specific steering files (local working copies only)
 .kiro/steering/team-alpha-*.md
 .kiro/steering/team-beta-*.md
 .kiro/steering/team-delta-*.md

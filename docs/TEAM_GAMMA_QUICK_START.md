@@ -1,379 +1,430 @@
 # Team Gamma - Quick Start Guide
 
-## 🚀 Current Status
-
-**Phase 1 Complete**: Infrastructure, Dashboard Integration, and Permission System are fully implemented and ready.
-
-**Next Step**: Verify backend API endpoints are working.
+**Ready to start implementing? Follow this guide!**
 
 ---
 
-## ⚡ Quick Actions
+## 🎯 Phase 1: Infrastructure Setup (Days 1-3)
 
-### 1. Test the Billing Integration (5 minutes)
+### Task 1.1: Create Billing API Client
 
-#### Step 1: Start the Backend
-```bash
-cd backend
-npm run dev
+**File**: `hospital-management-system/lib/api/billing.ts`
+
+**What to build**:
+- Axios instance with base URL configuration
+- Request interceptor to inject auth headers (JWT, X-Tenant-ID, X-App-ID, X-API-Key)
+- Response interceptor to handle 401 errors (redirect to login)
+- Error handling for network failures
+
+**Code Template**:
+```typescript
+import axios, { AxiosInstance } from 'axios';
+import Cookies from 'js-cookie';
+
+class BillingAPI {
+  private api: AxiosInstance;
+
+  constructor() {
+    this.api = axios.create({
+      baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-App-ID': 'hospital-management',
+        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+      }
+    });
+
+    // Request interceptor - add auth headers
+    this.api.interceptors.request.use((config) => {
+      const token = Cookies.get('auth_token');
+      const tenantId = Cookies.get('tenant_id');
+
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      if (tenantId) {
+        config.headers['X-Tenant-ID'] = tenantId;
+      }
+
+      return config;
+    });
+
+    // Response interceptor - handle errors
+    this.api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          window.location.href = '/auth/login';
+        }
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  // Invoice methods (Task 1.2)
+  async getInvoices(limit = 50, offset = 0) {
+    const tenantId = Cookies.get('tenant_id');
+    const response = await this.api.get(`/api/billing/invoices/${tenantId}`, {
+      params: { limit, offset }
+    });
+    return response.data;
+  }
+
+  async getInvoiceById(invoiceId: number) {
+    const response = await this.api.get(`/api/billing/invoice/${invoiceId}`);
+    return response.data;
+  }
+
+  async generateInvoice(data: any) {
+    const response = await this.api.post('/api/billing/generate-invoice', data);
+    return response.data;
+  }
+
+  // Payment methods (Task 1.3)
+  async createPaymentOrder(invoiceId: number) {
+    const response = await this.api.post('/api/billing/create-order', {
+      invoice_id: invoiceId
+    });
+    return response.data;
+  }
+
+  async verifyPayment(paymentData: any) {
+    const response = await this.api.post('/api/billing/verify-payment', paymentData);
+    return response.data;
+  }
+
+  async recordManualPayment(data: any) {
+    const response = await this.api.post('/api/billing/manual-payment', data);
+    return response.data;
+  }
+
+  // Reporting methods (Task 1.4)
+  async getBillingReport() {
+    const response = await this.api.get('/api/billing/report');
+    return response.data;
+  }
+
+  async getPayments(limit = 50, offset = 0) {
+    const response = await this.api.get('/api/billing/payments', {
+      params: { limit, offset }
+    });
+    return response.data;
+  }
+
+  async getRazorpayConfig() {
+    const response = await this.api.get('/api/billing/razorpay-config');
+    return response.data;
+  }
+}
+
+export const billingAPI = new BillingAPI();
 ```
 
-#### Step 2: Start the Frontend
+**Verification**:
 ```bash
+# Check TypeScript compilation
 cd hospital-management-system
-npm run dev
-```
+npx tsc --noEmit
 
-#### Step 3: Access the Billing Dashboard
-1. Open browser: `http://localhost:3001`
-2. Login with valid credentials
-3. Navigate to `/billing`
-4. Check if data loads or shows errors
-
----
-
-### 2. Run Integration Test (After Creating Test User)
-
-#### Create Test User First:
-```bash
-cd backend
-
-# Option 1: Create new user with billing permissions
-node scripts/create-hospital-admin.js \
-  billing-test@hospital.com \
-  "Billing Test User" \
-  YOUR_TENANT_ID \
-  "SecurePass123!"
-
-# Option 2: Use existing user from signin test
-# Check: node tests/test-signin-quick.js
-```
-
-#### Run Billing Integration Test:
-```bash
-cd backend
-node tests/test-billing-integration.js
-```
-
-**Expected Output**:
-```
-✅ Sign In: SUCCESS
-✅ Get Billing Report: SUCCESS
-✅ Get Invoices: SUCCESS
-✅ Get Razorpay Config: SUCCESS
-✅ Get Payments: SUCCESS
-
-🎉 ALL TESTS PASSED!
+# Should show no errors in billing.ts
 ```
 
 ---
 
-## 📁 Key Files Reference
+### Task 2.1: Create TypeScript Type Definitions
 
-### Frontend Files (All Complete ✅)
-```
-hospital-management-system/
-├── lib/api/billing.ts              # API client (9 methods)
-├── types/billing.ts                # TypeScript types
-├── hooks/use-billing.ts            # React hooks (4 hooks)
-├── lib/permissions.ts              # Permission checks
-└── app/billing/page.tsx            # Dashboard page
-```
+**File**: `hospital-management-system/types/billing.ts`
 
-### Backend Files (Need Verification ⚠️)
-```
-backend/
-├── src/routes/billing.ts           # API endpoints (should exist)
-├── src/services/billing.ts         # Business logic (should exist)
-├── src/middleware/billing-auth.ts  # Permission middleware (should exist)
-└── tests/test-billing-integration.js  # Integration test (created)
-```
+**What to build**:
+- Invoice interface
+- Payment interface
+- BillingReport interface
+- Request/response data types
 
----
-
-## 🔍 Verification Checklist
-
-### Frontend Verification ✅
-- [x] API client exists and compiles
-- [x] TypeScript types defined
-- [x] React hooks implemented
-- [x] Dashboard page integrated
-- [x] Permission guards in place
-- [x] Error handling implemented
-- [x] Loading states working
-
-### Backend Verification ⚠️ (TODO)
-- [ ] Billing routes exist in `backend/src/routes/`
-- [ ] Billing service exists in `backend/src/services/`
-- [ ] Database tables exist (invoices, payments)
-- [ ] Permission middleware configured
-- [ ] Razorpay integration configured
-- [ ] All 9 endpoints respond correctly
-
----
-
-## 🧪 Manual Testing Steps
-
-### Test 1: Dashboard Access
-1. Login to hospital system
-2. Navigate to `/billing`
-3. **Expected**: Dashboard loads with metrics
-4. **If Error**: Check browser console and network tab
-
-### Test 2: Permission Check
-1. Login with user WITHOUT billing permissions
-2. Navigate to `/billing`
-3. **Expected**: Redirect to `/unauthorized`
-4. **If Not**: Permission system not working
-
-### Test 3: Data Loading
-1. Login with user WITH billing permissions
-2. Navigate to `/billing`
-3. **Expected**: See real data or empty states
-4. **If Error**: Backend endpoints not working
-
----
-
-## 🐛 Common Issues & Solutions
-
-### Issue 1: "Failed to fetch billing data"
-**Cause**: Backend API not running or endpoints don't exist  
-**Solution**:
-```bash
-# Check backend is running
-curl http://localhost:3000/health
-
-# Check billing endpoint
-curl -X GET http://localhost:3000/api/billing/report \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "X-Tenant-ID: YOUR_TENANT_ID"
-```
-
-### Issue 2: "Unauthorized" or 403 errors
-**Cause**: User doesn't have billing permissions  
-**Solution**:
-```bash
-# Assign billing permissions to user
-node backend/scripts/assign-role.js user@example.com "Hospital Admin"
-```
-
-### Issue 3: "X-Tenant-ID header is required"
-**Cause**: Tenant ID not in cookies  
-**Solution**: Check login flow sets tenant_id cookie
-
-### Issue 4: Test user doesn't exist
-**Cause**: Database doesn't have test users  
-**Solution**: Create test user (see "Create Test User" above)
-
----
-
-## 📊 API Endpoints Reference
-
-### All Billing Endpoints (9 total)
-
+**Code Template**:
 ```typescript
-// 1. Get Invoices List
-GET /api/billing/invoices/:tenantId?limit=50&offset=0
+export interface Invoice {
+  id: number;
+  invoice_number: string;
+  tenant_id: string;
+  billing_period_start: string;
+  billing_period_end: string;
+  amount: number;
+  currency: string;
+  status: 'pending' | 'paid' | 'overdue' | 'cancelled';
+  due_date: string;
+  paid_at?: string;
+  payment_method?: string;
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  line_items: LineItem[];
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  // Extended fields
+  tenant_name?: string;
+  tenant_email?: string;
+  tier_name?: string;
+}
 
-// 2. Get Invoice Details
-GET /api/billing/invoice/:invoiceId
+export interface LineItem {
+  description: string;
+  amount: number;
+  quantity: number;
+  unit_price?: number;
+  tax_rate?: number;
+  tax_amount?: number;
+}
 
-// 3. Generate Invoice
-POST /api/billing/generate-invoice
-Body: { tenant_id, period_start, period_end, ... }
+export interface Payment {
+  id: number;
+  invoice_id: number;
+  tenant_id: string;
+  amount: number;
+  currency: string;
+  payment_method: 'razorpay' | 'manual' | 'bank_transfer' | 'cash' | 'cheque';
+  razorpay_payment_id?: string;
+  razorpay_order_id?: string;
+  razorpay_signature?: string;
+  status: 'pending' | 'success' | 'failed' | 'refunded';
+  payment_date?: string;
+  metadata: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
 
-// 4. Create Razorpay Order
-POST /api/billing/create-order
-Body: { invoice_id }
+export interface BillingReport {
+  total_revenue: number;
+  monthly_revenue: number;
+  pending_amount: number;
+  overdue_amount: number;
+  total_invoices: number;
+  paid_invoices: number;
+  pending_invoices: number;
+  overdue_invoices: number;
+  payment_methods: {
+    razorpay: number;
+    manual: number;
+    bank_transfer: number;
+    others: number;
+  };
+  revenue_by_tier: {
+    tier_id: string;
+    tier_name: string;
+    revenue: number;
+    invoice_count: number;
+  }[];
+  monthly_trends: {
+    month: string;
+    revenue: number;
+    invoices: number;
+  }[];
+}
 
-// 5. Verify Payment
-POST /api/billing/verify-payment
-Body: { invoice_id, razorpay_payment_id, razorpay_order_id, razorpay_signature }
+export interface InvoiceGenerationData {
+  tenant_id: string;
+  period_start: string;
+  period_end: string;
+  include_overage_charges?: boolean;
+  custom_line_items?: LineItem[];
+  notes?: string;
+  due_days?: number;
+}
 
-// 6. Record Manual Payment
-POST /api/billing/manual-payment
-Body: { invoice_id, amount, payment_method, notes }
+export interface PaymentVerificationData {
+  invoice_id: number;
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+}
 
-// 7. Get Payments List
-GET /api/billing/payments?limit=50&offset=0
-
-// 8. Get Billing Report
-GET /api/billing/report
-
-// 9. Get Razorpay Config
-GET /api/billing/razorpay-config
-```
-
-### Required Headers (All Requests)
-```typescript
-{
-  'Authorization': 'Bearer jwt_token',
-  'X-Tenant-ID': 'tenant_id',
-  'X-App-ID': 'hospital-management',
-  'X-API-Key': process.env.HOSPITAL_APP_API_KEY
+export interface ManualPaymentData {
+  invoice_id: number;
+  amount: number;
+  payment_method: 'manual' | 'bank_transfer' | 'cash' | 'cheque';
+  notes?: string;
 }
 ```
 
----
-
-## 🎯 Next Phase Tasks
-
-### Phase 3: Invoice Management (4-6 hours)
-1. **Invoice List Page** (2 hours)
-   - Filters (status, date range, search)
-   - Pagination
-   - Sorting
-   - Export to CSV
-
-2. **Invoice Generation Modal** (2 hours)
-   - Form with validation
-   - Line items management
-   - Preview before creation
-   - Success/error handling
-
-3. **Invoice Detail View** (2 hours)
-   - Full invoice information
-   - Payment history
-   - Download PDF
-   - Payment actions
-
-### Phase 4: Payment Processing (6-8 hours)
-1. **Razorpay Integration** (3 hours)
-   - SDK setup
-   - Payment modal
-   - Signature verification
-   - Success/failure handling
-
-2. **Manual Payment Recording** (2 hours)
-   - Payment form
-   - Multiple payment methods
-   - Receipt generation
-   - Status updates
-
-3. **Payment History** (1 hour)
-   - Payment list
-   - Filters
-   - Export
-
----
-
-## 📝 Environment Variables Needed
-
-### Frontend (.env.local)
+**Verification**:
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:3000
-NEXT_PUBLIC_API_KEY=hospital-dev-key-789
-```
+# Check TypeScript compilation
+npx tsc --noEmit
 
-### Backend (.env)
-```bash
-# Razorpay Configuration
-RAZORPAY_KEY_ID=your_razorpay_key_id
-RAZORPAY_KEY_SECRET=your_razorpay_key_secret
-
-# Application API Keys
-HOSPITAL_APP_API_KEY=hospital-dev-key-789
-ADMIN_APP_API_KEY=admin-dev-key-456
+# Should show no errors
 ```
 
 ---
 
-## 🔗 Useful Commands
+### Task 3.1: Create useInvoices Hook
 
-### Development
+**File**: `hospital-management-system/hooks/use-billing.ts`
+
+**What to build**:
+- Custom React hook for fetching invoices
+- Loading, error, and success states
+- Pagination support
+- Refetch functionality
+
+**Code Template**:
+```typescript
+import { useState, useEffect } from 'react';
+import { billingAPI } from '@/lib/api/billing';
+import { Invoice, BillingReport, Payment } from '@/types/billing';
+
+export function useInvoices(limit = 50, offset = 0) {
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({ limit, offset, total: 0 });
+
+  const fetchInvoices = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await billingAPI.getInvoices(limit, offset);
+      setInvoices(data.invoices);
+      setPagination(data.pagination);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to fetch invoices');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInvoices();
+  }, [limit, offset]);
+
+  return { invoices, loading, error, pagination, refetch: fetchInvoices };
+}
+
+export function useInvoiceDetails(invoiceId: number | null) {
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!invoiceId) return;
+
+    const fetchInvoiceDetails = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await billingAPI.getInvoiceById(invoiceId);
+        setInvoice(data.invoice);
+        setPayments(data.payments);
+      } catch (err: any) {
+        setError(err.response?.data?.error || 'Failed to fetch invoice details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInvoiceDetails();
+  }, [invoiceId]);
+
+  return { invoice, payments, loading, error };
+}
+
+export function useBillingReport() {
+  const [report, setReport] = useState<BillingReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchReport = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await billingAPI.getBillingReport();
+      setReport(data.report);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to fetch billing report');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReport();
+  }, []);
+
+  return { report, loading, error, refetch: fetchReport };
+}
+```
+
+**Verification**:
+```bash
+# Check TypeScript compilation
+npx tsc --noEmit
+
+# Test in a component
+# Import and use the hook in a test page
+```
+
+---
+
+## 🧪 Testing Your Work
+
+### Test Backend API First
 ```bash
 # Start backend
-cd backend && npm run dev
+cd backend
+npm run dev
 
+# Test invoice endpoint
+curl -X GET http://localhost:3000/api/billing/invoices/TENANT_ID \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "X-Tenant-ID: TENANT_ID"
+```
+
+### Test Frontend Integration
+```bash
 # Start frontend
-cd hospital-management-system && npm run dev
+cd hospital-management-system
+npm run dev
 
-# Run tests
-cd backend && node tests/test-billing-integration.js
-
-# Check TypeScript
-cd hospital-management-system && npx tsc --noEmit
-```
-
-### Database
-```bash
-# Check billing tables
-docker exec -it backend-postgres-1 psql -U postgres -d multitenant_db -c "\dt"
-
-# Check invoices
-docker exec -it backend-postgres-1 psql -U postgres -d multitenant_db -c "SELECT * FROM invoices LIMIT 5;"
-
-# Check payments
-docker exec -it backend-postgres-1 psql -U postgres -d multitenant_db -c "SELECT * FROM payments LIMIT 5;"
-```
-
-### Debugging
-```bash
-# Check backend logs
-cd backend && npm run dev
-
-# Check frontend console
-# Open browser DevTools → Console tab
-
-# Check network requests
-# Open browser DevTools → Network tab → Filter: XHR
+# Visit http://localhost:3001/billing
+# Open browser console to check for errors
 ```
 
 ---
 
-## 🎉 Success Indicators
+## 📋 Checklist for Phase 1
 
-### Frontend Working ✅
-- Dashboard loads without errors
-- Metrics display (even if zero)
-- Charts render correctly
-- Loading states show properly
-- Error states have retry buttons
-
-### Backend Working ✅
-- All 9 endpoints return 200 OK
-- Data structure matches TypeScript types
-- Multi-tenant isolation working
-- Permission enforcement working
-- Razorpay config returns valid data
-
-### Integration Working ✅
-- Frontend displays real backend data
-- Invoice list shows actual invoices
-- Billing report shows real metrics
-- Payment methods chart displays data
-- No CORS errors in console
+- [ ] Task 1.1: Billing API client created
+- [ ] Task 1.2: Invoice API methods implemented
+- [ ] Task 1.3: Payment API methods implemented
+- [ ] Task 1.4: Reporting API methods implemented
+- [ ] Task 2.1: TypeScript types defined
+- [ ] Task 2.2: Request/response types created
+- [ ] Task 3.1: useInvoices hook created
+- [ ] Task 3.2: useInvoiceDetails hook created
+- [ ] Task 3.3: useBillingReport hook created
+- [ ] All TypeScript compilation passes
+- [ ] Backend API tested with curl
+- [ ] Frontend can import and use hooks
 
 ---
 
-## 📞 Need Help?
+## 🚀 Next Steps
 
-### Check These First:
-1. **Progress Report**: `TEAM_GAMMA_PROGRESS_REPORT.md`
-2. **Team Guide**: `.kiro/specs/billing-finance-integration/TEAM_GAMMA_GUIDE.md`
-3. **Backend Logs**: Terminal running `npm run dev`
-4. **Browser Console**: DevTools → Console tab
-5. **Network Tab**: DevTools → Network → XHR
-
-### Common Questions:
-
-**Q: Where is the billing API client?**  
-A: `hospital-management-system/lib/api/billing.ts`
-
-**Q: How do I add a new billing endpoint?**  
-A: Add method to billing API client, update types, create/update hook
-
-**Q: How do I test without backend?**  
-A: You can't - frontend requires real backend API
-
-**Q: Can I use mock data?**  
-A: Not recommended - defeats purpose of integration
-
-**Q: How do I add billing permissions to a user?**  
-A: Use `node backend/scripts/assign-role.js` or assign "Hospital Admin" role
+After completing Phase 1, move to:
+- **Phase 2**: Dashboard Integration (replace mock data)
+- **Phase 3**: Invoice Management (list, details, generation)
+- **Phase 4**: Payment Processing (Razorpay integration)
 
 ---
 
-**Last Updated**: November 15, 2025  
-**Status**: Phase 1 Complete, Ready for Backend Testing  
-**Next Action**: Create test user → Run integration test → Verify backend
+## 💡 Tips
+
+1. **Test as you go** - Don't wait until the end to test
+2. **Check TypeScript errors** - Run `npx tsc --noEmit` frequently
+3. **Use the backend API** - Test endpoints with curl before frontend integration
+4. **Follow the patterns** - Look at existing code (patients, appointments) for examples
+5. **Ask for help** - If stuck, review the specifications or steering file
+
+---
+
+**Ready to code? Start with Task 1.1! 🚀**

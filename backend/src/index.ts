@@ -28,7 +28,7 @@ subdomainCache.connect().catch(err => {
 });
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5000;
 
 // CORS configuration for authorized applications only
 app.use(cors({
@@ -104,23 +104,43 @@ import medicalRecordsRouter from './routes/medical-records.routes';
 import prescriptionsRouter from './routes/prescriptions.routes';
 import diagnosisTreatmentRouter from './routes/diagnosis-treatment.routes';
 import labTestsRouter from './routes/lab-tests.routes';
+import labOrdersRouter from './routes/lab-orders.routes';
+import labResultsRouter from './routes/lab-results.routes';
 import imagingRouter from './routes/imaging.routes';
 import labPanelsRouter from './routes/lab-panels.routes';
 import staffRouter from './routes/staff';
+import staffOnboardingRouter from './routes/staff-onboarding';
+import notificationsRouter from './routes/notifications';
 
 // Apply tenant middleware, authentication, and application access control to hospital routes
 app.use('/files', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), filesRouter);
 app.use('/api/realtime', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), realtimeRouter);
 app.use('/api/custom-fields', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), customFieldsRouter);
-app.use('/api/patients', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), patientsRouter);
-app.use('/api/appointments', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), appointmentsRouter);
+// Development vs Production middleware for patients
+if (process.env.NODE_ENV === 'development') {
+  const { devTenantMiddleware, devAuthMiddleware, devApplicationAccessMiddleware } = require('./middleware/devAuth');
+  app.use('/api/patients', devTenantMiddleware, devAuthMiddleware, devApplicationAccessMiddleware('hospital_system'), patientsRouter);
+} else {
+  app.use('/api/patients', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), patientsRouter);
+}
+// Development vs Production middleware for appointments
+if (process.env.NODE_ENV === 'development') {
+  const { devTenantMiddleware, devAuthMiddleware, devApplicationAccessMiddleware } = require('./middleware/devAuth');
+  app.use('/api/appointments', devTenantMiddleware, devAuthMiddleware, devApplicationAccessMiddleware('hospital_system'), appointmentsRouter);
+} else {
+  app.use('/api/appointments', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), appointmentsRouter);
+}
 app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), medicalRecordsRouter);
 app.use('/api/prescriptions', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), prescriptionsRouter);
 app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), diagnosisTreatmentRouter);
 app.use('/api/lab-tests', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labTestsRouter);
+app.use('/api/lab-orders', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labOrdersRouter);
+app.use('/api/lab-results', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labResultsRouter);
 app.use('/api/imaging', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), imagingRouter);
 app.use('/api/lab-panels', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labPanelsRouter);
 app.use('/api/staff', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), staffRouter);
+app.use('/api/staff-onboarding', staffOnboardingRouter); // Public routes for staff onboarding
+app.use('/api/notifications', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), notificationsRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {
@@ -137,10 +157,13 @@ app.get('/', async (req: Request, res: Response) => {
 
 import { errorHandler } from './middleware/errorHandler';
 import { initializeWebSocketServer } from './websocket/server';
+import { initializeNotificationWebSocket } from './websocket/notification-server';
 app.use(errorHandler);
 
 const server = app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
 
+// Initialize WebSocket servers
 initializeWebSocketServer(server);
+initializeNotificationWebSocket(server);

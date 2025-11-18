@@ -8,6 +8,8 @@ interface UseStaffFilters {
   search?: string;
   limit?: number;
   offset?: number;
+  include_unverified?: boolean;
+  verification_status?: string;
 }
 
 export function useStaff(filters?: UseStaffFilters) {
@@ -26,6 +28,8 @@ export function useStaff(filters?: UseStaffFilters) {
         search: filters?.search,
         limit: filters?.limit,
         offset: filters?.offset,
+        include_unverified: filters?.include_unverified,
+        verification_status: filters?.verification_status,
       });
       
       if (response.success) {
@@ -42,7 +46,7 @@ export function useStaff(filters?: UseStaffFilters) {
     } finally {
       setLoading(false);
     }
-  }, [filters?.department, filters?.status, filters?.search, filters?.limit, filters?.offset]);
+  }, [filters?.department, filters?.status, filters?.search, filters?.limit, filters?.offset, filters?.include_unverified, filters?.verification_status]);
 
   useEffect(() => {
     fetchStaff();

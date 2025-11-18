@@ -2,22 +2,36 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Clock, Stethoscope, CheckCircle2, Zap, ChevronRight } from "lucide-react"
+import { createAppointment, Appointment } from "@/lib/api/appointments"
+import { getPatients, Patient } from "@/lib/api/patients"
+import { createPatient } from "@/lib/patients"
+import { getDoctors, Doctor } from "@/lib/api/doctors"
 
 export default function AppointmentCreation() {
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [step, setStep] = useState(1)
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [selectedPatient, setSelectedPatient] = useState<number | null>(null)
+  const [patientSearch, setPatientSearch] = useState("")
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false)
   const [formData, setFormData] = useState({
     patientName: "",
     patientEmail: "",
+    dateOfBirth: "",
     appointmentType: "",
     date: "",
     notes: "",
@@ -55,6 +69,43 @@ export default function AppointmentCreation() {
 
   const timeSlots = ["09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM"]
 
+  // Load patients and doctors on component mount
+  useEffect(() => {
+    loadPatientsAndDoctors()
+  }, [])
+
+  const loadPatientsAndDoctors = async () => {
+    try {
+      // Load patients from API
+      const patientsResponse = await getPatients({ limit: 100 })
+      setPatients(patientsResponse.data.patients)
+      
+      // Use mock doctors for now since the doctors API doesn't exist yet
+      const mockDoctors = [
+        { id: 1, name: "Dr. James Smith", specialty: "Cardiology", email: "james.smith@hospital.com", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 2, name: "Dr. Emily Johnson", specialty: "Internal Medicine", email: "emily.johnson@hospital.com", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 3, name: "Dr. Robert Williams", specialty: "Cardiology", email: "robert.williams@hospital.com", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+      ]
+      setDoctors(mockDoctors)
+    } catch (err) {
+      console.error('Error loading patients:', err)
+      // If patients API fails, use mock data for both
+      const mockPatients = [
+        { id: 1, first_name: "John", last_name: "Doe", patient_number: "P001", email: "john.doe@email.com", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 2, first_name: "Jane", last_name: "Smith", patient_number: "P002", email: "jane.smith@email.com", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 3, first_name: "sonu", last_name: "", patient_number: "P003", email: "sonu@email.com", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+      ]
+      const mockDoctors = [
+        { id: 1, name: "Dr. James Smith", specialty: "Cardiology", email: "james.smith@hospital.com", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 2, name: "Dr. Emily Johnson", specialty: "Internal Medicine", email: "emily.johnson@hospital.com", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 3, name: "Dr. Robert Williams", specialty: "Cardiology", email: "robert.williams@hospital.com", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+      ]
+      
+      setPatients(mockPatients)
+      setDoctors(mockDoctors)
+    }
+  }
+
   const appointmentTypes = [
     { id: "consultation", label: "General Consultation", duration: "30 min" },
     { id: "followup", label: "Follow-up Visit", duration: "20 min" },
@@ -65,6 +116,184 @@ export default function AppointmentCreation() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleConfirmAppointment = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Validate required fields
+      const isNewPatient = !selectedPatient
+      const needsDob = isNewPatient && !formData.dateOfBirth
+      const needsName = isNewPatient && !formData.patientName
+      if ((!selectedProvider) || (!formData.date) || (!selectedTime) || needsDob || needsName) {
+        setError('Please fill in all required fields')
+        return
+      }
+
+      // Validate appointment is in the future
+      const appointmentDateTime = new Date(`${formData.date}T${selectedTime}`)
+      const now = new Date()
+      if (appointmentDateTime <= now) {
+        setError('Appointment date and time must be in the future')
+        return
+      }
+
+      // Map provider selection to actual doctor IDs from loaded doctors
+      let selectedDoctor;
+      if (selectedProvider) {
+        // Map the provider selection to doctor names
+        const providerNameMap: { [key: string]: string } = {
+          'dr-smith': 'Dr. James Smith',
+          'dr-johnson': 'Dr. Emily Johnson', 
+          'dr-williams': 'Dr. Robert Williams',
+        }
+        const doctorName = providerNameMap[selectedProvider]
+        selectedDoctor = doctors.find(d => d.name === doctorName)
+      }
+      const doctorId = selectedDoctor?.id || undefined
+
+      // Validate we have valid patient and doctor (no silent fallbacks)
+      let patientId = selectedPatient
+      
+      console.log('Validation check:', {
+        patientId,
+        doctorId,
+        selectedProvider,
+        selectedDoctor,
+        patientsCount: patients.length,
+        doctorsCount: doctors.length
+      })
+      
+      if (!doctorId) {
+        setError(`Please select a provider before confirming.`)
+        return
+      }
+
+      // If no existing patient selected, create a new patient first
+      if (!patientId) {
+        const name = (formData.patientName || '').trim()
+        const [first, ...rest] = name.split(/\s+/)
+        const last = rest.join(' ') || 'Unknown'
+        const dob = formData.dateOfBirth
+        try {
+          const newPatientRes = await createPatient({
+            patient_number: `PAT${Date.now()}`,
+            first_name: first || 'Unknown',
+            last_name: last,
+            date_of_birth: dob,
+            email: formData.patientEmail || null,
+          })
+          patientId = newPatientRes.data.patient.id
+        } catch (e: any) {
+          setError(e.response?.data?.error || e.message || 'Failed to create patient')
+          return
+        }
+      }
+
+      if (!patientId) {
+        setError(`Please select a patient and provider before confirming.`)
+        return
+      }
+
+      // Map appointment type
+      const typeMap: { [key: string]: string } = {
+        'consultation': 'consultation',
+        'followup': 'follow_up',
+        'procedure': 'procedure',
+        'emergency': 'emergency',
+      }
+
+      // Combine date and time - convert to proper ISO format
+      // selectedTime is in format like "10:00 AM" or "14:30"
+      let timeIn24Hour = selectedTime;
+      
+      // Convert 12-hour format to 24-hour if needed
+      if (selectedTime.includes('AM') || selectedTime.includes('PM')) {
+        const [time, period] = selectedTime.split(' ');
+        const [hours, minutes] = time.split(':');
+        let hour24 = parseInt(hours);
+        
+        if (period === 'PM' && hour24 !== 12) {
+          hour24 += 12;
+        } else if (period === 'AM' && hour24 === 12) {
+          hour24 = 0;
+        }
+        
+        timeIn24Hour = `${hour24.toString().padStart(2, '0')}:${minutes}`;
+      }
+      
+      // Create proper ISO datetime string
+      const appointmentDateTimeObj = new Date(`${formData.date}T${timeIn24Hour}:00`);
+      const datetime = appointmentDateTimeObj.toISOString();
+      
+      console.log('Creating appointment with datetime:', datetime)
+      console.log('Original date/time:', formData.date, selectedTime)
+      console.log('Parsed datetime object:', appointmentDateTimeObj)
+
+      const appointmentData = {
+        patient_id: patientId,
+        doctor_id: doctorId,
+        appointment_date: datetime,
+        duration_minutes: 30,
+        appointment_type: typeMap[formData.appointmentType] || 'consultation',
+        notes: formData.notes,
+      }
+
+      console.log('Appointment data being sent:', appointmentData)
+
+      const result = await createAppointment(appointmentData)
+
+      if (result.success) {
+        // Redirect to appointments page with success message
+        router.push('/appointments?created=true')
+      }
+    } catch (err: any) {
+      console.error('Error creating appointment:', err)
+      console.error('Error response:', err.response?.data)
+      console.error('Error status:', err.response?.status)
+      console.error('Error headers:', err.response?.headers)
+      
+      let errorMessage = 'Failed to create appointment'
+      
+      // Handle validation errors (400)
+      if (err.response?.status === 400) {
+        if (err.response.data?.error) {
+          errorMessage = `Validation Error: ${err.response.data.error}`
+        } else if (err.response.data?.message) {
+          errorMessage = `Validation Error: ${err.response.data.message}`
+        } else if (err.response.data?.issues) {
+          // Handle Zod validation errors
+          const issues = err.response.data.issues.map((issue: any) => 
+            `${issue.path?.join('.')}: ${issue.message}`
+          ).join(', ')
+          errorMessage = `Validation Error: ${issues}`
+        } else {
+          errorMessage = 'Invalid appointment data. Please check all fields.'
+        }
+      } 
+      // Handle authentication errors (401)
+      else if (err.response?.status === 401) {
+        errorMessage = 'Authentication required. Please log in and try again.'
+      }
+      // Handle authorization errors (403)
+      else if (err.response?.status === 403) {
+        errorMessage = 'You do not have permission to create appointments.'
+      }
+      // Handle other errors
+      else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const steps = [
@@ -137,15 +366,98 @@ export default function AppointmentCreation() {
                 {step === 1 && (
                   <div className="space-y-6">
                     <div>
-                      <h2 className="text-xl font-bold text-foreground mb-4">Patient Information</h2>
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-foreground">Patient Information</h2>
+                        <button
+                          type="button"
+                          onClick={() => window.open('/patient-registration', '_blank')}
+                          className="text-sm bg-primary hover:bg-primary/90 text-primary-foreground font-medium flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Register New Patient
+                        </button>
+                      </div>
                       <div className="space-y-4">
+                        <div className="relative">
+                          <label className="text-sm font-medium text-foreground">Search Patient *</label>
+                          <Input
+                            type="text"
+                            placeholder="Type patient name to search..."
+                            value={patientSearch}
+                            onChange={(e) => {
+                              setPatientSearch(e.target.value)
+                              setShowPatientDropdown(true)
+                            }}
+                            onFocus={() => setShowPatientDropdown(true)}
+                            className="mt-2"
+                          />
+                          {showPatientDropdown && patientSearch && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                              {patients
+                                .filter(p => {
+                                  const searchLower = patientSearch.toLowerCase()
+                                  const fullName = `${p.first_name} ${p.last_name}`.toLowerCase()
+                                  const patientNum = (p.patient_number || '').toLowerCase()
+                                  return fullName.includes(searchLower) || patientNum.includes(searchLower)
+                                })
+                                .map(p => (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedPatient(p.id)
+                                      setPatientSearch(`${p.first_name} ${p.last_name}`)
+                                      setShowPatientDropdown(false)
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        patientName: `${p.first_name} ${p.last_name}`,
+                                        patientEmail: (p as any).email || ''
+                                      }))
+                                    }}
+                                    className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors"
+                                  >
+                                    <div className="font-medium text-foreground">
+                                      {p.first_name} {p.last_name}
+                                    </div>
+                                    {p.patient_number && (
+                                      <div className="text-sm text-muted-foreground">
+                                        {p.patient_number}
+                                      </div>
+                                    )}
+                                  </button>
+                                ))}
+                              {patients.filter(p => {
+                                const searchLower = patientSearch.toLowerCase()
+                                const fullName = `${p.first_name} ${p.last_name}`.toLowerCase()
+                                const patientNum = (p.patient_number || '').toLowerCase()
+                                return fullName.includes(searchLower) || patientNum.includes(searchLower)
+                              }).length === 0 && (
+                                <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+                                  No patients found. Try a different search or register a new patient.
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         <div>
-                          <label className="text-sm font-medium text-foreground">Patient Name *</label>
+                          <label className="text-sm font-medium text-foreground">Patient Name</label>
                           <Input
                             name="patientName"
                             value={formData.patientName}
                             onChange={handleInputChange}
-                            placeholder="Select or enter patient name"
+                            placeholder="Selected patient name"
+                            className="mt-2"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-foreground">Date of Birth {selectedPatient ? '' : '*'} </label>
+                          <Input
+                            name="dateOfBirth"
+                            type="date"
+                            value={formData.dateOfBirth}
+                            onChange={handleInputChange}
                             className="mt-2"
                           />
                         </div>
@@ -347,6 +659,21 @@ export default function AppointmentCreation() {
               </CardContent>
             </Card>
 
+            {/* Error Message */}
+            {error && (
+              <Card className="border-red-200 bg-red-50">
+                <CardContent className="pt-6">
+                  <div className="flex gap-3">
+                    <div className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5">⚠️</div>
+                    <div>
+                      <p className="font-medium text-red-900">Error</p>
+                      <p className="text-sm text-red-800 mt-1">{error}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Navigation Buttons */}
             <div className="flex items-center justify-between">
               <Button variant="outline" onClick={() => setStep(Math.max(1, step - 1))} disabled={step === 1}>
@@ -356,10 +683,17 @@ export default function AppointmentCreation() {
                 Step {step} of {steps.length}
               </div>
               <Button
-                onClick={() => setStep(Math.min(steps.length, step + 1))}
+                onClick={step === steps.length ? handleConfirmAppointment : () => setStep(Math.min(steps.length, step + 1))}
                 className="bg-primary hover:bg-primary/90"
+                disabled={loading}
               >
-                {step === steps.length ? "Confirm Appointment" : "Next"}
+                {loading && step === steps.length && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                )}
+                {step === steps.length 
+                  ? (loading ? "Creating..." : "Confirm Appointment") 
+                  : "Next"
+                }
                 {step < steps.length && <ChevronRight className="w-4 h-4 ml-2" />}
               </Button>
             </div>
