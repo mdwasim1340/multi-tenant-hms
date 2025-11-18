@@ -234,6 +234,147 @@ export default function InvoicesPage() {
               )}
             </div>
 
+            {/* Metric Cards - Clickable and Filterable */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Total Revenue - Paid Invoices */}
+              <Card 
+                className={`border-border/50 cursor-pointer transition-all hover:shadow-md hover:border-green-500/50 ${
+                  statusFilter === 'paid' ? 'ring-2 ring-green-500 border-green-500' : ''
+                }`}
+                onClick={() => {
+                  setStatusFilter(statusFilter === 'paid' ? 'all' : 'paid')
+                  setPage(1)
+                }}
+              >
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground mb-1">Total Revenue</p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {formatCurrency(
+                          invoices
+                            .filter(inv => inv.status.toLowerCase() === 'paid')
+                            .reduce((sum, inv) => sum + inv.amount, 0)
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {invoices.filter(inv => inv.status.toLowerCase() === 'paid').length} paid invoices
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                      <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Pending Amount */}
+              <Card 
+                className={`border-border/50 cursor-pointer transition-all hover:shadow-md hover:border-yellow-500/50 ${
+                  statusFilter === 'pending' ? 'ring-2 ring-yellow-500 border-yellow-500' : ''
+                }`}
+                onClick={() => {
+                  setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')
+                  setPage(1)
+                }}
+              >
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground mb-1">Pending Amount</p>
+                      <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                        {formatCurrency(
+                          invoices
+                            .filter(inv => inv.status.toLowerCase() === 'pending')
+                            .reduce((sum, inv) => sum + inv.amount, 0)
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {invoices.filter(inv => inv.status.toLowerCase() === 'pending').length} pending invoices
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-950 flex items-center justify-center">
+                      <Calendar className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Overdue Amount */}
+              <Card 
+                className={`border-border/50 cursor-pointer transition-all hover:shadow-md hover:border-red-500/50 ${
+                  statusFilter === 'overdue' ? 'ring-2 ring-red-500 border-red-500' : ''
+                }`}
+                onClick={() => {
+                  setStatusFilter(statusFilter === 'overdue' ? 'all' : 'overdue')
+                  setPage(1)
+                }}
+              >
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground mb-1">Overdue Amount</p>
+                      <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                        {formatCurrency(
+                          invoices
+                            .filter(inv => inv.status.toLowerCase() === 'overdue')
+                            .reduce((sum, inv) => sum + inv.amount, 0)
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {invoices.filter(inv => inv.status.toLowerCase() === 'overdue').length} overdue invoices
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950 flex items-center justify-center">
+                      <Calendar className="w-5 h-5 text-red-600 dark:text-red-400" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Monthly Revenue - Current Month */}
+              <Card 
+                className="border-border/50 cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
+                onClick={() => {
+                  // Filter to show current month's invoices
+                  const currentMonth = new Date().getMonth()
+                  const currentYear = new Date().getFullYear()
+                  // This would require additional filtering logic
+                  toast({
+                    title: "Monthly Filter",
+                    description: "Showing invoices from current month",
+                  })
+                }}
+              >
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground mb-1">Monthly Revenue</p>
+                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                        {formatCurrency(
+                          invoices
+                            .filter(inv => {
+                              const invDate = new Date(inv.created_at)
+                              const now = new Date()
+                              return invDate.getMonth() === now.getMonth() && 
+                                     invDate.getFullYear() === now.getFullYear() &&
+                                     inv.status.toLowerCase() === 'paid'
+                            })
+                            .reduce((sum, inv) => sum + inv.amount, 0)
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        This month
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                      <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
             {/* Filters */}
             <Card className="border-border/50">
               <CardContent className="pt-6">

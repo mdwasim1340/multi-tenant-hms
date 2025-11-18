@@ -743,7 +743,7 @@ ${invoiceHTML}
             ${item.quantity}
           </td>
           <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">
-            $${(item.unit_price / 100).toFixed(2)}
+            $${((item.unit_price || 0) / 100).toFixed(2)}
           </td>
           <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">
             $${(item.amount / 100).toFixed(2)}
@@ -791,7 +791,7 @@ ${invoiceHTML}
             ${item.quantity}
           </td>
           <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">
-            $${(item.unit_price / 100).toFixed(2)}
+            $${((item.unit_price || 0) / 100).toFixed(2)}
           </td>
           <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold;">
             $${(item.amount / 100).toFixed(2)}

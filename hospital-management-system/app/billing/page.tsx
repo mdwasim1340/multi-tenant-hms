@@ -45,6 +45,8 @@ export default function Billing() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<number | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<string>("all") // Add status filter
+  const [monthlyFilter, setMonthlyFilter] = useState<boolean>(false) // Add monthly filter
   const router = useRouter()
   const { toast } = useToast()
   
@@ -241,7 +243,16 @@ export default function Billing() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card className="border-border/50">
+                {/* Total Revenue - Clickable */}
+                <Card 
+                  className={`border-border/50 cursor-pointer transition-all hover:shadow-md hover:border-green-500/50 ${
+                    statusFilter === 'paid' ? 'ring-2 ring-green-500 border-green-500' : ''
+                  }`}
+                  onClick={() => {
+                    setStatusFilter(statusFilter === 'paid' ? 'all' : 'paid')
+                    setActiveTab('invoices') // Switch to invoices tab
+                  }}
+                >
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
@@ -253,12 +264,23 @@ export default function Billing() {
                           {report?.paid_invoices || 0} paid invoices
                         </p>
                       </div>
-                      <DollarSign className="w-8 h-8 text-accent opacity-20" />
+                      <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                        <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/50">
+                {/* Pending Amount - Clickable */}
+                <Card 
+                  className={`border-border/50 cursor-pointer transition-all hover:shadow-md hover:border-yellow-500/50 ${
+                    statusFilter === 'pending' ? 'ring-2 ring-yellow-500 border-yellow-500' : ''
+                  }`}
+                  onClick={() => {
+                    setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')
+                    setActiveTab('invoices') // Switch to invoices tab
+                  }}
+                >
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
@@ -270,12 +292,23 @@ export default function Billing() {
                           {report?.pending_invoices || 0} pending invoices
                         </p>
                       </div>
-                      <Clock className="w-8 h-8 text-yellow-600 opacity-20" />
+                      <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-950 flex items-center justify-center">
+                        <Clock className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/50">
+                {/* Overdue Amount - Clickable */}
+                <Card 
+                  className={`border-border/50 cursor-pointer transition-all hover:shadow-md hover:border-red-500/50 ${
+                    statusFilter === 'overdue' ? 'ring-2 ring-red-500 border-red-500' : ''
+                  }`}
+                  onClick={() => {
+                    setStatusFilter(statusFilter === 'overdue' ? 'all' : 'overdue')
+                    setActiveTab('invoices') // Switch to invoices tab
+                  }}
+                >
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
@@ -287,12 +320,24 @@ export default function Billing() {
                           {report?.overdue_invoices || 0} overdue invoices
                         </p>
                       </div>
-                      <AlertCircle className="w-8 h-8 text-red-600 opacity-20" />
+                      <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950 flex items-center justify-center">
+                        <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/50">
+                {/* Monthly Revenue - Clickable */}
+                <Card 
+                  className={`border-border/50 cursor-pointer transition-all hover:shadow-md hover:border-primary/50 ${
+                    monthlyFilter ? 'ring-2 ring-primary border-primary' : ''
+                  }`}
+                  onClick={() => {
+                    setMonthlyFilter(!monthlyFilter)
+                    setStatusFilter('all') // Clear status filter when monthly filter is active
+                    setActiveTab('invoices') // Switch to invoices tab
+                  }}
+                >
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
@@ -304,7 +349,9 @@ export default function Billing() {
                           This month
                         </p>
                       </div>
-                      <TrendingUp className="w-8 h-8 text-green-600 opacity-20" />
+                      <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -382,7 +429,56 @@ export default function Billing() {
                 ) : (
                   // Real invoice data
                   <>
-                    {invoices.map((invoice) => (
+                    {/* Filter indicator */}
+                    {(statusFilter !== 'all' || monthlyFilter) && (
+                      <div className="flex items-center justify-between mb-4 p-3 bg-muted rounded-lg">
+                        <div className="flex items-center gap-2">
+                          {statusFilter !== 'all' && (
+                            <Badge className={getStatusColor(statusFilter)}>
+                              {statusFilter}
+                            </Badge>
+                          )}
+                          {monthlyFilter && (
+                            <Badge className="bg-primary/10 text-primary">
+                              This Month
+                            </Badge>
+                          )}
+                          <span className="text-sm text-muted-foreground">
+                            Showing {invoices.filter(inv => {
+                              const matchesStatus = statusFilter === 'all' || inv.status.toLowerCase() === statusFilter.toLowerCase()
+                              const matchesMonth = !monthlyFilter || (() => {
+                                const invDate = new Date(inv.created_at)
+                                const now = new Date()
+                                return invDate.getMonth() === now.getMonth() && invDate.getFullYear() === now.getFullYear()
+                              })()
+                              return matchesStatus && matchesMonth
+                            }).length} {statusFilter !== 'all' ? statusFilter : ''} {monthlyFilter ? 'invoices from this month' : 'invoices'}
+                          </span>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            setStatusFilter('all')
+                            setMonthlyFilter(false)
+                          }}
+                        >
+                          Clear Filter
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {invoices
+                      .filter(invoice => {
+                        const matchesStatus = statusFilter === 'all' || invoice.status.toLowerCase() === statusFilter.toLowerCase()
+                        const matchesMonth = !monthlyFilter || (() => {
+                          const invDate = new Date(invoice.created_at)
+                          const now = new Date()
+                          return invDate.getMonth() === now.getMonth() && invDate.getFullYear() === now.getFullYear()
+                        })()
+                        return matchesStatus && matchesMonth
+                      })
+                      .map((invoice) => (
                       <Card 
                         key={invoice.id} 
                         className="border-border/50 hover:shadow-md transition-shadow cursor-pointer"
@@ -550,15 +646,59 @@ export default function Billing() {
                       </Card>
                     ))}
                     
+                    {/* No results message when filtered */}
+                    {(statusFilter !== 'all' || monthlyFilter) && invoices.filter(inv => {
+                      const matchesStatus = statusFilter === 'all' || inv.status.toLowerCase() === statusFilter.toLowerCase()
+                      const matchesMonth = !monthlyFilter || (() => {
+                        const invDate = new Date(inv.created_at)
+                        const now = new Date()
+                        return invDate.getMonth() === now.getMonth() && invDate.getFullYear() === now.getFullYear()
+                      })()
+                      return matchesStatus && matchesMonth
+                    }).length === 0 && (
+                      <Card className="border-border/50">
+                        <CardContent className="pt-12 pb-12 text-center">
+                          <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+                          <h3 className="text-lg font-semibold text-foreground mb-2">
+                            No {statusFilter !== 'all' ? statusFilter : ''} {monthlyFilter ? 'invoices from this month' : 'invoices'} found
+                          </h3>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            {monthlyFilter 
+                              ? "There are no invoices from the current month" 
+                              : `There are no invoices with ${statusFilter} status`}
+                          </p>
+                          <Button 
+                            variant="outline"
+                            onClick={() => {
+                              setStatusFilter('all')
+                              setMonthlyFilter(false)
+                            }}
+                          >
+                            Show All Invoices
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    )}
+                    
                     {/* View All Button */}
-                    <div className="text-center pt-4">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => router.push('/billing/invoices')}
-                      >
-                        View All Invoices
-                      </Button>
-                    </div>
+                    {invoices.filter(inv => {
+                      const matchesStatus = statusFilter === 'all' || inv.status.toLowerCase() === statusFilter.toLowerCase()
+                      const matchesMonth = !monthlyFilter || (() => {
+                        const invDate = new Date(inv.created_at)
+                        const now = new Date()
+                        return invDate.getMonth() === now.getMonth() && invDate.getFullYear() === now.getFullYear()
+                      })()
+                      return matchesStatus && matchesMonth
+                    }).length > 0 && (
+                      <div className="text-center pt-4">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => router.push('/billing/invoices')}
+                        >
+                          View All Invoices
+                        </Button>
+                      </div>
+                    )}
                   </>
                 )}
               </TabsContent>
