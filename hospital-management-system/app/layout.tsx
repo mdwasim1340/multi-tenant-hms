@@ -8,7 +8,6 @@ import { SubscriptionProvider } from "@/hooks/use-subscription"
 import { ChatWidget } from "@/components/chat-widget"
 import { SubdomainDetector } from "@/components/subdomain-detector"
 import { BrandingApplicator } from "@/components/branding-applicator"
-<<<<<<< HEAD
 import { Toaster } from "@/components/ui/toaster"
 
 const _geist = Geist({ subsets: ["latin"] })
