@@ -12,6 +12,21 @@ import { getStaffById, updateStaff } from '@/lib/staff';
 import { toast } from 'sonner';
 import type { StaffProfile } from '@/lib/types/staff';
 
+// Type for the form data
+type StaffFormData = {
+  name: string;
+  email: string;
+  role: string;
+  employee_id: string;
+  department?: string;
+  specialization?: string;
+  license_number?: string;
+  hire_date: string;
+  employment_type: 'full-time' | 'part-time' | 'contract';
+  status: 'active' | 'inactive' | 'on_leave';
+  emergency_contact?: any;
+};
+
 export default function EditStaffPage() {
   const router = useRouter();
   const params = useParams();
@@ -19,6 +34,7 @@ export default function EditStaffPage() {
   
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [staff, setStaff] = useState<StaffProfile | null>(null);
+  const [formData, setFormData] = useState<Partial<StaffFormData> | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -30,13 +46,23 @@ export default function EditStaffPage() {
     try {
       setLoading(true);
       const data = await getStaffById(staffId);
-      // Transform data to match form field names
-      const transformedData = {
-        ...data,
-        name: data.user_name,
-        email: data.user_email,
+      setStaff(data);
+      
+      // Transform data to match form field names with proper types
+      const transformedData: Partial<StaffFormData> = {
+        name: data.user_name || '',
+        email: data.user_email || '',
+        role: data.user_name || '', // This should be the role name from the user
+        employee_id: data.employee_id,
+        department: data.department,
+        specialization: data.specialization,
+        license_number: data.license_number,
+        hire_date: data.hire_date,
+        status: (data.status || 'active') as 'active' | 'inactive' | 'on_leave',
+        employment_type: (data.employment_type || 'full-time') as 'full-time' | 'part-time' | 'contract',
+        emergency_contact: data.emergency_contact,
       };
-      setStaff(transformedData as any);
+      setFormData(transformedData);
     } catch (error: any) {
       console.error('Error loading staff:', error);
       toast.error(error.message || 'Failed to load staff details');
@@ -81,7 +107,7 @@ export default function EditStaffPage() {
     );
   }
 
-  if (!staff) {
+  if (!staff || !formData) {
     return null;
   }
 
@@ -115,11 +141,10 @@ export default function EditStaffPage() {
               </CardHeader>
               <CardContent>
                 <StaffForm
-                  initialData={staff}
+                  initialData={formData}
                   onSubmit={handleSubmit}
                   onCancel={handleCancel}
                   isLoading={isSubmitting}
-                  isEdit={true}
                 />
               </CardContent>
             </Card>
