@@ -111,6 +111,7 @@ import labPanelsRouter from './routes/lab-panels.routes';
 import staffRouter from './routes/staff';
 import auditRouter from './routes/audit';
 import storageRouter from './routes/storage';
+import lifecycleRouter from './routes/lifecycle';
 
 // Apply tenant middleware, authentication, and application access control to hospital routes
 app.use('/files', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), filesRouter);
@@ -141,6 +142,7 @@ app.use('/api/lab-panels', tenantMiddleware, hospitalAuthMiddleware, requireAppl
 app.use('/api/staff', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), staffRouter);
 app.use('/api/audit-logs', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), auditRouter);
 app.use('/api/storage', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), storageRouter);
+app.use('/api/lifecycle', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), lifecycleRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {
