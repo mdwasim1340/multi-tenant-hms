@@ -153,7 +153,7 @@ export const getPatients = asyncHandler(
             WHERE cfv.entity_type = 'patient'
               AND cfv.entity_id = patients.id
               AND cf.name = $${paramIndex}
-              AND cfv.field_value::text ILIKE $${paramIndex + 1}
+              AND cfv.value::text ILIKE $${paramIndex + 1}
           )`);
           queryParams.push(fieldName, `%${String(fieldValue)}%`);
           paramIndex += 2;
