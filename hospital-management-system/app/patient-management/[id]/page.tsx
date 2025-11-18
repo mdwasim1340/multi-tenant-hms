@@ -214,12 +214,14 @@ export default function PatientDetailsPage() {
                           {new Date(patient.date_of_birth).toLocaleDateString()} ({age} years old)
                         </p>
                       </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Gender</p>
-                        <p className="font-semibold text-foreground mt-1">
-                          {patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1).replace(/_/g, " ")}
-                        </p>
-                      </div>
+                      {patient.gender && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Gender</p>
+                          <p className="font-semibold text-foreground mt-1">
+                            {patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1).replace(/_/g, " ")}
+                          </p>
+                        </div>
+                      )}
                       {patient.marital_status && (
                         <div>
                           <p className="text-sm text-muted-foreground">Marital Status</p>

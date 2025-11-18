@@ -1,84 +1,56 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, Clock, User, MapPin, AlertCircle, Zap, CheckCircle, XCircle, ChevronRight } from "lucide-react"
+import { Calendar, AlertCircle, Zap } from "lucide-react"
+import { AppointmentList } from "@/components/appointments/AppointmentList"
+import AppointmentCalendar from "@/components/appointments/AppointmentCalendar"
+import { Appointment } from "@/lib/api/appointments"
 
 export default function Appointments() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeTab, setActiveTab] = useState("calendar")
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [showSuccess, setShowSuccess] = useState(false)
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
-  const appointments = [
-    {
-      id: "APT001",
-      patient: "Sarah Johnson",
-      provider: "Dr. Emily Rodriguez",
-      type: "Cardiology Consultation",
-      date: "2024-10-25",
-      time: "09:00 AM",
-      status: "Confirmed",
-      priority: "High",
-      room: "301",
-      aiPriority: "Urgent - Patient flagged for early intervention",
-      noShowRisk: "Low",
-    },
-    {
-      id: "APT002",
-      patient: "Michael Chen",
-      provider: "Dr. James Wilson",
-      type: "Follow-up Checkup",
-      date: "2024-10-25",
-      time: "10:30 AM",
-      status: "Confirmed",
-      priority: "Medium",
-      room: "205",
-      aiPriority: "Routine - Standard care pathway",
-      noShowRisk: "Very Low",
-    },
-    {
-      id: "APT003",
-      patient: "Emma Williams",
-      provider: "Dr. Lisa Park",
-      type: "Annual Physical",
-      date: "2024-10-25",
-      time: "02:00 PM",
-      status: "Pending",
-      priority: "Low",
-      room: "TBD",
-      aiPriority: "Preventive - Schedule optimization recommended",
-      noShowRisk: "Medium",
-    },
-  ]
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "High":
-        return "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200"
-      case "Medium":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200"
-      case "Low":
-        return "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200"
-      default:
-        return "bg-gray-100 text-gray-800"
+  // Check for success parameter and show success message
+  useEffect(() => {
+    if (searchParams.get('created') === 'true') {
+      setShowSuccess(true)
+      // Clear the URL parameter
+      router.replace('/appointments', { scroll: false })
+      // Hide success message after 5 seconds
+      setTimeout(() => setShowSuccess(false), 5000)
     }
+  }, [searchParams, router])
+
+  // Refresh data when component mounts (e.g., returning from appointment creation)
+  useEffect(() => {
+    const handleFocus = () => {
+      setRefreshKey(prev => prev + 1)
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [])
+
+  const handleAppointmentClick = (appointment: Appointment) => {
+    router.push(`/appointments/${appointment.id}`)
   }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "Confirmed":
-        return <CheckCircle className="w-4 h-4 text-green-600" />
-      case "Pending":
-        return <Clock className="w-4 h-4 text-yellow-600" />
-      case "Cancelled":
-        return <XCircle className="w-4 h-4 text-red-600" />
-      default:
-        return null
-    }
+  const handleDateSelect = (date: Date) => {
+    const dateStr = date.toISOString().split('T')[0]
+    router.push(`/appointments/new?date=${dateStr}`)
+  }
+
+  const handleNewAppointment = () => {
+    router.push('/appointments/new')
   }
 
   return (
@@ -90,15 +62,44 @@ export default function Appointments() {
 
         <main className="flex-1 overflow-auto pt-20 pb-8">
           <div className="max-w-7xl mx-auto px-6 space-y-8">
+            {/* Success Message */}
+            {showSuccess && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 text-green-600">✅</div>
+                  <div>
+                    <p className="font-medium text-green-900">Appointment Created Successfully!</p>
+                    <p className="text-sm text-green-800 mt-1">
+                      The appointment has been scheduled and the patient will be notified.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowSuccess(false)}
+                    className="ml-auto text-green-600 hover:text-green-800"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-foreground">Appointment Scheduling</h1>
                 <p className="text-muted-foreground mt-1">AI-powered scheduling and prioritization</p>
               </div>
-              <Button className="bg-primary hover:bg-primary/90">
-                <Calendar className="w-4 h-4 mr-2" />
-                New Appointment
-              </Button>
+              <div className="flex gap-3">
+                <Button 
+                  onClick={() => router.push('/patient-registration')}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Register New Patient
+                </Button>
+                <Button className="bg-primary hover:bg-primary/90" onClick={handleNewAppointment}>
+                  <Calendar className="w-4 h-4 mr-2" />
+                  New Appointment
+                </Button>
+              </div>
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -110,103 +111,17 @@ export default function Appointments() {
 
               {/* Calendar View Tab */}
               <TabsContent value="calendar" className="space-y-6">
-                <Card className="border-border/50">
-                  <CardHeader>
-                    <CardTitle>October 2024 - Week View</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                      {["Mon 21", "Tue 22", "Wed 23", "Thu 24", "Fri 25"].map((day) => (
-                        <div key={day} className="border border-border rounded-lg p-4">
-                          <p className="font-semibold text-foreground mb-4">{day}</p>
-                          <div className="space-y-2">
-                            {day === "Thu 24" && (
-                              <>
-                                <div className="bg-blue-100 dark:bg-blue-950 border border-blue-300 dark:border-blue-700 rounded p-2 text-xs">
-                                  <p className="font-semibold text-blue-900 dark:text-blue-100">09:00 AM</p>
-                                  <p className="text-blue-800 dark:text-blue-200">Cardiology</p>
-                                </div>
-                                <div className="bg-green-100 dark:bg-green-950 border border-green-300 dark:border-green-700 rounded p-2 text-xs">
-                                  <p className="font-semibold text-green-900 dark:text-green-100">10:30 AM</p>
-                                  <p className="text-green-800 dark:text-green-200">Follow-up</p>
-                                </div>
-                              </>
-                            )}
-                            {day === "Fri 25" && (
-                              <div className="bg-yellow-100 dark:bg-yellow-950 border border-yellow-300 dark:border-yellow-700 rounded p-2 text-xs">
-                                <p className="font-semibold text-yellow-900 dark:text-yellow-100">02:00 PM</p>
-                                <p className="text-yellow-800 dark:text-yellow-200">Physical</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                <AppointmentCalendar
+                  key={`calendar-${refreshKey}`}
+                  onAppointmentClick={handleAppointmentClick}
+                  onDateSelect={handleDateSelect}
+                  height="calc(100vh - 350px)"
+                />
               </TabsContent>
 
               {/* Appointment List Tab */}
               <TabsContent value="list" className="space-y-4">
-                {appointments.map((apt) => (
-                  <Card key={apt.id} className="hover:shadow-md transition-shadow border-border/50">
-                    <CardContent className="pt-6">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <User className="w-5 h-5 text-primary" />
-                            </div>
-                            <div>
-                              <h3 className="font-semibold text-foreground">{apt.patient}</h3>
-                              <p className="text-sm text-muted-foreground">{apt.type}</p>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-sm text-foreground">{apt.date}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Clock className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-sm text-foreground">{apt.time}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <MapPin className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-sm text-foreground">Room {apt.room}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">Provider:</span>
-                              <span className="text-sm font-medium text-foreground">{apt.provider.split(" ")[1]}</span>
-                            </div>
-                          </div>
-
-                          {/* AI Insight */}
-                          <div className="bg-accent/5 border border-accent/20 rounded-lg p-3 mb-3">
-                            <div className="flex items-start gap-2">
-                              <Zap className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                              <div>
-                                <p className="text-xs font-semibold text-accent mb-1">AI Prioritization</p>
-                                <p className="text-sm text-foreground">{apt.aiPriority}</p>
-                                <p className="text-xs text-muted-foreground mt-1">No-show risk: {apt.noShowRisk}</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2">
-                            <Badge className={getPriorityColor(apt.priority)}>{apt.priority}</Badge>
-                            <Badge variant="outline" className="flex items-center gap-1">
-                              {getStatusIcon(apt.status)}
-                              {apt.status}
-                            </Badge>
-                          </div>
-                        </div>
-                        <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-1" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                <AppointmentList key={`list-${refreshKey}`} />
               </TabsContent>
 
               {/* AI Insights Tab */}
@@ -264,3 +179,4 @@ export default function Appointments() {
     </div>
   )
 }
+

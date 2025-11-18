@@ -266,6 +266,156 @@ export class AppointmentService {
     }
   }
 
+  async confirmAppointment(
+    appointmentId: number,
+    tenantId: string,
+    userId?: number
+  ): Promise<Appointment> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query(`SET search_path TO "${tenantId}"`);
+
+      const existing = await this.getAppointmentById(
+        appointmentId,
+        tenantId,
+        client
+      );
+      if (!existing) {
+        throw new NotFoundError('Appointment');
+      }
+
+      if (existing.status !== 'scheduled') {
+        throw new ValidationError(
+          `Cannot confirm appointment with status: ${existing.status}`
+        );
+      }
+
+      const updateQuery = `
+        UPDATE appointments 
+        SET status = 'confirmed',
+            updated_by = $2,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        RETURNING *
+      `;
+
+      await client.query(updateQuery, [appointmentId, userId]);
+
+      const confirmed = await this.getAppointmentById(
+        appointmentId,
+        tenantId,
+        client
+      );
+      if (!confirmed) {
+        throw new Error('Failed to confirm appointment');
+      }
+      return confirmed;
+    } finally {
+      client.release();
+    }
+  }
+
+  async completeAppointment(
+    appointmentId: number,
+    tenantId: string,
+    userId?: number
+  ): Promise<Appointment> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query(`SET search_path TO "${tenantId}"`);
+
+      const existing = await this.getAppointmentById(
+        appointmentId,
+        tenantId,
+        client
+      );
+      if (!existing) {
+        throw new NotFoundError('Appointment');
+      }
+
+      if (existing.status !== 'confirmed') {
+        throw new ValidationError(
+          `Cannot complete appointment with status: ${existing.status}`
+        );
+      }
+
+      const updateQuery = `
+        UPDATE appointments 
+        SET status = 'completed',
+            updated_by = $2,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        RETURNING *
+      `;
+
+      await client.query(updateQuery, [appointmentId, userId]);
+
+      const completed = await this.getAppointmentById(
+        appointmentId,
+        tenantId,
+        client
+      );
+      if (!completed) {
+        throw new Error('Failed to complete appointment');
+      }
+      return completed;
+    } finally {
+      client.release();
+    }
+  }
+
+  async markNoShow(
+    appointmentId: number,
+    tenantId: string,
+    userId?: number
+  ): Promise<Appointment> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query(`SET search_path TO "${tenantId}"`);
+
+      const existing = await this.getAppointmentById(
+        appointmentId,
+        tenantId,
+        client
+      );
+      if (!existing) {
+        throw new NotFoundError('Appointment');
+      }
+
+      if (existing.status !== 'confirmed') {
+        throw new ValidationError(
+          `Cannot mark as no-show appointment with status: ${existing.status}`
+        );
+      }
+
+      const updateQuery = `
+        UPDATE appointments 
+        SET status = 'no_show',
+            updated_by = $2,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        RETURNING *
+      `;
+
+      await client.query(updateQuery, [appointmentId, userId]);
+
+      const noShow = await this.getAppointmentById(
+        appointmentId,
+        tenantId,
+        client
+      );
+      if (!noShow) {
+        throw new Error('Failed to mark appointment as no-show');
+      }
+      return noShow;
+    } finally {
+      client.release();
+    }
+  }
+
   private async checkConflicts(
     client: PoolClient,
     doctorId: number,
@@ -325,5 +475,67 @@ export class AppointmentService {
     }
 
     return { has_conflict: false };
+  }
+
+  async getAvailableSlots(
+    doctorId: number,
+    date: string,
+    durationMinutes: number,
+    tenantId: string
+  ): Promise<{ start_time: string; end_time: string; available: boolean }[]> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query(`SET search_path TO "${tenantId}"`);
+
+      // Generate time slots for the day (9 AM to 5 PM in 30-minute intervals)
+      const slots = [];
+      const startHour = 9;
+      const endHour = 17;
+      const slotDuration = 30; // minutes
+
+      for (let hour = startHour; hour < endHour; hour++) {
+        for (let minute = 0; minute < 60; minute += slotDuration) {
+          const startTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+          const endTime = minute + slotDuration >= 60 
+            ? `${(hour + 1).toString().padStart(2, '0')}:${(minute + slotDuration - 60).toString().padStart(2, '0')}`
+            : `${hour.toString().padStart(2, '0')}:${(minute + slotDuration).toString().padStart(2, '0')}`;
+
+          const slotStart = new Date(`${date}T${startTime}:00.000Z`);
+          const slotEnd = new Date(`${date}T${endTime}:00.000Z`);
+
+          // Check if this slot conflicts with existing appointments
+          const conflictQuery = `
+            SELECT COUNT(*) as count
+            FROM appointments
+            WHERE doctor_id = $1
+              AND status NOT IN ('cancelled', 'no_show')
+              AND (
+                (appointment_date <= $2 AND appointment_end_time > $2) OR
+                (appointment_date < $3 AND appointment_end_time >= $3) OR
+                (appointment_date >= $2 AND appointment_end_time <= $3)
+              )
+          `;
+
+          const conflictResult = await client.query(conflictQuery, [
+            doctorId,
+            slotStart.toISOString(),
+            slotEnd.toISOString()
+          ]);
+
+          const available = conflictResult.rows[0].count === '0';
+
+          slots.push({
+            start_time: slotStart.toISOString(),
+            end_time: slotEnd.toISOString(),
+            available
+          });
+        }
+      }
+
+      return slots;
+    } finally {
+      client.release();
+    }
   }
 }

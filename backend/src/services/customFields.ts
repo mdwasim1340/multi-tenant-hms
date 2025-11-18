@@ -203,7 +203,7 @@ export class CustomFieldsService {
 
     try {
       const query = `
-        SELECT cf.name, cfv.field_value
+        SELECT cf.name, cfv.value as field_value
         FROM custom_field_values cfv
         JOIN public.custom_fields cf ON cfv.field_id = cf.id
         WHERE cfv.entity_type = $1 AND cfv.entity_id = $2
