@@ -207,3 +207,217 @@ export default {
   listRecordFiles,
   estimateStorageCost,
 };
+
+/**
+ * Track file access for Intelligent-Tiering optimization
+ */
+import { pool } from '../database';
+
+/**
+ * Log file access for optimization analysis
+ */
+export async function logFileAccess(params: {
+  tenantId: string;
+  fileId: string;
+  filePath: string;
+  accessType: 'download' | 'view' | 'upload';
+  userId?: number;
+  fileSizeBytes?: number;
+  storageClass?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  responseTimeMs?: number;
+  success?: boolean;
+  errorMessage?: string;
+}): Promise<void> {
+  try {
+    await pool.query(`
+      INSERT INTO file_access_logs (
+        tenant_id, file_id, file_path, access_type, user_id,
+        file_size_bytes, storage_class, ip_address, user_agent,
+        response_time_ms, success, error_message
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    `, [
+      params.tenantId,
+      params.fileId,
+      params.filePath,
+      params.accessType,
+      params.userId || null,
+      params.fileSizeBytes || null,
+      params.storageClass || 'STANDARD',
+      params.ipAddress || null,
+      params.userAgent || null,
+      params.responseTimeMs || null,
+      params.success !== false,
+      params.errorMessage || null
+    ]);
+  } catch (error) {
+    console.error('Failed to log file access:', error);
+    // Don't throw - logging failure shouldn't break file operations
+  }
+}
+
+/**
+ * Enhanced download URL generation with access tracking
+ */
+export async function generateDownloadUrlWithTracking(
+  tenantId: string,
+  s3Key: string,
+  userId?: number,
+  fileSize?: number,
+  ipAddress?: string,
+  userAgent?: string
+): Promise<string> {
+  const startTime = Date.now();
+  
+  try {
+    // Generate presigned URL
+    const command = new GetObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: s3Key,
+    });
+
+    const url = await getSignedUrl(s3Client, command, {
+      expiresIn: PRESIGNED_URL_EXPIRATION,
+    });
+
+    const responseTime = Date.now() - startTime;
+
+    // Log file access for optimization
+    await logFileAccess({
+      tenantId,
+      fileId: s3Key.split('/').pop() || s3Key,
+      filePath: s3Key,
+      accessType: 'download',
+      userId,
+      fileSizeBytes: fileSize,
+      storageClass: 'STANDARD', // Default, could be enhanced to detect actual class
+      ipAddress,
+      userAgent,
+      responseTimeMs: responseTime,
+      success: true
+    });
+
+    return url;
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    
+    // Log failed access
+    await logFileAccess({
+      tenantId,
+      fileId: s3Key.split('/').pop() || s3Key,
+      filePath: s3Key,
+      accessType: 'download',
+      userId,
+      fileSizeBytes: fileSize,
+      ipAddress,
+      userAgent,
+      responseTimeMs: responseTime,
+      success: false,
+      errorMessage: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    throw error;
+  }
+}
+
+/**
+ * Enhanced upload URL generation with access tracking
+ */
+export async function generateUploadUrlWithTracking(
+  tenantId: string,
+  recordId: number,
+  filename: string,
+  contentType: string,
+  userId?: number,
+  ipAddress?: string,
+  userAgent?: string
+): Promise<{ uploadUrl: string; s3Key: string }> {
+  const startTime = Date.now();
+  
+  try {
+    const result = await generateUploadUrl(tenantId, recordId, filename, contentType);
+    const responseTime = Date.now() - startTime;
+
+    // Log file upload initiation
+    await logFileAccess({
+      tenantId,
+      fileId: filename,
+      filePath: result.s3Key,
+      accessType: 'upload',
+      userId,
+      storageClass: 'INTELLIGENT_TIERING',
+      ipAddress,
+      userAgent,
+      responseTimeMs: responseTime,
+      success: true
+    });
+
+    return result;
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    
+    // Log failed upload
+    await logFileAccess({
+      tenantId,
+      fileId: filename,
+      filePath: `${tenantId}/medical-records/${recordId}/${filename}`,
+      accessType: 'upload',
+      userId,
+      ipAddress,
+      userAgent,
+      responseTimeMs: responseTime,
+      success: false,
+      errorMessage: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    throw error;
+  }
+}
+
+/**
+ * Get access patterns for a tenant
+ */
+export async function getAccessPatterns(tenantId: string): Promise<any[]> {
+  const result = await pool.query(`
+    SELECT * FROM file_access_patterns
+    WHERE tenant_id = $1
+    ORDER BY last_accessed DESC
+  `, [tenantId]);
+  
+  return result.rows;
+}
+
+/**
+ * Get storage optimization recommendations
+ */
+export async function getStorageRecommendations(tenantId: string): Promise<any[]> {
+  const result = await pool.query(`
+    SELECT * FROM recommend_storage_transitions($1)
+  `, [tenantId]);
+  
+  return result.rows;
+}
+
+/**
+ * Get tenant access statistics
+ */
+export async function getTenantAccessStats(tenantId: string): Promise<any> {
+  const result = await pool.query(`
+    SELECT * FROM get_tenant_access_stats($1)
+  `, [tenantId]);
+  
+  return result.rows[0] || {
+    total_files: 0,
+    total_accesses: 0,
+    unique_users: 0,
+    avg_accesses_per_file: 0,
+    files_not_accessed_30_days: 0,
+    files_not_accessed_90_days: 0,
+    files_not_accessed_180_days: 0,
+    recommended_standard: 0,
+    recommended_standard_ia: 0,
+    recommended_glacier: 0,
+    recommended_deep_archive: 0
+  };
+}
