@@ -211,7 +211,7 @@ export default {
 /**
  * Track file access for Intelligent-Tiering optimization
  */
-import { pool } from '../database';
+import pool from '../database';
 
 /**
  * Log file access for optimization analysis

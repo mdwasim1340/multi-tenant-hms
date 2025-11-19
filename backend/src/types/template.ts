@@ -277,19 +277,3 @@ export const FIELD_TYPE_CONFIG = {
     validation: []
   }
 } as const;
-
-export default {
-  MedicalRecordTemplate,
-  CreateTemplateDTO,
-  UpdateTemplateDTO,
-  TemplateFilters,
-  TemplateUsage,
-  CreateTemplateUsageDTO,
-  TemplateStatistics,
-  RecommendedTemplate,
-  TemplateData,
-  TemplateValidationResult,
-  MEDICAL_SPECIALTIES,
-  TEMPLATE_TYPES,
-  FIELD_TYPE_CONFIG
-};

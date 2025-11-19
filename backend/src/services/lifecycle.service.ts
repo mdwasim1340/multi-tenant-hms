@@ -4,7 +4,7 @@
  */
 
 import { S3Client, GetBucketLifecycleConfigurationCommand, PutBucketLifecycleConfigurationCommand, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
-import { pool } from '../database';
+import pool from '../database';
 
 // Initialize S3 client
 const s3Client = new S3Client({
@@ -108,7 +108,7 @@ export async function getCurrentLifecycleConfiguration(): Promise<LifecycleRule[
       status: rule.Status as 'Enabled' | 'Disabled',
       filter: rule.Filter ? {
         prefix: rule.Filter.Prefix,
-        tags: rule.Filter.Tag ? { [rule.Filter.Tag.Key]: rule.Filter.Tag.Value } : undefined
+        tags: rule.Filter.Tag ? { [rule.Filter.Tag.Key as string]: rule.Filter.Tag.Value || '' } : undefined
       } : undefined,
       transitions: rule.Transitions?.map(t => ({
         days: t.Days || 0,
@@ -206,7 +206,7 @@ export async function applyLifecycleConfiguration(): Promise<boolean> {
     const command = new PutBucketLifecycleConfigurationCommand({
       Bucket: S3_BUCKET,
       LifecycleConfiguration: {
-        Rules: lifecycleRules
+        Rules: lifecycleRules as any
       }
     });
 

@@ -3,7 +3,7 @@
  * Business logic for medical record templates
  */
 
-import { pool } from '../database';
+import pool from '../database';
 import {
   MedicalRecordTemplate,
   CreateTemplateDTO,
@@ -160,7 +160,7 @@ export async function getTemplates(
   
   const result = await pool.query(query, params);
   
-  const templates = result.rows.map(row => ({
+  const templates = result.rows.map((row: any) => ({
     ...row,
     fields: JSON.parse(row.fields),
     default_values: JSON.parse(row.default_values || '{}'),
@@ -348,7 +348,7 @@ export async function deleteTemplate(
     WHERE id = $2 AND tenant_id = $3
   `, [userId, templateId, tenantId]);
   
-  return result.rowCount > 0;
+  return (result.rowCount || 0) > 0;
 }
 
 /**
@@ -527,7 +527,7 @@ export async function getTemplateStatistics(
     SELECT * FROM get_template_statistics($1)
   `, [tenantId]);
   
-  return result.rows.map(row => ({
+  return result.rows.map((row: any) => ({
     ...row,
     usage_count: parseInt(row.usage_count),
     unique_users: parseInt(row.unique_users),
@@ -548,7 +548,7 @@ export async function getRecommendedTemplates(
     SELECT * FROM get_recommended_templates($1, $2, $3, $4)
   `, [tenantId, userId, specialty || null, templateType || null]);
   
-  return result.rows.map(row => ({
+  return result.rows.map((row: any) => ({
     ...row,
     usage_count: parseInt(row.usage_count),
     user_usage_count: parseInt(row.user_usage_count),
