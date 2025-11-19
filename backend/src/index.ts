@@ -113,6 +113,8 @@ import auditRouter from './routes/audit';
 import storageRouter from './routes/storage';
 import lifecycleRouter from './routes/lifecycle';
 import templatesRouter from './routes/templates';
+import staffOnboardingRouter from './routes/staff-onboarding';
+import notificationsRouter from './routes/notifications';
 
 // Apply tenant middleware, authentication, and application access control to hospital routes
 app.use('/files', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), filesRouter);
@@ -145,6 +147,8 @@ app.use('/api/audit-logs', tenantMiddleware, hospitalAuthMiddleware, requireAppl
 app.use('/api/storage', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), storageRouter);
 app.use('/api/lifecycle', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), lifecycleRouter);
 app.use('/api/templates', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), templatesRouter);
+app.use('/api/staff-onboarding', staffOnboardingRouter); // Public routes for staff onboarding
+app.use('/api/notifications', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), notificationsRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {
@@ -161,10 +165,13 @@ app.get('/', async (req: Request, res: Response) => {
 
 import { errorHandler } from './middleware/errorHandler';
 import { initializeWebSocketServer } from './websocket/server';
+import { initializeNotificationWebSocket } from './websocket/notification-server';
 app.use(errorHandler);
 
 const server = app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
 
+// Initialize WebSocket servers
 initializeWebSocketServer(server);
+initializeNotificationWebSocket(server);

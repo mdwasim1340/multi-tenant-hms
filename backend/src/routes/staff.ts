@@ -1,20 +1,31 @@
 import { Router, Request, Response } from 'express';
 import * as staffService from '../services/staff';
+import pool from '../database';
 
 const router = Router();
 
 // Staff Profile Routes
 router.get('/', async (req: Request, res: Response) => {
   try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const includeUnverified = req.query.include_unverified === 'true';
+    
     const filters = {
+      tenant_id: tenantId,
       department: req.query.department as string,
       status: req.query.status as string,
       search: req.query.search as string,
+      verification_status: req.query.verification_status as string,
       limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
       offset: req.query.offset ? parseInt(req.query.offset as string) : undefined
     };
 
-    const staff = await staffService.getStaffProfiles(filters);
+    const client = (req as any).dbClient || pool;
+    
+    // Use getAllUsers if include_unverified is true, otherwise use getStaffProfiles
+    const staff = includeUnverified 
+      ? await staffService.getAllUsers(filters, client)
+      : await staffService.getStaffProfiles(filters, client);
     
     res.json({
       success: true,
@@ -34,12 +45,44 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const staff = await staffService.getStaffProfileById(id);
+    const client = (req as any).dbClient || pool;
+    const tenantId = req.headers['x-tenant-id'] as string;
+    
+    // First try to get staff profile by staff_id
+    let staff = await staffService.getStaffProfileById(id, client);
+    
+    // If not found, try to get user by user_id (for unverified users)
+    if (!staff) {
+      const userResult = await pool.query(
+        `SELECT 
+          u.id as user_id,
+          u.name as user_name,
+          u.email as user_email,
+          u.phone_number as user_phone,
+          u.status as user_status,
+          u.created_at as user_created_at,
+          (
+            SELECT r.name 
+            FROM public.user_roles ur 
+            JOIN public.roles r ON ur.role_id = r.id 
+            WHERE ur.user_id = u.id 
+            LIMIT 1
+          ) as role,
+          'pending_verification' as verification_status
+        FROM public.users u
+        WHERE u.id = $1 AND u.tenant_id = $2`,
+        [id, tenantId]
+      );
+      
+      if (userResult.rows.length > 0) {
+        staff = userResult.rows[0];
+      }
+    }
     
     if (!staff) {
       return res.status(404).json({
         success: false,
-        error: 'Staff profile not found'
+        error: 'User not found'
       });
     }
 
@@ -48,10 +91,10 @@ router.get('/:id', async (req: Request, res: Response) => {
       data: staff
     });
   } catch (error: any) {
-    console.error('Error fetching staff profile:', error);
+    console.error('Error fetching staff/user:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch staff profile',
+      error: 'Failed to fetch user',
       message: error.message
     });
   }
@@ -59,16 +102,29 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 router.post('/', async (req: Request, res: Response) => {
   try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    
+    if (!tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'X-Tenant-ID header is required'
+      });
+    }
+    
     // Check if this is a new staff with user creation or just staff profile
     if (req.body.name && req.body.email && req.body.role) {
-      // Create staff with user account
-      const result = await staffService.createStaffWithUser(req.body);
+      // Use onboarding service for new staff with email verification
+      const staffOnboarding = require('../services/staff-onboarding');
+      const result = await staffOnboarding.initiateStaffOnboarding({
+        ...req.body,
+        tenant_id: tenantId
+      });
       
       res.status(201).json({
         success: true,
-        message: 'Staff member and user account created successfully',
-        data: result.staff,
-        credentials: result.credentials
+        message: 'Staff member created successfully. Verification email sent to ' + req.body.email,
+        data: result,
+        onboarding_required: true
       });
     } else {
       // Legacy: just create staff profile (requires user_id)
@@ -82,10 +138,26 @@ router.post('/', async (req: Request, res: Response) => {
     }
   } catch (error: any) {
     console.error('Error creating staff:', error);
-    res.status(500).json({
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to create staff';
+    let statusCode = 500;
+    
+    if (error.message.includes('not found')) {
+      errorMessage = error.message;
+      statusCode = 404;
+    } else if (error.message.includes('already exists') || error.message.includes('duplicate')) {
+      errorMessage = error.message;
+      statusCode = 409;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    res.status(statusCode).json({
       success: false,
-      error: 'Failed to create staff',
-      message: error.message
+      error: errorMessage,
+      message: error.message,
+      details: error.stack ? error.stack.split('\n')[0] : undefined
     });
   }
 });
@@ -93,25 +165,67 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const profile = await staffService.updateStaffProfile(id, req.body);
+    const client = (req as any).dbClient || pool;
+    const tenantId = req.headers['x-tenant-id'] as string;
+    
+    // Try to update staff profile first
+    let profile = await staffService.updateStaffProfile(id, req.body, client);
+    
+    // If no staff profile exists, this might be an unverified user - update user table
+    if (!profile) {
+      // Check if this is a user_id
+      const userCheck = await pool.query(
+        'SELECT id FROM public.users WHERE id = $1 AND tenant_id = $2',
+        [id, tenantId]
+      );
+      
+      if (userCheck.rows.length > 0) {
+        // Update user table
+        const updates: string[] = [];
+        const values: any[] = [];
+        let paramCount = 1;
+        
+        if (req.body.name) {
+          updates.push(`name = $${paramCount++}`);
+          values.push(req.body.name);
+        }
+        if (req.body.email) {
+          updates.push(`email = $${paramCount++}`);
+          values.push(req.body.email);
+        }
+        if (req.body.phone_number) {
+          updates.push(`phone_number = $${paramCount++}`);
+          values.push(req.body.phone_number);
+        }
+        
+        if (updates.length > 0) {
+          values.push(id);
+          const result = await pool.query(
+            `UPDATE public.users SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`,
+            values
+          );
+          profile = result.rows[0];
+        }
+      }
+    }
     
     if (!profile) {
       return res.status(404).json({
         success: false,
-        error: 'Staff profile not found'
+        error: 'User not found'
       });
     }
 
     res.json({
       success: true,
-      message: 'Staff profile updated successfully',
+      message: 'User updated successfully',
       data: profile
     });
   } catch (error: any) {
-    console.error('Error updating staff profile:', error);
+    console.error('Error updating user:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to update staff profile',
+      error: 'Failed to update user',
       message: error.message
     });
   }
@@ -119,18 +233,53 @@ router.put('/:id', async (req: Request, res: Response) => {
 
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-    await staffService.deleteStaffProfile(id);
+    const userId = parseInt(req.params.id); // This is user_id from frontend
+    const client = (req as any).dbClient || pool;
+    const tenantId = req.headers['x-tenant-id'] as string;
     
-    res.json({
+    // First, check if user exists and belongs to this tenant
+    const userCheck = await pool.query(
+      'SELECT id FROM public.users WHERE id = $1 AND tenant_id = $2',
+      [userId, tenantId]
+    );
+    
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+    
+    // Check if staff profile exists for this user
+    const staffCheck = await client.query(
+      'SELECT id FROM staff_profiles WHERE user_id = $1',
+      [userId]
+    );
+    
+    if (staffCheck.rows.length > 0) {
+      // Delete staff profile (this is in tenant schema)
+      const staffProfileId = staffCheck.rows[0].id;
+      await staffService.deleteStaffProfile(staffProfileId, client);
+    }
+    
+    // Delete user_verification records first (to avoid FK constraint violation)
+    await pool.query('DELETE FROM public.user_verification WHERE user_id = $1', [userId]);
+    
+    // Delete user_roles (if not cascading)
+    await pool.query('DELETE FROM public.user_roles WHERE user_id = $1', [userId]);
+    
+    // Delete user from public schema
+    await pool.query('DELETE FROM public.users WHERE id = $1', [userId]);
+    
+    return res.json({
       success: true,
-      message: 'Staff profile deleted successfully'
+      message: 'Staff member deleted successfully'
     });
   } catch (error: any) {
-    console.error('Error deleting staff profile:', error);
+    console.error('Error deleting staff member:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to delete staff profile',
+      error: 'Failed to delete staff member',
       message: error.message
     });
   }

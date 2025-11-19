@@ -298,7 +298,7 @@ export class PatientService {
       SELECT 
         cf.name as field_name,
         cf.field_type as field_type,
-        cfv.field_value as field_value
+        cfv.value as field_value
       FROM custom_field_values cfv
       JOIN public.custom_fields cf ON cf.id = cfv.field_id
       WHERE cfv.entity_type = 'patient' AND cfv.entity_id = $1
