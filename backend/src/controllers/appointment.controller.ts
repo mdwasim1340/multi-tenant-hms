@@ -393,22 +393,46 @@ export const rescheduleAppointment = asyncHandler(
       throw new ValidationError('new_date and new_time are required');
     }
 
-    // Combine date and time into appointment_date
-    const newAppointmentDate = `${new_date}T${new_time}:00`;
+    // Get current appointment to get duration
+    const client = await pool.connect();
+    try {
+      await client.query(`SET search_path TO "${tenantId}"`);
 
-    // Update appointment with new date and time
-    const appointment = await appointmentService.updateAppointment(
-      appointmentId,
-      tenantId,
-      { appointment_date: newAppointmentDate },
-      userId
-    );
+      const result = await client.query(
+        'SELECT duration_minutes FROM appointments WHERE id = $1',
+        [appointmentId]
+      );
 
-    res.json({
-      success: true,
-      data: { appointment },
-      message: 'Appointment rescheduled successfully',
-    });
+      if (result.rows.length === 0) {
+        throw new NotFoundError('Appointment not found');
+      }
+
+      const duration = result.rows[0].duration_minutes || 30;
+
+      // Combine date and time into appointment_date
+      const newAppointmentDate = `${new_date}T${new_time}:00`;
+      const appointmentDate = new Date(newAppointmentDate);
+      const endTime = new Date(appointmentDate.getTime() + duration * 60000);
+
+      // Update appointment with new date and time (including end time)
+      const appointment = await appointmentService.updateAppointment(
+        appointmentId,
+        {
+          appointment_date: newAppointmentDate,
+          appointment_end_time: endTime.toISOString(),
+        },
+        tenantId,
+        userId
+      );
+
+      res.json({
+        success: true,
+        data: { appointment },
+        message: 'Appointment rescheduled successfully',
+      });
+    } finally {
+      client.release();
+    }
   }
 );
 
@@ -433,12 +457,12 @@ export const adjustWaitTime = asyncHandler(
     }
 
     // Get current appointment
-    const client = await pool.connect();
+    const getClient = await pool.connect();
     try {
-      await client.query(`SET search_path TO "${tenantId}"`);
+      await getClient.query(`SET search_path TO "${tenantId}"`);
 
-      const result = await client.query(
-        'SELECT appointment_date FROM appointments WHERE id = $1',
+      const result = await getClient.query(
+        'SELECT wait_time_adjustment FROM appointments WHERE id = $1',
         [appointmentId]
       );
 
@@ -446,24 +470,27 @@ export const adjustWaitTime = asyncHandler(
         throw new NotFoundError('Appointment not found');
       }
 
-      const currentDate = new Date(result.rows[0].appointment_date);
-      const newDate = new Date(currentDate.getTime() + adjustment_minutes * 60000);
+      // Get current wait time adjustment (default 0)
+      const currentAdjustment = result.rows[0].wait_time_adjustment || 0;
+      const newAdjustment = currentAdjustment + adjustment_minutes;
 
-      // Update appointment with new date
+      // Update appointment with new wait time adjustment (don't change appointment time)
       const appointment = await appointmentService.updateAppointment(
         appointmentId,
+        { wait_time_adjustment: newAdjustment },
         tenantId,
-        { appointment_date: newDate.toISOString() },
         userId
       );
 
       res.json({
         success: true,
         data: { appointment },
-        message: `Appointment wait time adjusted by ${adjustment_minutes > 0 ? '+' : ''}${adjustment_minutes} minutes`,
+        message: `Appointment wait time adjusted by ${adjustment_minutes > 0 ? '+' : ''}${adjustment_minutes} minutes (Total: ${newAdjustment} minutes)`,
       });
+    } catch (error) {
+      throw error;
     } finally {
-      client.release();
+      getClient.release();
     }
   }
 );
