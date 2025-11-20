@@ -411,15 +411,34 @@ export const rescheduleAppointment = asyncHandler(
 
       // Combine date and time into appointment_date
       const newAppointmentDate = `${new_date}T${new_time}:00`;
+      
+      // Parse the date
       const appointmentDate = new Date(newAppointmentDate);
-      const endTime = new Date(appointmentDate.getTime() + duration * 60000);
+      
+      // Validate the date is valid
+      if (isNaN(appointmentDate.getTime())) {
+        throw new ValidationError('Invalid date or time format');
+      }
+      
+      // Calculate end time by adding duration in minutes
+      const endTimeDate = new Date(appointmentDate);
+      endTimeDate.setMinutes(endTimeDate.getMinutes() + duration);
+      
+      // Format end time as YYYY-MM-DDTHH:MM:SS in local time (not UTC)
+      const year = endTimeDate.getFullYear();
+      const month = String(endTimeDate.getMonth() + 1).padStart(2, '0');
+      const day = String(endTimeDate.getDate()).padStart(2, '0');
+      const hours = String(endTimeDate.getHours()).padStart(2, '0');
+      const minutes = String(endTimeDate.getMinutes()).padStart(2, '0');
+      const seconds = String(endTimeDate.getSeconds()).padStart(2, '0');
+      const endTime = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 
       // Update appointment with new date and time (including end time)
       const appointment = await appointmentService.updateAppointment(
         appointmentId,
         {
           appointment_date: newAppointmentDate,
-          appointment_end_time: endTime.toISOString(),
+          appointment_end_time: endTime,
         },
         tenantId,
         userId
