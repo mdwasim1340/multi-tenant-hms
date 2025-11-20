@@ -457,45 +457,47 @@ export const adjustWaitTime = asyncHandler(
     }
 
     try {
-      // Get current appointment to check if it exists
-      const getClient = await pool.connect();
+      // Simply update the wait_time_adjustment by adding the adjustment
+      // The database will handle the COALESCE logic
+      const client = await pool.connect();
       try {
-        await getClient.query(`SET search_path TO "${tenantId}"`);
+        await client.query(`SET search_path TO "${tenantId}"`);
 
-        const result = await getClient.query(
-          'SELECT id, COALESCE(wait_time_adjustment, 0) as wait_time_adjustment FROM appointments WHERE id = $1',
+        // First check if appointment exists
+        const checkResult = await client.query(
+          'SELECT id FROM appointments WHERE id = $1',
           [appointmentId]
         );
 
-        if (result.rows.length === 0) {
+        if (checkResult.rows.length === 0) {
           throw new NotFoundError('Appointment not found');
         }
 
-        // Get current wait time adjustment (default 0)
-        const currentAdjustment = result.rows[0].wait_time_adjustment || 0;
-        const newAdjustment = currentAdjustment + adjustment_minutes;
+        // Update wait_time_adjustment directly
+        await client.query(
+          'UPDATE appointments SET wait_time_adjustment = COALESCE(wait_time_adjustment, 0) + $1, updated_at = NOW(), updated_by = $2 WHERE id = $3',
+          [adjustment_minutes, userId, appointmentId]
+        );
 
-        // Update appointment with new wait time adjustment (don't change appointment time)
-        const appointment = await appointmentService.updateAppointment(
+        // Get updated appointment
+        const appointment = await appointmentService.getAppointmentById(
           appointmentId,
-          { wait_time_adjustment: newAdjustment },
           tenantId,
-          userId
+          client
         );
 
         res.json({
           success: true,
           data: { appointment },
-          message: `Appointment wait time adjusted by ${adjustment_minutes > 0 ? '+' : ''}${adjustment_minutes} minutes (Total: ${newAdjustment} minutes)`,
+          message: `Appointment wait time adjusted by ${adjustment_minutes > 0 ? '+' : ''}${adjustment_minutes} minutes`,
         });
       } finally {
-        getClient.release();
+        client.release();
       }
     } catch (error) {
       if (error instanceof NotFoundError || error instanceof ValidationError) {
         throw error;
       }
-      // Log the actual error for debugging
       console.error('Error in adjustWaitTime:', error);
       throw new Error('Failed to adjust wait time');
     }
