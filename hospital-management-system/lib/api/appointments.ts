@@ -46,6 +46,8 @@ export interface AppointmentFilters {
   date_from?: string;
   date_to?: string;
   search?: string;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
 }
 
 export interface AppointmentListResponse {
@@ -166,6 +168,27 @@ export async function markNoShow(id: number): Promise<{ success: boolean; data: 
  */
 export async function getAvailableSlots(params: AvailableSlotsParams): Promise<{ success: boolean; data: { slots: TimeSlot[] } }> {
   const response = await api.get('/api/appointments/available-slots', { params });
+  return response.data;
+}
+
+/**
+ * Reschedule appointment to a new date and time
+ */
+export async function rescheduleAppointment(id: number, newDate: string, newTime: string): Promise<{ success: boolean; data: { appointment: Appointment }; message: string }> {
+  const response = await api.post(`/api/appointments/${id}/reschedule`, {
+    new_date: newDate,
+    new_time: newTime,
+  });
+  return response.data;
+}
+
+/**
+ * Adjust appointment wait time
+ */
+export async function adjustWaitTime(id: number, adjustmentMinutes: number): Promise<{ success: boolean; data: { appointment: Appointment }; message: string }> {
+  const response = await api.post(`/api/appointments/${id}/adjust-wait-time`, {
+    adjustment_minutes: adjustmentMinutes,
+  });
   return response.data;
 }
 

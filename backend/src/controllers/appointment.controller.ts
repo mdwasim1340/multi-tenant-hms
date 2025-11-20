@@ -376,3 +376,94 @@ export const markNoShow = asyncHandler(
     });
   }
 );
+
+// POST /api/appointments/:id/reschedule - Reschedule appointment
+export const rescheduleAppointment = asyncHandler(
+  async (req: Request, res: Response) => {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const appointmentId = parseInt(req.params.id);
+    const { new_date, new_time } = req.body;
+    const userId = (req as any).user?.id;
+
+    if (isNaN(appointmentId)) {
+      throw new ValidationError('Invalid appointment ID');
+    }
+
+    if (!new_date || !new_time) {
+      throw new ValidationError('new_date and new_time are required');
+    }
+
+    // Combine date and time into appointment_date
+    const newAppointmentDate = `${new_date}T${new_time}:00`;
+
+    // Update appointment with new date and time
+    const appointment = await appointmentService.updateAppointment(
+      appointmentId,
+      tenantId,
+      { appointment_date: newAppointmentDate },
+      userId
+    );
+
+    res.json({
+      success: true,
+      data: { appointment },
+      message: 'Appointment rescheduled successfully',
+    });
+  }
+);
+
+// POST /api/appointments/:id/adjust-wait-time - Adjust wait time
+export const adjustWaitTime = asyncHandler(
+  async (req: Request, res: Response) => {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const appointmentId = parseInt(req.params.id);
+    const { adjustment_minutes } = req.body;
+    const userId = (req as any).user?.id;
+
+    if (isNaN(appointmentId)) {
+      throw new ValidationError('Invalid appointment ID');
+    }
+
+    if (adjustment_minutes === undefined || adjustment_minutes === null) {
+      throw new ValidationError('adjustment_minutes is required');
+    }
+
+    if (typeof adjustment_minutes !== 'number') {
+      throw new ValidationError('adjustment_minutes must be a number');
+    }
+
+    // Get current appointment
+    const client = await pool.connect();
+    try {
+      await client.query(`SET search_path TO "${tenantId}"`);
+
+      const result = await client.query(
+        'SELECT appointment_date FROM appointments WHERE id = $1',
+        [appointmentId]
+      );
+
+      if (result.rows.length === 0) {
+        throw new NotFoundError('Appointment not found');
+      }
+
+      const currentDate = new Date(result.rows[0].appointment_date);
+      const newDate = new Date(currentDate.getTime() + adjustment_minutes * 60000);
+
+      // Update appointment with new date
+      const appointment = await appointmentService.updateAppointment(
+        appointmentId,
+        tenantId,
+        { appointment_date: newDate.toISOString() },
+        userId
+      );
+
+      res.json({
+        success: true,
+        data: { appointment },
+        message: `Appointment wait time adjusted by ${adjustment_minutes > 0 ? '+' : ''}${adjustment_minutes} minutes`,
+      });
+    } finally {
+      client.release();
+    }
+  }
+);

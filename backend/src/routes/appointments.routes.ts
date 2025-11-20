@@ -9,6 +9,8 @@ import {
   confirmAppointment,
   completeAppointment,
   markNoShow,
+  rescheduleAppointment,
+  adjustWaitTime,
 } from '../controllers/appointment.controller';
 import { requirePermission } from '../middleware/authorization';
 
@@ -49,5 +51,11 @@ router.post('/:id/complete', permissionMiddleware('appointments', 'write'), comp
 
 // POST /api/appointments/:id/no-show - Mark appointment as no-show (requires write permission)
 router.post('/:id/no-show', permissionMiddleware('appointments', 'write'), markNoShow);
+
+// POST /api/appointments/:id/reschedule - Reschedule appointment (requires write permission)
+router.post('/:id/reschedule', permissionMiddleware('appointments', 'write'), rescheduleAppointment);
+
+// POST /api/appointments/:id/adjust-wait-time - Adjust wait time (requires write permission)
+router.post('/:id/adjust-wait-time', permissionMiddleware('appointments', 'write'), adjustWaitTime);
 
 export default router;
