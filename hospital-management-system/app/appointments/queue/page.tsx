@@ -20,6 +20,7 @@ interface QueueAppointment extends Appointment {
   provider_name: string
   priority?: string
   room?: string
+  wait_time_adjustment?: number
 }
 
 export default function AppointmentQueue() {
@@ -134,10 +135,15 @@ export default function AppointmentQueue() {
     }
   }
 
-  const calculateWaitTime = (appointmentDate: string) => {
+  const calculateWaitTime = (appointmentDate: string, waitTimeAdjustment?: number) => {
     const now = new Date()
     const apptTime = parseISO(appointmentDate)
-    const diffMinutes = Math.floor((now.getTime() - apptTime.getTime()) / (1000 * 60))
+    let diffMinutes = Math.floor((now.getTime() - apptTime.getTime()) / (1000 * 60))
+    
+    // Apply wait time adjustment if present
+    if (waitTimeAdjustment) {
+      diffMinutes += waitTimeAdjustment
+    }
 
     if (diffMinutes < 0) {
       return `In ${Math.abs(diffMinutes)} min`
@@ -284,7 +290,7 @@ export default function AppointmentQueue() {
                               </div>
                               <div>
                                 <p className="text-xs text-muted-foreground">Wait Time</p>
-                                <p className="font-semibold text-foreground">{calculateWaitTime(item.appointment_date)}</p>
+                                <p className="font-semibold text-foreground">{calculateWaitTime(item.appointment_date, item.wait_time_adjustment)}</p>
                               </div>
                               <div>
                                 <p className="text-xs text-muted-foreground">Duration</p>
@@ -476,7 +482,7 @@ export default function AppointmentQueue() {
                                 </div>
                                 <div>
                                   <p className="text-xs text-muted-foreground">Wait Time</p>
-                                  <p className="font-semibold text-foreground">{calculateWaitTime(item.appointment_date)}</p>
+                                  <p className="font-semibold text-foreground">{calculateWaitTime(item.appointment_date, item.wait_time_adjustment)}</p>
                                 </div>
                                 <div>
                                   <p className="text-xs text-muted-foreground">Duration</p>

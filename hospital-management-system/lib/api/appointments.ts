@@ -19,6 +19,7 @@ export interface Appointment {
   appointment_type: string;
   notes?: string;
   cancellation_reason?: string;
+  wait_time_adjustment?: number;
   patient: {
     id: number;
     first_name: string;
