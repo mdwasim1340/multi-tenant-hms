@@ -188,7 +188,7 @@ export class AppointmentService {
       }
 
       // Build update query
-      const updates = { ...data, updated_by: userId, updated_at: new Date() };
+      const updates = { ...data, updated_by: userId, updated_at: new Date().toISOString() };
       const entries = Object.entries(updates);
       const setClause = entries
         .map(([key], i) => `${key} = $${i + 2}`)
