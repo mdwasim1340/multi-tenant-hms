@@ -1,50 +1,67 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Users2, Calendar, TrendingUp, AlertCircle, CheckCircle, Clock, Award } from "lucide-react"
+import { Users2, Calendar, TrendingUp, AlertCircle, CheckCircle, Clock, Award, Loader2 } from "lucide-react"
+import { useStaff } from "@/hooks/use-staff"
+import { useDashboardAnalytics } from "@/hooks/use-analytics"
+import { StaffList } from "@/components/staff/staff-list"
+import { deleteStaff } from "@/lib/staff"
+import { toast } from "sonner"
 
 export default function StaffManagement() {
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeTab, setActiveTab] = useState("staff")
+  const [filters, setFilters] = useState({
+    department: '',
+    status: '',
+    search: '',
+    include_unverified: true, // Show all users by default
+    verification_status: ''
+  })
 
-  const staff = [
-    {
-      id: "S001",
-      name: "Dr. Emily Rodriguez",
-      role: "Cardiologist",
-      department: "Cardiology",
-      status: "On Duty",
-      certifications: ["MD", "Board Certified"],
-      performance: "Excellent",
-      aiInsight: "High patient satisfaction (4.8/5) - Consider for mentorship role",
-    },
-    {
-      id: "S002",
-      name: "Dr. James Wilson",
-      role: "General Practitioner",
-      department: "Internal Medicine",
-      status: "On Duty",
-      certifications: ["MD", "Board Certified"],
-      performance: "Good",
-      aiInsight: "Workload optimization recommended - Consider schedule adjustment",
-    },
-    {
-      id: "S003",
-      name: "Nurse Lisa Park",
-      role: "RN - ICU",
-      department: "Intensive Care",
-      status: "Off Duty",
-      certifications: ["RN", "CCRN"],
-      performance: "Excellent",
-      aiInsight: "Burnout risk detected - Recommend additional support",
-    },
-  ]
+  // Use real API data
+  const { staff, loading: staffLoading, error: staffError } = useStaff(filters)
+  const { analytics, loading: analyticsLoading } = useDashboardAnalytics()
+
+  // Log for debugging
+  console.log('Staff data:', { staff, loading: staffLoading, error: staffError })
+  console.log('Analytics data:', { analytics, loading: analyticsLoading })
+
+  const handleAddStaff = () => {
+    router.push('/staff/new')
+  }
+
+  const handleEdit = (id: number) => {
+    router.push(`/staff/${id}/edit`)
+  }
+
+  const handleDelete = async (id: number) => {
+    if (confirm('Are you sure you want to delete this staff member?')) {
+      try {
+        await deleteStaff(id)
+        toast.success('Staff member deleted successfully')
+        window.location.reload()
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to delete staff member')
+      }
+    }
+  }
+
+  const handleViewSchedule = (id: number) => {
+    toast.info('Schedule feature coming soon')
+  }
+
+  const handleViewPerformance = (id: number) => {
+    toast.info('Performance feature coming soon')
+  }
 
   return (
     <div className="flex h-screen bg-background">
@@ -60,7 +77,7 @@ export default function StaffManagement() {
                 <h1 className="text-3xl font-bold text-foreground">Staff Management</h1>
                 <p className="text-muted-foreground mt-1">Scheduling, performance, and credentials</p>
               </div>
-              <Button className="bg-primary hover:bg-primary/90">
+              <Button className="bg-primary hover:bg-primary/90" onClick={handleAddStaff}>
                 <Users2 className="w-4 h-4 mr-2" />
                 Add Staff Member
               </Button>
@@ -72,7 +89,11 @@ export default function StaffManagement() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Total Staff</p>
-                      <p className="text-2xl font-bold text-foreground">156</p>
+                      {analyticsLoading ? (
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                      ) : (
+                        <p className="text-2xl font-bold text-foreground">{analytics?.total_staff || 0}</p>
+                      )}
                     </div>
                     <Users2 className="w-8 h-8 text-accent opacity-20" />
                   </div>
@@ -83,8 +104,12 @@ export default function StaffManagement() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">On Duty Today</p>
-                      <p className="text-2xl font-bold text-green-600">124</p>
+                      <p className="text-xs text-muted-foreground mb-1">Active Staff</p>
+                      {analyticsLoading ? (
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                      ) : (
+                        <p className="text-2xl font-bold text-green-600">{analytics?.active_staff || 0}</p>
+                      )}
                     </div>
                     <CheckCircle className="w-8 h-8 text-green-600 opacity-20" />
                   </div>
@@ -95,10 +120,14 @@ export default function StaffManagement() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Burnout Risk</p>
-                      <p className="text-2xl font-bold text-red-600">8</p>
+                      <p className="text-xs text-muted-foreground mb-1">On Leave</p>
+                      {analyticsLoading ? (
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                      ) : (
+                        <p className="text-2xl font-bold text-yellow-600">{analytics?.staff_on_leave || 0}</p>
+                      )}
                     </div>
-                    <AlertCircle className="w-8 h-8 text-red-600 opacity-20" />
+                    <AlertCircle className="w-8 h-8 text-yellow-600 opacity-20" />
                   </div>
                 </CardContent>
               </Card>
@@ -107,10 +136,16 @@ export default function StaffManagement() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Certifications Due</p>
-                      <p className="text-2xl font-bold text-yellow-600">12</p>
+                      <p className="text-xs text-muted-foreground mb-1">Avg Performance</p>
+                      {analyticsLoading ? (
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                      ) : (
+                        <p className="text-2xl font-bold text-accent">
+                          {analytics?.avg_performance_score?.toFixed(1) || 'N/A'}
+                        </p>
+                      )}
                     </div>
-                    <Clock className="w-8 h-8 text-yellow-600 opacity-20" />
+                    <Award className="w-8 h-8 text-accent opacity-20" />
                   </div>
                 </CardContent>
               </Card>
@@ -125,65 +160,119 @@ export default function StaffManagement() {
 
               {/* Staff Directory Tab */}
               <TabsContent value="staff" className="space-y-4">
-                {staff.map((member) => (
-                  <Card key={member.id} className="border-border/50 hover:shadow-md transition-shadow">
+                {/* Filter Controls */}
+                <Card className="border-border/50">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <Button
+                          variant={filters.include_unverified ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setFilters(prev => ({ ...prev, include_unverified: !prev.include_unverified }))}
+                        >
+                          {filters.include_unverified ? (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Showing All Users
+                            </>
+                          ) : (
+                            <>
+                              <Users2 className="w-4 h-4 mr-2" />
+                              Show All Users
+                            </>
+                          )}
+                        </Button>
+                        {filters.include_unverified && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant={filters.verification_status === 'verified' ? "default" : "ghost"}
+                              size="sm"
+                              onClick={() => setFilters(prev => ({ 
+                                ...prev, 
+                                verification_status: prev.verification_status === 'verified' ? '' : 'verified' 
+                              }))}
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Verified Only
+                            </Button>
+                            <Button
+                              variant={filters.verification_status === 'pending' ? "default" : "ghost"}
+                              size="sm"
+                              onClick={() => setFilters(prev => ({ 
+                                ...prev, 
+                                verification_status: prev.verification_status === 'pending' ? '' : 'pending' 
+                              }))}
+                            >
+                              <Clock className="w-4 h-4 mr-2" />
+                              Pending Only
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <Badge variant="secondary">
+                        {staff?.length || 0} {filters.include_unverified ? 'users' : 'staff members'}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {staffLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-accent" />
+                    <span className="ml-2 text-muted-foreground">Loading staff...</span>
+                  </div>
+                ) : staffError && staff.length === 0 ? (
+                  <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
                     <CardContent className="pt-6">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <span className="text-sm font-semibold text-primary">{member.name.charAt(0)}</span>
-                            </div>
-                            <div>
-                              <h3 className="font-semibold text-foreground">{member.name}</h3>
-                              <p className="text-sm text-muted-foreground">{member.role}</p>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-                            <div>
-                              <p className="text-xs text-muted-foreground">Department</p>
-                              <p className="font-semibold text-foreground">{member.department}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Status</p>
-                              <Badge variant="outline" className="mt-1">
-                                {member.status}
-                              </Badge>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Performance</p>
-                              <Badge className="mt-1 bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200">
-                                {member.performance}
-                              </Badge>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Certifications</p>
-                              <div className="flex gap-1 mt-1">
-                                {member.certifications.map((cert) => (
-                                  <Badge key={cert} variant="secondary" className="text-xs">
-                                    {cert}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* AI Insight */}
-                          <div className="bg-accent/5 border border-accent/20 rounded-lg p-3">
-                            <div className="flex items-start gap-2">
-                              <TrendingUp className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                              <div>
-                                <p className="text-xs font-semibold text-accent mb-1">AI Insight</p>
-                                <p className="text-sm text-foreground">{member.aiInsight}</p>
-                              </div>
-                            </div>
-                          </div>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-2 text-red-600">
+                          <AlertCircle className="w-5 h-5" />
+                          <p className="font-semibold">Error loading staff</p>
+                        </div>
+                        <p className="text-sm text-red-800 dark:text-red-200">{staffError}</p>
+                        <div className="flex gap-2 mt-2">
+                          {staffError.includes('authenticated') && (
+                            <Button 
+                              onClick={() => window.location.href = '/auth/login'}
+                              className="w-fit"
+                            >
+                              Go to Login
+                            </Button>
+                          )}
+                          <Button 
+                            variant="outline"
+                            onClick={() => window.location.reload()}
+                            className="w-fit"
+                          >
+                            Retry
+                          </Button>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                ) : !staff || staff.length === 0 ? (
+                  <Card className="border-border/50">
+                    <CardContent className="pt-6">
+                      <div className="text-center py-12">
+                        <Users2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-lg font-medium text-foreground mb-2">No staff members yet</p>
+                        <p className="text-muted-foreground mb-4">Get started by adding your first staff member</p>
+                        <Button className="mt-4" onClick={handleAddStaff}>
+                          <Users2 className="w-4 h-4 mr-2" />
+                          Add First Staff Member
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <StaffList
+                    staff={staff || []}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onViewSchedule={handleViewSchedule}
+                    onViewPerformance={handleViewPerformance}
+                  />
+                )}
               </TabsContent>
 
               {/* Scheduling Tab */}

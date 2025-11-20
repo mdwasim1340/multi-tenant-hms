@@ -16,6 +16,13 @@ export interface Invoice {
   notes?: string;
   created_at: Date;
   updated_at: Date;
+  // Patient fields (for diagnostic invoices)
+  patient_id?: number;
+  patient_name?: string;
+  patient_number?: string;
+  referring_doctor?: string;
+  report_delivery_date?: Date;
+  advance_paid?: number;
 }
 
 export interface LineItem {

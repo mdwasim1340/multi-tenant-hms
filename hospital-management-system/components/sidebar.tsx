@@ -268,17 +268,17 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       submenu: [
         {
           label: "Staffing Forecast",
-          href: "/workforce-management",
+          href: "/workforce-management/forecast",
           icon: TrendingUp,
         },
         {
           label: "AI Scheduling",
-          href: "/workforce-management",
+          href: "/workforce-management/scheduling",
           icon: Calendar,
         },
         {
           label: "Staff Analytics",
-          href: "/workforce-management",
+          href: "/workforce-management/analytics",
           icon: BarChart3,
         },
       ],
@@ -289,17 +289,17 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       submenu: [
         {
           label: "Prescriptions",
-          href: "/pharmacy-management",
+          href: "/pharmacy-management/prescriptions",
           icon: Pill,
         },
         {
           label: "Inventory",
-          href: "/pharmacy-management",
+          href: "/pharmacy-management/inventory",
           icon: Package,
         },
         {
           label: "Drug Utilization",
-          href: "/pharmacy-management",
+          href: "/pharmacy-management/utilization",
           icon: BarChart3,
         },
       ],

@@ -8,6 +8,7 @@ import { SubscriptionProvider } from "@/hooks/use-subscription"
 import { ChatWidget } from "@/components/chat-widget"
 import { SubdomainDetector } from "@/components/subdomain-detector"
 import { BrandingApplicator } from "@/components/branding-applicator"
+import { Toaster } from "@/components/ui/toaster"
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
@@ -32,6 +33,7 @@ export default function RootLayout({
             <BrandingApplicator />
             {children}
             <ChatWidget />
+            <Toaster />
           </SubscriptionProvider>
         </ThemeProvider>
         <Analytics />

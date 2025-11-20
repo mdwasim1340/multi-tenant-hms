@@ -267,3 +267,112 @@ export const cancelAppointment = asyncHandler(
     });
   }
 );
+
+// GET /api/appointments/available-slots - Get available time slots
+export const getAvailableSlots = asyncHandler(
+  async (req: Request, res: Response) => {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { doctor_id, date, duration_minutes = 30 } = req.query;
+
+    if (!doctor_id || !date) {
+      throw new ValidationError('doctor_id and date are required');
+    }
+
+    const doctorId = parseInt(doctor_id as string);
+    const durationMins = parseInt(duration_minutes as string);
+
+    if (isNaN(doctorId) || isNaN(durationMins)) {
+      throw new ValidationError('Invalid doctor_id or duration_minutes');
+    }
+
+    const slots = await appointmentService.getAvailableSlots(
+      doctorId,
+      date as string,
+      durationMins,
+      tenantId
+    );
+
+    res.json({
+      success: true,
+      data: { slots },
+    });
+  }
+);
+
+// POST /api/appointments/:id/confirm - Confirm appointment
+export const confirmAppointment = asyncHandler(
+  async (req: Request, res: Response) => {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const appointmentId = parseInt(req.params.id);
+    const userId = (req as any).user?.id;
+
+    if (isNaN(appointmentId)) {
+      throw new ValidationError('Invalid appointment ID');
+    }
+
+    // Confirm appointment (change status to confirmed)
+    const appointment = await appointmentService.confirmAppointment(
+      appointmentId,
+      tenantId,
+      userId
+    );
+
+    res.json({
+      success: true,
+      data: { appointment },
+      message: 'Appointment confirmed successfully',
+    });
+  }
+);
+
+// POST /api/appointments/:id/complete - Mark appointment as complete
+export const completeAppointment = asyncHandler(
+  async (req: Request, res: Response) => {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const appointmentId = parseInt(req.params.id);
+    const userId = (req as any).user?.id;
+
+    if (isNaN(appointmentId)) {
+      throw new ValidationError('Invalid appointment ID');
+    }
+
+    // Mark appointment as complete
+    const appointment = await appointmentService.completeAppointment(
+      appointmentId,
+      tenantId,
+      userId
+    );
+
+    res.json({
+      success: true,
+      data: { appointment },
+      message: 'Appointment marked as complete',
+    });
+  }
+);
+
+// POST /api/appointments/:id/no-show - Mark appointment as no-show
+export const markNoShow = asyncHandler(
+  async (req: Request, res: Response) => {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const appointmentId = parseInt(req.params.id);
+    const userId = (req as any).user?.id;
+
+    if (isNaN(appointmentId)) {
+      throw new ValidationError('Invalid appointment ID');
+    }
+
+    // Mark appointment as no-show
+    const appointment = await appointmentService.markNoShow(
+      appointmentId,
+      tenantId,
+      userId
+    );
+
+    res.json({
+      success: true,
+      data: { appointment },
+      message: 'Appointment marked as no-show',
+    });
+  }
+);

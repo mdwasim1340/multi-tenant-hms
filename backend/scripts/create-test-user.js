@@ -1,158 +1,161 @@
-#!/usr/bin/env node
-
 /**
- * Create Test User Script
- * Creates a test user in AWS Cognito for authentication testing
+ * Create Test User for Integration Tests
+ * Creates a user with known credentials for testing
  */
 
-const { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminSetUserPasswordCommand } = require('@aws-sdk/client-cognito-identity-provider');
 require('dotenv').config();
+const { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminSetUserPasswordCommand } = require('@aws-sdk/client-cognito-identity-provider');
+const { Pool } = require('pg');
 
-const colors = {
-  reset: '\x1b[0m',
-  green: '\x1b[32m',
-  red: '\x1b[31m',
-  yellow: '\x1b[33m',
-  cyan: '\x1b[36m',
-  blue: '\x1b[34m'
-};
+const TENANT_ID = 'tenant_1762083064503';
+const TEST_EMAIL = 'test.integration@hospital.com';
+const TEST_USERNAME = 'testintegration'; // Username for Cognito
+const TEST_PASSWORD = 'TestPass123!';
+const TEST_NAME = 'Integration Test User';
 
-function log(message, color = 'reset') {
-  console.log(`${colors[color]}${message}${colors.reset}`);
-}
-
-// Cognito configuration
 const cognitoClient = new CognitoIdentityProviderClient({
-  region: process.env.AWS_REGION || 'us-east-1'
+  region: process.env.AWS_REGION || 'us-east-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
 });
 
-const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID;
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD
+});
 
-async function createTestUser(email, password, name) {
-  console.log('\n' + '='.repeat(60));
-  log('Creating Test User in AWS Cognito', 'cyan');
-  console.log('='.repeat(60) + '\n');
-
-  if (!USER_POOL_ID) {
-    log('❌ Error: COGNITO_USER_POOL_ID not found in environment variables', 'red');
-    log('Please set COGNITO_USER_POOL_ID in backend/.env', 'yellow');
-    process.exit(1);
-  }
-
+async function createTestUser() {
+  console.log('\n🔧 Creating Test User for Integration Tests\n');
+  console.log('='.repeat(60));
+  
   try {
-    // Generate a unique username (not email format)
-    // Use timestamp to ensure uniqueness
-    const username = `user_${Date.now()}`;
+    // Step 1: Check if user already exists in database
+    console.log('\n📝 Step 1: Checking if user exists in database...');
+    const existingUser = await pool.query(
+      'SELECT id, email FROM users WHERE email = $1',
+      [TEST_EMAIL]
+    );
     
-    log(`Creating user with email: ${email}`, 'yellow');
-    log(`Username: ${username}`, 'blue');
-    
-    // Step 1: Create user
-    const createUserCommand = new AdminCreateUserCommand({
-      UserPoolId: USER_POOL_ID,
-      Username: username, // Use non-email username
-      UserAttributes: [
-        {
-          Name: 'email',
-          Value: email
-        },
-        {
-          Name: 'email_verified',
-          Value: 'true'
-        },
-        {
-          Name: 'name',
-          Value: name
+    if (existingUser.rows.length > 0) {
+      console.log('✅ User already exists in database');
+      console.log(`   User ID: ${existingUser.rows[0].id}`);
+      console.log(`   Email: ${existingUser.rows[0].email}`);
+      
+      // Try to update password in Cognito
+      try {
+        console.log('\n📝 Step 2: Updating password in Cognito...');
+        await cognitoClient.send(new AdminSetUserPasswordCommand({
+          UserPoolId: process.env.COGNITO_USER_POOL_ID,
+          Username: TEST_USERNAME,
+          Password: TEST_PASSWORD,
+          Permanent: true
+        }));
+        console.log('✅ Password updated in Cognito');
+      } catch (error) {
+        if (error.name === 'UserNotFoundException') {
+          console.log('⚠️  User not found in Cognito, creating...');
+          await createCognitoUser();
+        } else {
+          console.log('⚠️  Could not update Cognito password:', error.message);
         }
-      ],
-      MessageAction: 'SUPPRESS', // Don't send welcome email
-      TemporaryPassword: password
-    });
-
-    await cognitoClient.send(createUserCommand);
-    log('✅ User created successfully', 'green');
-
-    // Step 2: Set permanent password
-    log('Setting permanent password...', 'yellow');
+      }
+      
+      console.log('\n✅ Test user is ready!');
+      console.log('\nTest Credentials:');
+      console.log(`   Email: ${TEST_EMAIL}`);
+      console.log(`   Password: ${TEST_PASSWORD}`);
+      console.log(`   Tenant ID: ${TENANT_ID}`);
+      return;
+    }
     
-    const setPasswordCommand = new AdminSetUserPasswordCommand({
-      UserPoolId: USER_POOL_ID,
-      Username: username, // Use same username
-      Password: password,
-      Permanent: true
-    });
-
-    await cognitoClient.send(setPasswordCommand);
-    log('✅ Password set successfully', 'green');
-
-    // Success summary
+    // Step 2: Create user in Cognito
+    console.log('\n📝 Step 2: Creating user in Cognito...');
+    await createCognitoUser();
+    
+    // Step 3: Create user in database
+    console.log('\n📝 Step 3: Creating user in database...');
+    const bcrypt = require('bcrypt');
+    const hashedPassword = await bcrypt.hash(TEST_PASSWORD, 10);
+    
+    const result = await pool.query(`
+      INSERT INTO users (email, name, tenant_id, password, status)
+      VALUES ($1, $2, $3, $4, 'active')
+      RETURNING id, email, name
+    `, [TEST_EMAIL, TEST_NAME, TENANT_ID, hashedPassword]);
+    
+    console.log('✅ User created in database');
+    console.log(`   User ID: ${result.rows[0].id}`);
+    console.log(`   Email: ${result.rows[0].email}`);
+    console.log(`   Name: ${result.rows[0].name}`);
+    
+    // Step 4: Assign admin role
+    console.log('\n📝 Step 4: Assigning admin role...');
+    await pool.query(`
+      INSERT INTO user_roles (user_id, role_id)
+      VALUES ($1, (SELECT id FROM roles WHERE name = 'Admin'))
+    `, [result.rows[0].id]);
+    
+    console.log('✅ Admin role assigned');
+    
     console.log('\n' + '='.repeat(60));
-    log('Test User Created Successfully!', 'green');
-    console.log('='.repeat(60) + '\n');
-
-    log('Login Credentials:', 'cyan');
-    log(`  Email:    ${email}`, 'blue');
-    log(`  Password: ${password}`, 'blue');
-    log(`  Name:     ${name}`, 'blue');
-
-    log('\n⚠️  IMPORTANT: Login with EMAIL, not username!', 'yellow');
-    log('Your Cognito User Pool uses email alias.', 'cyan');
+    console.log('\n✅ Test user created successfully!');
+    console.log('\nTest Credentials:');
+    console.log(`   Email: ${TEST_EMAIL}`);
+    console.log(`   Password: ${TEST_PASSWORD}`);
+    console.log(`   Tenant ID: ${TENANT_ID}`);
+    console.log('\nYou can now run integration tests with these credentials.');
     
-    log('\nYou can now login at:', 'cyan');
-    log('  http://localhost:3001/auth/login', 'blue');
-    log('  http://aajminpolyclinic.localhost:3001/auth/login', 'blue');
+  } catch (error) {
+    console.error('\n❌ Error creating test user:', error.message);
+    if (error.stack) {
+      console.error('\nStack trace:', error.stack);
+    }
+  } finally {
+    await pool.end();
+  }
+}
 
-    log('\nNext Steps:', 'cyan');
-    log('  1. Open the login page', 'yellow');
-    log('  2. Enter the EMAIL and password (not username)', 'yellow');
-    log('  3. You should be authenticated successfully', 'yellow');
-
+async function createCognitoUser() {
+  try {
+    // Create user with username (not email format)
+    await cognitoClient.send(new AdminCreateUserCommand({
+      UserPoolId: process.env.COGNITO_USER_POOL_ID,
+      Username: TEST_USERNAME,
+      UserAttributes: [
+        { Name: 'email', Value: TEST_EMAIL },
+        { Name: 'email_verified', Value: 'true' }
+      ],
+      MessageAction: 'SUPPRESS'
+    }));
+    
+    // Set permanent password
+    await cognitoClient.send(new AdminSetUserPasswordCommand({
+      UserPoolId: process.env.COGNITO_USER_POOL_ID,
+      Username: TEST_USERNAME,
+      Password: TEST_PASSWORD,
+      Permanent: true
+    }));
+    
+    console.log('✅ User created in Cognito');
   } catch (error) {
     if (error.name === 'UsernameExistsException') {
-      log(`\n⚠️  User with email ${email} already exists`, 'yellow');
-      log('You can use this user to login with the email and password.', 'yellow');
-      log('\nTo delete and recreate, use AWS CLI:', 'cyan');
-      log(`aws cognito-idp admin-delete-user --user-pool-id ${USER_POOL_ID} --username [username]`, 'cyan');
-      log('\nOr find the username in AWS Cognito Console and delete from there.', 'cyan');
-    } else if (error.name === 'InvalidParameterException' && error.message.includes('email format')) {
-      log(`\n❌ Error: ${error.message}`, 'red');
-      log('\nThis error has been fixed in the script. Please try again.', 'yellow');
+      console.log('⚠️  User already exists in Cognito, setting password...');
+      await cognitoClient.send(new AdminSetUserPasswordCommand({
+        UserPoolId: process.env.COGNITO_USER_POOL_ID,
+        Username: TEST_USERNAME,
+        Password: TEST_PASSWORD,
+        Permanent: true
+      }));
+      console.log('✅ Password set in Cognito');
     } else {
-      log(`\n❌ Error creating user: ${error.message}`, 'red');
-      console.error(error);
+      throw error;
     }
-    process.exit(1);
   }
 }
 
-// Parse command line arguments
-const args = process.argv.slice(2);
-
-if (args.length === 0) {
-  // Default test user
-  const defaultEmail = 'test@hospital.com';
-  const defaultPassword = 'Test123!@#';
-  const defaultName = 'Test User';
-
-  log('Creating default test user...', 'cyan');
-  log(`Email: ${defaultEmail}`, 'blue');
-  log(`Password: ${defaultPassword}`, 'blue');
-  log(`Name: ${defaultName}`, 'blue');
-  log('\nTo create a custom user, run:', 'yellow');
-  log('node create-test-user.js <email> <password> <name>', 'cyan');
-  console.log('');
-
-  createTestUser(defaultEmail, defaultPassword, defaultName);
-} else if (args.length === 3) {
-  // Custom user
-  const [email, password, name] = args;
-  createTestUser(email, password, name);
-} else {
-  log('Usage:', 'cyan');
-  log('  node create-test-user.js                           # Create default test user', 'yellow');
-  log('  node create-test-user.js <email> <password> <name> # Create custom user', 'yellow');
-  log('\nExamples:', 'cyan');
-  log('  node create-test-user.js', 'blue');
-  log('  node create-test-user.js doctor@hospital.com Doctor123! "Dr. John Doe"', 'blue');
-  process.exit(1);
-}
+createTestUser();
