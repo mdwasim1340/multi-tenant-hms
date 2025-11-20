@@ -1,410 +1,359 @@
-import { Pool, PoolClient } from 'pg';
+/**
+ * Department Service
+ * Business logic for hospital department management
+ */
+
+import pool from '../database';
 import {
   Department,
   CreateDepartmentData,
   UpdateDepartmentData,
-  BedOccupancyStats,
-} from '../types/bed';
-import {
+  DepartmentSearchParams,
+  DepartmentsResponse,
+  DepartmentStatsResponse,
+  DepartmentOccupancyMetrics,
   DepartmentNotFoundError,
-  BedValidationError,
-} from '../errors/BedError';
-import {
-  CreateDepartmentSchema,
-  UpdateDepartmentSchema,
-} from '../validation/bed.validation';
+} from '../types/bed';
 
-/**
- * DepartmentService - Manages hospital departments
- * Handles CRUD operations and occupancy statistics
- * Team: Beta, System: Bed Management
- */
 export class DepartmentService {
-  private pool: Pool;
-
-  constructor(pool: Pool) {
-    this.pool = pool;
-  }
-
   /**
-   * Get all departments for a tenant
-   * Optionally filter by status
+   * Get all departments with optional filtering
    */
   async getDepartments(
     tenantId: string,
-    filter?: { status?: 'active' | 'inactive' }
-  ): Promise<Department[]> {
-    const client = await this.pool.connect();
+    params?: DepartmentSearchParams
+  ): Promise<DepartmentsResponse> {
+    // Set tenant schema context
+    await pool.query(`SET search_path TO "${tenantId}", public`);
+    
+    const { status, floor_number, building, search } = params || {};
 
-    try {
-      await client.query(`SET search_path TO "${tenantId}"`);
+    const queryParams: any[] = [];
+    let paramIndex = 1;
+    let whereClause = 'WHERE 1=1';
 
-      let query = `
-        SELECT 
-          d.*,
-          COUNT(b.id) as bed_count,
-          COUNT(CASE WHEN b.status = 'occupied' THEN 1 END) as occupied_beds,
-          COUNT(CASE WHEN b.status = 'available' AND b.is_active = true THEN 1 END) as available_beds
-        FROM departments d
-        LEFT JOIN beds b ON b.department_id = d.id
-      `;
-
-      const params: any[] = [];
-      let paramIndex = 1;
-
-      if (filter?.status) {
-        query += ` WHERE d.status = $${paramIndex}`;
-        params.push(filter.status);
-        paramIndex++;
-      }
-
-      query += `
-        GROUP BY d.id
-        ORDER BY d.department_name
-      `;
-
-      const result = await client.query(query, params);
-
-      return result.rows.map((row) => ({
-        ...row,
-        bed_count: parseInt(row.bed_count),
-        occupied_beds: parseInt(row.occupied_beds),
-        available_beds: parseInt(row.available_beds),
-      }));
-    } finally {
-      client.release();
+    if (status) {
+      whereClause += ` AND status = $${paramIndex}`;
+      queryParams.push(status);
+      paramIndex++;
     }
+
+    if (floor_number !== undefined) {
+      whereClause += ` AND floor_number = $${paramIndex}`;
+      queryParams.push(floor_number);
+      paramIndex++;
+    }
+
+    if (building) {
+      whereClause += ` AND building = $${paramIndex}`;
+      queryParams.push(building);
+      paramIndex++;
+    }
+
+    if (search) {
+      whereClause += ` AND (name ILIKE $${paramIndex} OR department_code ILIKE $${paramIndex})`;
+      queryParams.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    const query = `
+      SELECT 
+        d.*,
+        COUNT(b.id) FILTER (WHERE b.is_active = true) as actual_bed_count,
+        COUNT(b.id) FILTER (WHERE b.is_active = true AND b.status = 'available') as available_beds,
+        COUNT(b.id) FILTER (WHERE b.is_active = true AND b.status = 'occupied') as occupied_beds
+      FROM departments d
+      LEFT JOIN beds b ON d.id = b.department_id
+      ${whereClause}
+      GROUP BY d.id
+      ORDER BY d.name
+    `;
+
+    const result = await pool.query(query, queryParams);
+
+    return {
+      departments: result.rows,
+    };
   }
 
   /**
    * Get department by ID
-   * @throws DepartmentNotFoundError if department doesn't exist
    */
-  async getDepartmentById(
-    departmentId: number,
-    tenantId: string,
-    client?: PoolClient
-  ): Promise<Department> {
-    const dbClient = client || (await this.pool.connect());
+  async getDepartmentById(tenantId: string, departmentId: number): Promise<Department> {
+    // Set tenant schema context
+    await pool.query(`SET search_path TO "${tenantId}", public`);
+    
+    const query = `
+      SELECT 
+        d.*,
+        COUNT(b.id) FILTER (WHERE b.is_active = true) as actual_bed_count
+      FROM departments d
+      LEFT JOIN beds b ON d.id = b.department_id
+      WHERE d.id = $1
+      GROUP BY d.id
+    `;
 
-    try {
-      if (!client) {
-        await dbClient.query(`SET search_path TO "${tenantId}"`);
-      }
+    const result = await pool.query(query, [departmentId]);
 
-      const query = `
-        SELECT 
-          d.*,
-          COUNT(b.id) as bed_count,
-          COUNT(CASE WHEN b.status = 'occupied' THEN 1 END) as occupied_beds,
-          COUNT(CASE WHEN b.status = 'available' AND b.is_active = true THEN 1 END) as available_beds
-        FROM departments d
-        LEFT JOIN beds b ON b.department_id = d.id
-        WHERE d.id = $1
-        GROUP BY d.id
-      `;
-
-      const result = await dbClient.query(query, [departmentId]);
-
-      if (result.rows.length === 0) {
-        throw new DepartmentNotFoundError(departmentId);
-      }
-
-      const department = result.rows[0];
-
-      return {
-        ...department,
-        bed_count: parseInt(department.bed_count),
-        occupied_beds: parseInt(department.occupied_beds),
-        available_beds: parseInt(department.available_beds),
-      };
-    } finally {
-      if (!client) {
-        dbClient.release();
-      }
+    if (result.rows.length === 0) {
+      throw new DepartmentNotFoundError(departmentId);
     }
+
+    return result.rows[0];
   }
 
   /**
-   * Create a new department
-   * @throws BedValidationError if department_code already exists
+   * Create new department
    */
   async createDepartment(
-    data: CreateDepartmentData,
     tenantId: string,
-    userId: number
+    data: CreateDepartmentData,
+    userId?: number
   ): Promise<Department> {
-    // Validate input
-    const validatedData = CreateDepartmentSchema.parse(data);
+    // Set tenant schema context
+    await pool.query(`SET search_path TO "${tenantId}", public`);
+    
+    const {
+      department_code,
+      name,
+      description,
+      floor_number,
+      building,
+      total_bed_capacity,
+    } = data;
 
-    const client = await this.pool.connect();
+    const query = `
+      INSERT INTO departments (
+        department_code, name, description, floor_number, building,
+        total_bed_capacity, active_bed_count, status, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, 0, 'active', $7)
+      RETURNING *
+    `;
 
-    try {
-      await client.query(`SET search_path TO "${tenantId}"`);
+    const result = await pool.query(query, [
+      department_code,
+      name,
+      description || null,
+      floor_number || null,
+      building || null,
+      total_bed_capacity,
+      userId || null,
+    ]);
 
-      // Check for duplicate department code
-      const duplicateCheck = await client.query(
-        'SELECT id FROM departments WHERE department_code = $1',
-        [validatedData.department_code]
-      );
-
-      if (duplicateCheck.rows.length > 0) {
-        throw new BedValidationError(
-          `Department code '${validatedData.department_code}' already exists`
-        );
-      }
-
-      // Prepare data with defaults and audit fields
-      const departmentData = {
-        ...validatedData,
-        status: validatedData.status || 'active',
-        created_by: userId,
-        updated_by: userId,
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
-
-      // Build insert query
-      const columns = Object.keys(departmentData);
-      const values = Object.values(departmentData);
-      const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
-
-      const insertQuery = `
-        INSERT INTO departments (${columns.join(', ')})
-        VALUES (${placeholders})
-        RETURNING *
-      `;
-
-      const result = await client.query(insertQuery, values);
-      const createdDepartment = result.rows[0];
-
-      // Fetch complete department with bed counts
-      return await this.getDepartmentById(
-        createdDepartment.id,
-        tenantId,
-        client
-      );
-    } finally {
-      client.release();
-    }
+    return result.rows[0];
   }
 
   /**
-   * Update department information
-   * @throws DepartmentNotFoundError if department doesn't exist
-   * @throws BedValidationError if update violates constraints
+   * Update department
    */
   async updateDepartment(
+    tenantId: string,
     departmentId: number,
     data: UpdateDepartmentData,
-    tenantId: string,
-    userId: number
+    userId?: number
   ): Promise<Department> {
-    // Validate partial update
-    const validatedData = UpdateDepartmentSchema.parse(data);
+    // Set tenant schema context
+    await pool.query(`SET search_path TO "${tenantId}", public`);
+    
+    // Check if department exists
+    await this.getDepartmentById(tenantId, departmentId);
 
-    // Remove undefined values
-    const updateData = Object.fromEntries(
-      Object.entries(validatedData).filter(([_, v]) => v !== undefined)
-    );
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
 
-    if (Object.keys(updateData).length === 0) {
-      throw new BedValidationError('No valid fields provided for update');
+    if (data.name !== undefined) {
+      updates.push(`name = $${paramIndex}`);
+      values.push(data.name);
+      paramIndex++;
     }
 
-    const client = await this.pool.connect();
-
-    try {
-      await client.query(`SET search_path TO "${tenantId}"`);
-
-      // Check department exists
-      const existing = await this.getDepartmentById(
-        departmentId,
-        tenantId,
-        client
-      );
-
-      // If updating code, check for duplicates
-      if (
-        updateData.department_code &&
-        updateData.department_code !== existing.department_code
-      ) {
-        const duplicateCheck = await client.query(
-          'SELECT id FROM departments WHERE department_code = $1 AND id != $2',
-          [updateData.department_code, departmentId]
-        );
-
-        if (duplicateCheck.rows.length > 0) {
-          throw new BedValidationError(
-            `Department code '${updateData.department_code}' already exists`
-          );
-        }
-      }
-
-      // Add audit fields
-      const finalUpdateData = {
-        ...updateData,
-        updated_by: userId,
-        updated_at: new Date(),
-      };
-
-      // Build update query
-      const entries = Object.entries(finalUpdateData);
-      const setClause = entries
-        .map(([key], i) => `${key} = $${i + 2}`)
-        .join(', ');
-      const values = entries.map(([_, value]) => value);
-
-      const updateQuery = `
-        UPDATE departments
-        SET ${setClause}
-        WHERE id = $1
-        RETURNING *
-      `;
-
-      await client.query(updateQuery, [departmentId, ...values]);
-
-      // Return updated department with bed counts
-      return await this.getDepartmentById(departmentId, tenantId, client);
-    } finally {
-      client.release();
+    if (data.description !== undefined) {
+      updates.push(`description = $${paramIndex}`);
+      values.push(data.description);
+      paramIndex++;
     }
+
+    if (data.floor_number !== undefined) {
+      updates.push(`floor_number = $${paramIndex}`);
+      values.push(data.floor_number);
+      paramIndex++;
+    }
+
+    if (data.building !== undefined) {
+      updates.push(`building = $${paramIndex}`);
+      values.push(data.building);
+      paramIndex++;
+    }
+
+    if (data.total_bed_capacity !== undefined) {
+      updates.push(`total_bed_capacity = $${paramIndex}`);
+      values.push(data.total_bed_capacity);
+      paramIndex++;
+    }
+
+    if (data.status !== undefined) {
+      updates.push(`status = $${paramIndex}`);
+      values.push(data.status);
+      paramIndex++;
+    }
+
+    if (userId) {
+      updates.push(`updated_by = $${paramIndex}`);
+      values.push(userId);
+      paramIndex++;
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+
+    const query = `
+      UPDATE departments
+      SET ${updates.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+    values.push(departmentId);
+
+    const result = await pool.query(query, values);
+    return result.rows[0];
   }
 
   /**
-   * Get detailed occupancy statistics for a department
-   * Includes bed counts by status and occupancy rate
+   * Get department statistics
    */
   async getDepartmentStats(
-    departmentId: number,
-    tenantId: string
-  ): Promise<{
-    department: Department;
-    occupancy: BedOccupancyStats;
-  }> {
-    const client = await this.pool.connect();
+    tenantId: string,
+    departmentId: number
+  ): Promise<DepartmentStatsResponse> {
+    // Set tenant schema context
+    await pool.query(`SET search_path TO "${tenantId}", public`);
+    
+    const department = await this.getDepartmentById(tenantId, departmentId);
 
-    try {
-      await client.query(`SET search_path TO "${tenantId}"`);
+    // Get occupancy metrics
+    const occupancyQuery = `
+      SELECT 
+        COUNT(*) as total_beds,
+        COUNT(*) FILTER (WHERE status = 'available') as available_beds,
+        COUNT(*) FILTER (WHERE status = 'occupied') as occupied_beds,
+        COUNT(*) FILTER (WHERE status = 'maintenance') as maintenance_beds,
+        COUNT(*) FILTER (WHERE status = 'cleaning') as cleaning_beds,
+        COUNT(*) FILTER (WHERE status = 'reserved') as reserved_beds
+      FROM beds
+      WHERE department_id = $1 AND is_active = true
+    `;
 
-      // Get department info
-      const department = await this.getDepartmentById(
-        departmentId,
-        tenantId,
-        client
-      );
+    const occupancyResult = await pool.query(occupancyQuery, [departmentId]);
+    const row = occupancyResult.rows[0];
 
-      // Get detailed bed statistics
-      const statsQuery = `
-        SELECT 
-          d.id as department_id,
-          d.department_name,
-          COUNT(b.id) as total_beds,
-          COUNT(CASE WHEN b.status = 'available' AND b.is_active = true THEN 1 END) as available,
-          COUNT(CASE WHEN b.status = 'occupied' THEN 1 END) as occupied,
-          COUNT(CASE WHEN b.status = 'maintenance' THEN 1 END) as maintenance,
-          COUNT(CASE WHEN b.status = 'reserved' THEN 1 END) as reserved,
-          COUNT(CASE WHEN b.status = 'blocked' THEN 1 END) as blocked,
-          COUNT(CASE WHEN b.status = 'cleaning' THEN 1 END) as cleaning,
-          ROUND(
-            (COUNT(CASE WHEN b.status = 'occupied' THEN 1 END)::numeric / 
-             NULLIF(COUNT(b.id), 0) * 100), 2
-          ) as occupancy_rate
-        FROM departments d
-        LEFT JOIN beds b ON b.department_id = d.id
-        WHERE d.id = $1
-        GROUP BY d.id, d.department_name
-      `;
+    const total = parseInt(row.total_beds);
+    const occupied = parseInt(row.occupied_beds);
 
-      const statsResult = await client.query(statsQuery, [departmentId]);
+    const occupancy: DepartmentOccupancyMetrics = {
+      department_id: departmentId,
+      department_name: department.name,
+      department_code: department.department_code,
+      total_beds: total,
+      available_beds: parseInt(row.available_beds),
+      occupied_beds: occupied,
+      maintenance_beds: parseInt(row.maintenance_beds),
+      cleaning_beds: parseInt(row.cleaning_beds),
+      reserved_beds: parseInt(row.reserved_beds),
+      occupancy_rate: total > 0 ? (occupied / total) * 100 : 0,
+      availability_rate: total > 0 ? (parseInt(row.available_beds) / total) * 100 : 0,
+    };
 
-      if (statsResult.rows.length === 0) {
-        // No beds yet
-        const occupancy: BedOccupancyStats = {
-          department_id: departmentId,
-          department_name: department.department_name,
-          total_beds: 0,
-          available: 0,
-          occupied: 0,
-          maintenance: 0,
-          reserved: 0,
-          blocked: 0,
-          cleaning: 0,
-          occupancy_rate: 0,
-        };
+    // Get recent assignments
+    const assignmentsQuery = `
+      SELECT 
+        ba.*,
+        b.bed_number,
+        p.first_name,
+        p.last_name,
+        p.patient_number
+      FROM bed_assignments ba
+      JOIN beds b ON ba.bed_id = b.id
+      JOIN patients p ON ba.patient_id = p.id
+      WHERE b.department_id = $1
+      ORDER BY ba.admission_date DESC
+      LIMIT 10
+    `;
 
-        return { department, occupancy };
-      }
+    const assignmentsResult = await pool.query(assignmentsQuery, [departmentId]);
 
-      const stats = statsResult.rows[0];
+    // Get recent transfers
+    const transfersQuery = `
+      SELECT 
+        bt.*,
+        p.first_name,
+        p.last_name,
+        fb.bed_number as from_bed_number,
+        tb.bed_number as to_bed_number
+      FROM bed_transfers bt
+      JOIN patients p ON bt.patient_id = p.id
+      LEFT JOIN beds fb ON bt.from_bed_id = fb.id
+      LEFT JOIN beds tb ON bt.to_bed_id = tb.id
+      WHERE bt.from_department_id = $1 OR bt.to_department_id = $1
+      ORDER BY bt.transfer_date DESC
+      LIMIT 10
+    `;
 
-      const occupancy: BedOccupancyStats = {
-        department_id: stats.department_id,
-        department_name: stats.department_name,
-        total_beds: parseInt(stats.total_beds),
-        available: parseInt(stats.available),
-        occupied: parseInt(stats.occupied),
-        maintenance: parseInt(stats.maintenance),
-        reserved: parseInt(stats.reserved),
-        blocked: parseInt(stats.blocked),
-        cleaning: parseInt(stats.cleaning),
-        occupancy_rate: parseFloat(stats.occupancy_rate) || 0,
-      };
+    const transfersResult = await pool.query(transfersQuery, [departmentId]);
 
-      return { department, occupancy };
-    } finally {
-      client.release();
-    }
+    return {
+      department,
+      occupancy,
+      recent_assignments: assignmentsResult.rows,
+      recent_transfers: transfersResult.rows,
+    };
   }
 
   /**
-   * Delete department (soft delete - set status to inactive)
-   * @throws DepartmentNotFoundError if department doesn't exist
-   * @throws BedValidationError if department has beds
+   * Get all departments with occupancy metrics
    */
-  async deleteDepartment(
-    departmentId: number,
-    tenantId: string,
-    userId: number
-  ): Promise<void> {
-    const client = await this.pool.connect();
+  async getDepartmentsWithOccupancy(tenantId: string): Promise<DepartmentOccupancyMetrics[]> {
+    // Set tenant schema context
+    await pool.query(`SET search_path TO "${tenantId}", public`);
+    
+    const query = `
+      SELECT 
+        d.id as department_id,
+        d.name as department_name,
+        d.department_code,
+        COUNT(b.id) FILTER (WHERE b.is_active = true) as total_beds,
+        COUNT(b.id) FILTER (WHERE b.is_active = true AND b.status = 'available') as available_beds,
+        COUNT(b.id) FILTER (WHERE b.is_active = true AND b.status = 'occupied') as occupied_beds,
+        COUNT(b.id) FILTER (WHERE b.is_active = true AND b.status = 'maintenance') as maintenance_beds,
+        COUNT(b.id) FILTER (WHERE b.is_active = true AND b.status = 'cleaning') as cleaning_beds,
+        COUNT(b.id) FILTER (WHERE b.is_active = true AND b.status = 'reserved') as reserved_beds
+      FROM departments d
+      LEFT JOIN beds b ON d.id = b.department_id
+      WHERE d.status = 'active'
+      GROUP BY d.id, d.name, d.department_code
+      ORDER BY d.name
+    `;
 
-    try {
-      await client.query(`SET search_path TO "${tenantId}"`);
+    const result = await pool.query(query);
 
-      // Check department exists
-      const department = await this.getDepartmentById(
-        departmentId,
-        tenantId,
-        client
-      );
+    return result.rows.map((row) => {
+      const total = parseInt(row.total_beds);
+      const occupied = parseInt(row.occupied_beds);
 
-      // Check if department has any beds
-      const bedCheck = await client.query(
-        'SELECT COUNT(*) as bed_count FROM beds WHERE department_id = $1',
-        [departmentId]
-      );
-
-      const bedCount = parseInt(bedCheck.rows[0].bed_count);
-
-      if (bedCount > 0) {
-        throw new BedValidationError(
-          `Cannot delete department with ${bedCount} bed(s). Remove or reassign beds first.`
-        );
-      }
-
-      // Soft delete: set status to inactive
-      const updateQuery = `
-        UPDATE departments
-        SET status = 'inactive',
-            updated_by = $2,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1
-      `;
-
-      await client.query(updateQuery, [departmentId, userId]);
-    } finally {
-      client.release();
-    }
+      return {
+        department_id: row.department_id,
+        department_name: row.department_name,
+        department_code: row.department_code,
+        total_beds: total,
+        available_beds: parseInt(row.available_beds),
+        occupied_beds: occupied,
+        maintenance_beds: parseInt(row.maintenance_beds),
+        cleaning_beds: parseInt(row.cleaning_beds),
+        reserved_beds: parseInt(row.reserved_beds),
+        occupancy_rate: total > 0 ? (occupied / total) * 100 : 0,
+        availability_rate: total > 0 ? (parseInt(row.available_beds) / total) * 100 : 0,
+      };
+    });
   }
 }
+
+export default new DepartmentService();

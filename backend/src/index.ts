@@ -109,6 +109,7 @@ import labResultsRouter from './routes/lab-results.routes';
 import imagingRouter from './routes/imaging.routes';
 import labPanelsRouter from './routes/lab-panels.routes';
 import bedManagementRouter from './routes/bed-management.routes';
+import departmentsRouter from './routes/departments';
 import staffRouter from './routes/staff';
 import staffOnboardingRouter from './routes/staff-onboarding';
 import notificationsRouter from './routes/notifications';
@@ -145,6 +146,9 @@ app.use('/api/notifications', tenantMiddleware, hospitalAuthMiddleware, requireA
 
 // Bed Management routes - Team Beta Sprint 1
 app.use('/api/beds', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), bedManagementRouter);
+
+// Departments routes - Separate to avoid conflicts
+app.use('/api/departments', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), departmentsRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {

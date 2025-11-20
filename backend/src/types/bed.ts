@@ -1,183 +1,91 @@
 /**
- * TypeScript interfaces for Bed Management System
- * Team: Beta
- * System: Bed Management + Inventory
+ * Bed Management Type Definitions
+ * Complete TypeScript interfaces for bed management system
  */
 
-// ==================== Department Entity ====================
+// ==================
+// Enums and Constants
+// ==================
+
+export type BedType = 'standard' | 'icu' | 'isolation' | 'pediatric' | 'maternity';
+export type BedStatus = 'available' | 'occupied' | 'maintenance' | 'cleaning' | 'reserved';
+export type AdmissionType = 'emergency' | 'scheduled' | 'transfer';
+export type PatientCondition = 'stable' | 'critical' | 'moderate' | 'serious';
+export type AssignmentStatus = 'active' | 'discharged' | 'transferred';
+export type TransferType = 'routine' | 'emergency' | 'medical_necessity' | 'patient_request';
+export type TransferStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+export type DepartmentStatus = 'active' | 'inactive';
+
+// ==================
+// Core Entities
+// ==================
 
 export interface Department {
   id: number;
-  department_name: string;
   department_code: string;
+  name: string;
   description?: string;
   floor_number?: number;
   building?: string;
-  total_capacity: number;
-  status: 'active' | 'inactive';
-  contact_phone?: string;
-  contact_email?: string;
-  head_of_department?: string;
-  
-  // Audit fields
+  total_bed_capacity: number;
+  active_bed_count: number;
+  status: DepartmentStatus;
+  created_at: string;
+  updated_at: string;
   created_by?: number;
   updated_by?: number;
-  created_at?: string;
-  updated_at?: string;
 }
-
-export interface CreateDepartmentData {
-  department_name: string;
-  department_code: string;
-  description?: string;
-  floor_number?: number;
-  building?: string;
-  total_capacity: number;
-  status?: 'active' | 'inactive';
-  contact_phone?: string;
-  contact_email?: string;
-  head_of_department?: string;
-}
-
-export interface UpdateDepartmentData extends Partial<CreateDepartmentData> {}
-
-// ==================== Bed Entity ====================
-
-export type BedType = 'general' | 'icu' | 'private' | 'semi_private' | 'pediatric' | 'maternity' | 'emergency';
-export type BedStatus = 'available' | 'occupied' | 'maintenance' | 'reserved' | 'blocked' | 'cleaning';
 
 export interface Bed {
   id: number;
   bed_number: string;
   department_id: number;
   bed_type: BedType;
-  status: BedStatus;
-  
-  // Location
-  room_number?: string;
   floor_number?: number;
-  
-  // Features (JSONB)
+  room_number?: string;
+  wing?: string;
+  status: BedStatus;
   features?: Record<string, any>;
-  
-  // Maintenance
-  last_maintenance_date?: string;
-  next_maintenance_date?: string;
-  maintenance_notes?: string;
-  
-  // Additional info
+  last_cleaned_at?: string;
+  last_maintenance_at?: string;
   notes?: string;
   is_active: boolean;
-  
-  // Audit fields
+  created_at: string;
+  updated_at: string;
   created_by?: number;
   updated_by?: number;
-  created_at?: string;
-  updated_at?: string;
   
-  // Relations (optional, for joined queries)
+  // Joined data (optional)
   department?: Department;
+  current_assignment?: BedAssignment;
 }
-
-export interface CreateBedData {
-  bed_number: string;
-  department_id: number;
-  bed_type: BedType;
-  status?: BedStatus;
-  room_number?: string;
-  floor_number?: number;
-  features?: Record<string, any>;
-  last_maintenance_date?: string;
-  next_maintenance_date?: string;
-  maintenance_notes?: string;
-  notes?: string;
-  is_active?: boolean;
-}
-
-export interface UpdateBedData extends Partial<CreateBedData> {}
-
-export interface BedSearchParams {
-  department_id?: number;
-  bed_type?: BedType;
-  status?: BedStatus;
-  floor_number?: number;
-  room_number?: string;
-  is_active?: boolean;
-  search?: string;
-  page?: number;
-  limit?: number;
-  sort_by?: string;
-  sort_order?: 'asc' | 'desc';
-}
-
-// ==================== Bed Assignment Entity ====================
-
-export type AssignmentStatus = 'active' | 'discharged' | 'transferred';
-export type DischargeType = 'normal' | 'transfer' | 'death' | 'ama' | 'absconded';
-export type Priority = 'routine' | 'urgent' | 'emergency';
 
 export interface BedAssignment {
   id: number;
   bed_id: number;
   patient_id: number;
-  status: AssignmentStatus;
-  
-  // Dates
   admission_date: string;
+  discharge_date?: string;
   expected_discharge_date?: string;
-  actual_discharge_date?: string;
-  
-  // Discharge info
-  discharge_reason?: string;
-  discharge_notes?: string;
-  discharge_type?: DischargeType;
-  
-  // Clinical info
-  admission_diagnosis?: string;
-  admission_notes?: string;
-  priority?: Priority;
-  
-  // Staff assignment
-  assigned_doctor_id?: number;
+  admission_type: AdmissionType;
+  admission_reason?: string;
+  patient_condition?: PatientCondition;
   assigned_nurse_id?: number;
-  special_requirements?: string;
-  
-  // Audit fields
+  assigned_doctor_id?: number;
+  status: AssignmentStatus;
+  discharge_reason?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
   created_by?: number;
   updated_by?: number;
-  created_at?: string;
-  updated_at?: string;
   
-  // Relations (optional)
+  // Joined data (optional)
   bed?: Bed;
-  patient?: any; // Define patient type when available
+  patient?: PatientInfo;
+  assigned_nurse?: UserInfo;
+  assigned_doctor?: UserInfo;
 }
-
-export interface CreateBedAssignmentData {
-  bed_id: number;
-  patient_id: number;
-  admission_date?: string;
-  expected_discharge_date?: string;
-  admission_diagnosis?: string;
-  admission_notes?: string;
-  priority?: Priority;
-  assigned_doctor_id?: number;
-  assigned_nurse_id?: number;
-  special_requirements?: string;
-}
-
-export interface UpdateBedAssignmentData extends Partial<CreateBedAssignmentData> {}
-
-export interface DischargeBedAssignmentData {
-  discharge_reason: string;
-  discharge_notes?: string;
-  discharge_type: DischargeType;
-  actual_discharge_date?: string;
-}
-
-// ==================== Bed Transfer Entity ====================
-
-export type TransferStatus = 'pending' | 'approved' | 'completed' | 'cancelled';
 
 export interface BedTransfer {
   id: number;
@@ -186,138 +94,342 @@ export interface BedTransfer {
   to_bed_id: number;
   from_department_id: number;
   to_department_id: number;
-  status: TransferStatus;
   transfer_date: string;
-  reason?: string;
-  notes?: string;
+  transfer_reason: string;
+  transfer_type?: TransferType;
+  requested_by?: number;
   approved_by?: number;
-  performed_by?: number;
+  completed_by?: number;
+  status: TransferStatus;
+  completion_date?: string;
+  cancellation_reason?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
   
-  // Audit fields
-  created_by?: number;
-  updated_by?: number;
-  created_at?: string;
-  updated_at?: string;
-  
-  // Relations (optional)
+  // Joined data (optional)
+  patient?: PatientInfo;
   from_bed?: Bed;
   to_bed?: Bed;
   from_department?: Department;
   to_department?: Department;
-  patient?: any;
+  requester?: UserInfo;
+  approver?: UserInfo;
+  completer?: UserInfo;
+}
+
+// ==================
+// Helper Interfaces
+// ==================
+
+export interface PatientInfo {
+  id: number;
+  patient_number: string;
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  date_of_birth?: string;
+  gender?: string;
+  phone?: string;
+  email?: string;
+}
+
+export interface UserInfo {
+  id: number;
+  name: string;
+  email: string;
+  role?: string;
+}
+
+// ==================
+// Request DTOs
+// ==================
+
+export interface CreateDepartmentData {
+  department_code: string;
+  name: string;
+  description?: string;
+  floor_number?: number;
+  building?: string;
+  total_bed_capacity: number;
+}
+
+export interface UpdateDepartmentData {
+  name?: string;
+  description?: string;
+  floor_number?: number;
+  building?: string;
+  total_bed_capacity?: number;
+  status?: DepartmentStatus;
+}
+
+export interface CreateBedData {
+  bed_number: string;
+  department_id: number;
+  bed_type: BedType;
+  floor_number?: number;
+  room_number?: string;
+  wing?: string;
+  features?: Record<string, any>;
+  notes?: string;
+}
+
+export interface UpdateBedData {
+  bed_number?: string;
+  department_id?: number;
+  bed_type?: BedType;
+  floor_number?: number;
+  room_number?: string;
+  wing?: string;
+  status?: BedStatus;
+  features?: Record<string, any>;
+  last_cleaned_at?: string;
+  last_maintenance_at?: string;
+  notes?: string;
+  is_active?: boolean;
+}
+
+export interface CreateBedAssignmentData {
+  bed_id: number;
+  patient_id: number;
+  admission_type: AdmissionType;
+  admission_reason?: string;
+  patient_condition?: PatientCondition;
+  assigned_nurse_id?: number;
+  assigned_doctor_id?: number;
+  expected_discharge_date?: string;
+  notes?: string;
+}
+
+export interface UpdateBedAssignmentData {
+  expected_discharge_date?: string;
+  patient_condition?: PatientCondition;
+  assigned_nurse_id?: number;
+  assigned_doctor_id?: number;
+  notes?: string;
+}
+
+export interface DischargeBedAssignmentData {
+  discharge_reason: string;
+  notes?: string;
 }
 
 export interface CreateBedTransferData {
   patient_id: number;
   from_bed_id: number;
   to_bed_id: number;
-  from_department_id: number;
-  to_department_id: number;
-  transfer_date?: string;
-  reason?: string;
+  transfer_reason: string;
+  transfer_type?: TransferType;
   notes?: string;
-  approved_by?: number;
-  performed_by?: number;
 }
 
 export interface UpdateBedTransferData {
-  status?: TransferStatus;
-  transfer_date?: string;
-  reason?: string;
+  transfer_reason?: string;
+  transfer_type?: TransferType;
   notes?: string;
-  approved_by?: number;
-  performed_by?: number;
 }
 
-// ==================== API Response Types ====================
+// ==================
+// Query Parameters
+// ==================
 
-export interface PaginationMeta {
+export interface BedSearchParams {
+  page?: number;
+  limit?: number;
+  department_id?: number;
+  status?: BedStatus;
+  bed_type?: BedType;
+  floor_number?: number;
+  room_number?: string;
+  search?: string;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+  is_active?: boolean;
+}
+
+export interface BedAssignmentSearchParams {
+  page?: number;
+  limit?: number;
+  bed_id?: number;
+  patient_id?: number;
+  status?: AssignmentStatus;
+  admission_type?: AdmissionType;
+  patient_condition?: PatientCondition;
+  assigned_nurse_id?: number;
+  assigned_doctor_id?: number;
+  admission_date_from?: string;
+  admission_date_to?: string;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface BedTransferSearchParams {
+  page?: number;
+  limit?: number;
+  patient_id?: number;
+  from_bed_id?: number;
+  to_bed_id?: number;
+  from_department_id?: number;
+  to_department_id?: number;
+  status?: TransferStatus;
+  transfer_type?: TransferType;
+  transfer_date_from?: string;
+  transfer_date_to?: string;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface DepartmentSearchParams {
+  status?: DepartmentStatus;
+  floor_number?: number;
+  building?: string;
+  search?: string;
+}
+
+// ==================
+// Response DTOs
+// ==================
+
+export interface PaginationInfo {
   page: number;
   limit: number;
   total: number;
-  total_pages: number;
+  pages: number;
 }
 
 export interface BedsResponse {
-  data: {
-    beds: Bed[];
-    pagination: PaginationMeta;
-  };
+  beds: Bed[];
+  pagination: PaginationInfo;
 }
 
 export interface BedResponse {
-  data: {
-    bed: Bed;
-  };
-}
-
-export interface DepartmentsResponse {
-  data: {
-    departments: Department[];
-    pagination: PaginationMeta;
-  };
-}
-
-export interface DepartmentResponse {
-  data: {
-    department: Department;
-  };
+  bed: Bed;
 }
 
 export interface BedAssignmentsResponse {
-  data: {
-    assignments: BedAssignment[];
-    pagination: PaginationMeta;
-  };
+  assignments: BedAssignment[];
+  pagination: PaginationInfo;
 }
 
 export interface BedAssignmentResponse {
-  data: {
-    assignment: BedAssignment;
-  };
+  assignment: BedAssignment;
 }
 
 export interface BedTransfersResponse {
-  data: {
-    transfers: BedTransfer[];
-    pagination: PaginationMeta;
-  };
+  transfers: BedTransfer[];
+  pagination: PaginationInfo;
 }
 
 export interface BedTransferResponse {
-  data: {
-    transfer: BedTransfer;
-  };
+  transfer: BedTransfer;
 }
 
-export interface BedOccupancyStats {
+export interface DepartmentsResponse {
+  departments: Department[];
+}
+
+export interface DepartmentResponse {
+  department: Department;
+}
+
+export interface BedOccupancyMetrics {
+  total_beds: number;
+  available_beds: number;
+  occupied_beds: number;
+  maintenance_beds: number;
+  cleaning_beds: number;
+  reserved_beds: number;
+  occupancy_rate: number;
+  availability_rate: number;
+}
+
+export interface DepartmentOccupancyMetrics extends BedOccupancyMetrics {
   department_id: number;
   department_name: string;
-  total_beds: number;
-  available: number;
-  occupied: number;
-  maintenance: number;
-  reserved: number;
-  blocked: number;
-  cleaning: number;
-  occupancy_rate: number; // Percentage
+  department_code: string;
+}
+
+export interface BedOccupancyResponse {
+  overall: BedOccupancyMetrics;
+  by_department: DepartmentOccupancyMetrics[];
+  by_bed_type: Record<BedType, BedOccupancyMetrics>;
 }
 
 export interface DepartmentStatsResponse {
-  data: {
-    department: Department;
-    occupancy: BedOccupancyStats;
-  };
+  department: Department;
+  occupancy: BedOccupancyMetrics;
+  recent_assignments: BedAssignment[];
+  recent_transfers: BedTransfer[];
 }
 
-export interface SystemOccupancyResponse {
-  data: {
-    occupancy_by_department: BedOccupancyStats[];
-    total_stats: {
-      total_beds: number;
-      available: number;
-      occupied: number;
-      occupancy_rate: number;
-    };
-  };
+// ==================
+// Availability Check
+// ==================
+
+export interface BedAvailabilityCheck {
+  bed_id: number;
+  is_available: boolean;
+  reason?: string;
+  current_status: BedStatus;
+  has_active_assignment: boolean;
+  has_reservation: boolean;
+  next_available_date?: string;
+}
+
+export interface AvailableBedsQuery {
+  department_id?: number;
+  bed_type?: BedType;
+  floor_number?: number;
+  required_features?: string[];
+  exclude_bed_ids?: number[];
+}
+
+// ==================
+// Error Types
+// ==================
+
+export interface BedError {
+  code: string;
+  message: string;
+  details?: any;
+}
+
+export class BedNotFoundError extends Error {
+  code = 'BED_NOT_FOUND';
+  constructor(bedId: number) {
+    super(`Bed with ID ${bedId} not found`);
+    this.name = 'BedNotFoundError';
+  }
+}
+
+export class BedUnavailableError extends Error {
+  code = 'BED_UNAVAILABLE';
+  constructor(bedId: number, reason: string) {
+    super(`Bed ${bedId} is unavailable: ${reason}`);
+    this.name = 'BedUnavailableError';
+  }
+}
+
+export class BedAssignmentConflictError extends Error {
+  code = 'BED_ASSIGNMENT_CONFLICT';
+  constructor(bedId: number) {
+    super(`Bed ${bedId} already has an active assignment`);
+    this.name = 'BedAssignmentConflictError';
+  }
+}
+
+export class InvalidTransferError extends Error {
+  code = 'INVALID_TRANSFER';
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidTransferError';
+  }
+}
+
+export class DepartmentNotFoundError extends Error {
+  code = 'DEPARTMENT_NOT_FOUND';
+  constructor(departmentId: number) {
+    super(`Department with ID ${departmentId} not found`);
+    this.name = 'DepartmentNotFoundError';
+  }
 }

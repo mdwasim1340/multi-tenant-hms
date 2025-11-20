@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,181 +8,131 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Search, AlertCircle, Activity, ChevronRight, Bed, Users, Clock, MapPin } from "lucide-react"
+import { Plus, Search, AlertCircle, Activity, ChevronRight, Bed, Users, Clock, MapPin, Loader2 } from "lucide-react"
+import { useDepartments, useBedOccupancy, useBeds, useBedAssignments } from "@/hooks/use-bed-management"
 
 export default function BedManagement() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("overview")
-  const [selectedDepartment, setSelectedDepartment] = useState("all")
+  const [selectedDepartment, setSelectedDepartment] = useState<number | undefined>(undefined)
 
-  // Bed occupancy metrics
-  const occupancyMetrics = [
-    {
-      label: "Total Beds",
-      value: "450",
-      icon: Bed,
-      color: "bg-blue-50 dark:bg-blue-950",
-      textColor: "text-blue-600 dark:text-blue-400",
-    },
-    {
-      label: "Occupied Beds",
-      value: "312",
-      change: "69%",
-      icon: Users,
-      color: "bg-teal-50 dark:bg-teal-950",
-      textColor: "text-teal-600 dark:text-teal-400",
-    },
-    {
-      label: "Available Beds",
-      value: "138",
-      change: "31%",
-      icon: Activity,
-      color: "bg-green-50 dark:bg-green-950",
-      textColor: "text-green-600 dark:text-green-400",
-    },
-    {
-      label: "Avg Occupancy Time",
-      value: "4.2 days",
-      icon: Clock,
-      color: "bg-purple-50 dark:bg-purple-950",
-      textColor: "text-purple-600 dark:text-purple-400",
-    },
-  ]
+  // Memoize filters to prevent infinite loops
+  const bedFilters = useMemo(() => ({ 
+    department_id: selectedDepartment 
+  }), [selectedDepartment])
+  
+  const assignmentFilters = useMemo(() => ({ 
+    status: 'active' 
+  }), [])
 
-  // Department data
-  const departments = [
-    {
-      id: "cardiology",
-      name: "Cardiology",
-      totalBeds: 45,
-      occupiedBeds: 38,
-      availableBeds: 7,
-      occupancyRate: 84,
-      criticalPatients: 3,
-    },
-    {
-      id: "orthopedics",
-      name: "Orthopedics",
-      totalBeds: 35,
-      occupiedBeds: 28,
-      availableBeds: 7,
-      occupancyRate: 80,
-      criticalPatients: 1,
-    },
-    {
-      id: "neurology",
-      name: "Neurology",
-      totalBeds: 40,
-      occupiedBeds: 32,
-      availableBeds: 8,
-      occupancyRate: 80,
-      criticalPatients: 2,
-    },
-    {
-      id: "pediatrics",
-      name: "Pediatrics",
-      totalBeds: 50,
-      occupiedBeds: 35,
-      availableBeds: 15,
-      occupancyRate: 70,
-      criticalPatients: 0,
-    },
-    {
-      id: "icu",
-      name: "ICU",
-      totalBeds: 30,
-      occupiedBeds: 28,
-      availableBeds: 2,
-      occupancyRate: 93,
-      criticalPatients: 8,
-    },
-    {
-      id: "emergency",
-      name: "Emergency Room",
-      totalBeds: 25,
-      occupiedBeds: 18,
-      availableBeds: 7,
-      occupancyRate: 72,
-      criticalPatients: 4,
-    },
-  ]
+  // Fetch real data from backend
+  const { departments, loading: deptLoading, error: deptError } = useDepartments()
+  const { occupancy, loading: occLoading, error: occError } = useBedOccupancy()
+  const { beds, loading: bedsLoading, error: bedsError } = useBeds(bedFilters)
+  const { assignments, loading: assignmentsLoading } = useBedAssignments(assignmentFilters)
 
-  // Bed details
-  const beds = [
-    {
-      id: "BED-001",
-      bedNumber: "101",
-      department: "Cardiology",
-      status: "Occupied",
-      patient: "Sarah Johnson",
-      patientId: "P001",
-      admissionDate: "2024-10-15",
-      condition: "Stable",
-      nurse: "Emily Davis",
-    },
-    {
-      id: "BED-002",
-      bedNumber: "102",
-      department: "Cardiology",
-      status: "Available",
-      patient: null,
-      patientId: null,
-      admissionDate: null,
-      condition: null,
-      nurse: null,
-    },
-    {
-      id: "BED-003",
-      bedNumber: "103",
-      department: "Cardiology",
-      status: "Occupied",
-      patient: "Michael Chen",
-      patientId: "P002",
-      admissionDate: "2024-10-18",
-      condition: "Critical",
-      nurse: "John Smith",
-    },
-    {
-      id: "BED-004",
-      bedNumber: "201",
-      department: "Orthopedics",
-      status: "Occupied",
-      patient: "Emma Williams",
-      patientId: "P003",
-      admissionDate: "2024-10-20",
-      condition: "Stable",
-      nurse: "Sarah Brown",
-    },
-    {
-      id: "BED-005",
-      bedNumber: "202",
-      department: "Orthopedics",
-      status: "Maintenance",
-      patient: null,
-      patientId: null,
-      admissionDate: null,
-      condition: null,
-      nurse: null,
-    },
-  ]
+  // Calculate occupancy metrics from real data
+  const occupancyMetrics = useMemo(() => {
+    if (!occupancy) return []
+    
+    return [
+      {
+        label: "Total Beds",
+        value: occupancy.total_beds.toString(),
+        icon: Bed,
+        color: "bg-blue-50 dark:bg-blue-950",
+        textColor: "text-blue-600 dark:text-blue-400",
+      },
+      {
+        label: "Occupied Beds",
+        value: occupancy.occupied_beds.toString(),
+        change: `${occupancy.occupancy_rate.toFixed(1)}%`,
+        icon: Users,
+        color: "bg-teal-50 dark:bg-teal-950",
+        textColor: "text-teal-600 dark:text-teal-400",
+      },
+      {
+        label: "Available Beds",
+        value: occupancy.available_beds.toString(),
+        change: `${((occupancy.available_beds / occupancy.total_beds) * 100).toFixed(1)}%`,
+        icon: Activity,
+        color: "bg-green-50 dark:bg-green-950",
+        textColor: "text-green-600 dark:text-green-400",
+      },
+      {
+        label: "Maintenance",
+        value: occupancy.maintenance_beds.toString(),
+        icon: Clock,
+        color: "bg-purple-50 dark:bg-purple-950",
+        textColor: "text-purple-600 dark:text-purple-400",
+      },
+    ]
+  }, [occupancy])
+
+  // Department data with stats (real data from backend)
+  const departmentsWithStats = useMemo(() => {
+    if (!departments || !beds) return []
+    
+    return departments.map(dept => {
+      const deptBeds = beds.filter(bed => bed.department_id === dept.id)
+      const occupiedBeds = deptBeds.filter(bed => bed.status === 'occupied').length
+      const availableBeds = deptBeds.filter(bed => bed.status === 'available').length
+      const totalBeds = deptBeds.length || dept.bed_capacity
+      const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0
+      
+      return {
+        id: dept.id,
+        name: dept.name,
+        totalBeds,
+        occupiedBeds,
+        availableBeds,
+        occupancyRate,
+        criticalPatients: 0, // TODO: Calculate from patient data
+      }
+    })
+  }, [departments, beds])
+
+  // Enrich beds with assignment data
+  const bedsWithAssignments = useMemo(() => {
+    if (!beds || !assignments) return []
+    
+    return beds.map(bed => {
+      const assignment = assignments.find(a => a.bed_id === bed.id && a.status === 'active')
+      const dept = departments?.find(d => d.id === bed.department_id)
+      
+      return {
+        id: bed.id.toString(),
+        bedNumber: bed.bed_number,
+        department: dept?.name || 'Unknown',
+        departmentId: bed.department_id,
+        status: bed.status.charAt(0).toUpperCase() + bed.status.slice(1),
+        patient: assignment?.patient_name || null,
+        patientId: assignment?.patient_id?.toString() || null,
+        admissionDate: assignment?.admission_date ? new Date(assignment.admission_date).toLocaleDateString() : null,
+        condition: null, // TODO: Get from patient data
+        nurse: null, // TODO: Get from assignment data
+      }
+    })
+  }, [beds, assignments, departments])
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Occupied":
+    switch (status.toLowerCase()) {
+      case "occupied":
         return "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200"
-      case "Available":
+      case "available":
         return "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200"
-      case "Maintenance":
+      case "maintenance":
         return "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200"
-      case "Critical":
-        return "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200"
+      case "reserved":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200"
       default:
         return "bg-gray-100 text-gray-800"
     }
   }
 
-  const getConditionColor = (condition: string) => {
+  const getConditionColor = (condition: string | null) => {
+    if (!condition) return "text-gray-600 dark:text-gray-400"
     switch (condition) {
       case "Critical":
         return "text-red-600 dark:text-red-400"
@@ -193,14 +143,19 @@ export default function BedManagement() {
     }
   }
 
-  const filteredBeds = beds.filter((bed) => {
-    const matchesSearch =
-      bed.bedNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      bed.patient?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      bed.department.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesDepartment = selectedDepartment === "all" || bed.department.toLowerCase() === selectedDepartment
-    return matchesSearch && matchesDepartment
-  })
+  const filteredBeds = useMemo(() => {
+    return bedsWithAssignments.filter((bed) => {
+      const matchesSearch =
+        bed.bedNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        bed.patient?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        bed.department.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesDepartment = !selectedDepartment || bed.departmentId === selectedDepartment
+      return matchesSearch && matchesDepartment
+    })
+  }, [bedsWithAssignments, searchQuery, selectedDepartment])
+
+  // Show loading state
+  const isLoading = deptLoading || occLoading || bedsLoading || assignmentsLoading
 
   return (
     <div className="flex h-screen bg-background">
@@ -224,29 +179,49 @@ export default function BedManagement() {
             </div>
 
             {/* Occupancy Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {occupancyMetrics.map((metric) => {
-                const Icon = metric.icon
-                return (
-                  <Card key={metric.label} className="border-border/50">
+            {occLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <Card key={i} className="border-border/50">
                     <CardContent className="pt-6">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-sm text-muted-foreground">{metric.label}</p>
-                          <p className="text-2xl font-bold text-foreground mt-2">{metric.value}</p>
-                          {metric.change && (
-                            <p className="text-xs text-green-600 dark:text-green-400 mt-2">{metric.change}</p>
-                          )}
-                        </div>
-                        <div className={`w-12 h-12 rounded-lg ${metric.color} flex items-center justify-center`}>
-                          <Icon className={`w-6 h-6 ${metric.textColor}`} />
-                        </div>
+                      <div className="animate-pulse">
+                        <div className="h-4 bg-muted rounded w-20 mb-2"></div>
+                        <div className="h-8 bg-muted rounded w-16"></div>
                       </div>
                     </CardContent>
                   </Card>
-                )
-              })}
-            </div>
+                ))}
+              </div>
+            ) : occError ? (
+              <div className="text-center py-8">
+                <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                <p className="text-red-600 text-sm">Error loading occupancy data</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {occupancyMetrics.map((metric) => {
+                  const Icon = metric.icon
+                  return (
+                    <Card key={metric.label} className="border-border/50">
+                      <CardContent className="pt-6">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-sm text-muted-foreground">{metric.label}</p>
+                            <p className="text-2xl font-bold text-foreground mt-2">{metric.value}</p>
+                            {metric.change && (
+                              <p className="text-xs text-green-600 dark:text-green-400 mt-2">{metric.change}</p>
+                            )}
+                          </div>
+                          <div className={`w-12 h-12 rounded-lg ${metric.color} flex items-center justify-center`}>
+                            <Icon className={`w-6 h-6 ${metric.textColor}`} />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
 
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -258,54 +233,70 @@ export default function BedManagement() {
 
               {/* Department Overview Tab */}
               <TabsContent value="overview" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {departments.map((dept) => (
-                    <Card key={dept.id} className="hover:shadow-md transition-shadow cursor-pointer border-border/50">
-                      <CardContent className="pt-6">
-                        <div className="space-y-4">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="font-semibold text-foreground">{dept.name}</h3>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {dept.occupiedBeds} of {dept.totalBeds} beds
-                              </p>
+                {deptLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    <span className="ml-2 text-muted-foreground">Loading departments...</span>
+                  </div>
+                ) : deptError ? (
+                  <div className="text-center py-12">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                    <p className="text-red-600">Error loading departments: {deptError}</p>
+                  </div>
+                ) : departmentsWithStats.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground">No departments found. Please create departments first.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {departmentsWithStats.map((dept) => (
+                      <Card key={dept.id} className="hover:shadow-md transition-shadow cursor-pointer border-border/50">
+                        <CardContent className="pt-6">
+                          <div className="space-y-4">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h3 className="font-semibold text-foreground">{dept.name}</h3>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {dept.occupiedBeds} of {dept.totalBeds} beds
+                                </p>
+                              </div>
+                              <Badge variant="outline">{dept.occupancyRate}%</Badge>
                             </div>
-                            <Badge variant="outline">{dept.occupancyRate}%</Badge>
-                          </div>
 
-                          {/* Occupancy Bar */}
-                          <div className="w-full bg-muted rounded-full h-3">
-                            <div
-                              className="bg-accent h-3 rounded-full transition-all"
-                              style={{ width: `${dept.occupancyRate}%` }}
-                            ></div>
-                          </div>
-
-                          {/* Stats */}
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="bg-green-50 dark:bg-green-950 rounded-lg p-2">
-                              <p className="text-xs text-muted-foreground">Available</p>
-                              <p className="text-lg font-bold text-green-600 dark:text-green-400">
-                                {dept.availableBeds}
-                              </p>
+                            {/* Occupancy Bar */}
+                            <div className="w-full bg-muted rounded-full h-3">
+                              <div
+                                className="bg-accent h-3 rounded-full transition-all"
+                                style={{ width: `${dept.occupancyRate}%` }}
+                              ></div>
                             </div>
-                            <div className="bg-red-50 dark:bg-red-950 rounded-lg p-2">
-                              <p className="text-xs text-muted-foreground">Critical</p>
-                              <p className="text-lg font-bold text-red-600 dark:text-red-400">
-                                {dept.criticalPatients}
-                              </p>
-                            </div>
-                          </div>
 
-                          <Button variant="outline" className="w-full bg-transparent">
-                            View Details
-                            <ChevronRight className="w-4 h-4 ml-2" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                            {/* Stats */}
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="bg-green-50 dark:bg-green-950 rounded-lg p-2">
+                                <p className="text-xs text-muted-foreground">Available</p>
+                                <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                                  {dept.availableBeds}
+                                </p>
+                              </div>
+                              <div className="bg-red-50 dark:bg-red-950 rounded-lg p-2">
+                                <p className="text-xs text-muted-foreground">Critical</p>
+                                <p className="text-lg font-bold text-red-600 dark:text-red-400">
+                                  {dept.criticalPatients}
+                                </p>
+                              </div>
+                            </div>
+
+                            <Button variant="outline" className="w-full bg-transparent">
+                              View Details
+                              <ChevronRight className="w-4 h-4 ml-2" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
 
               {/* Bed Details Tab */}
@@ -322,12 +313,12 @@ export default function BedManagement() {
                     />
                   </div>
                   <select
-                    value={selectedDepartment}
-                    onChange={(e) => setSelectedDepartment(e.target.value)}
+                    value={selectedDepartment || ''}
+                    onChange={(e) => setSelectedDepartment(e.target.value ? Number(e.target.value) : undefined)}
                     className="px-4 py-2 border border-border rounded-lg bg-background text-foreground"
                   >
-                    <option value="all">All Departments</option>
-                    {departments.map((dept) => (
+                    <option value="">All Departments</option>
+                    {departments?.map((dept) => (
                       <option key={dept.id} value={dept.id}>
                         {dept.name}
                       </option>
@@ -336,8 +327,23 @@ export default function BedManagement() {
                 </div>
 
                 {/* Bed Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredBeds.map((bed) => (
+                {bedsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    <span className="ml-2 text-muted-foreground">Loading beds...</span>
+                  </div>
+                ) : bedsError ? (
+                  <div className="text-center py-12">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                    <p className="text-red-600">Error loading beds: {bedsError}</p>
+                  </div>
+                ) : filteredBeds.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground">No beds found. {searchQuery ? 'Try adjusting your search.' : 'Please create beds first.'}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredBeds.map((bed) => (
                     <Card key={bed.id} className="border-border/50 hover:shadow-md transition-shadow">
                       <CardContent className="pt-6">
                         <div className="space-y-4">
@@ -402,8 +408,9 @@ export default function BedManagement() {
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
 
               {/* Patient Transfers Tab */}

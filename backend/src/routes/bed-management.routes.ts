@@ -1,56 +1,48 @@
 import express from 'express';
-import { BedController } from '../controllers/bed.controller';
-import { BedAssignmentController } from '../controllers/bed-assignment.controller';
-import { BedTransferController } from '../controllers/bed-transfer.controller';
-import { DepartmentController } from '../controllers/department.controller';
+import * as bedController from '../controllers/bed.controller';
+import * as assignmentController from '../controllers/bed-assignment.controller';
+import * as transferController from '../controllers/bed-transfer.controller';
+import * as departmentController from '../controllers/department.controller';
 
 const router = express.Router();
 
-const bedController = new BedController();
-const assignmentController = new BedAssignmentController();
-const transferController = new BedTransferController();
-const departmentController = new DepartmentController();
+// ==========================================
+// ALL SPECIFIC ROUTES MUST COME BEFORE PARAMETERIZED ROUTES
+// ==========================================
 
-// ==========================================
-// Bed Routes - /api/beds
-// ==========================================
-router.get('/', bedController.listBeds.bind(bedController));
-router.post('/', bedController.createBed.bind(bedController));
-router.get('/occupancy', bedController.getBedOccupancy.bind(bedController));
-router.get('/availability', bedController.checkBedAvailability.bind(bedController));
-router.get('/:id', bedController.getBedById.bind(bedController));
-router.put('/:id', bedController.updateBed.bind(bedController));
-router.delete('/:id', bedController.deleteBed.bind(bedController));
-
-// ==========================================
 // Bed Assignment Routes - /api/beds/assignments
-// ==========================================
-router.get('/assignments', assignmentController.listAssignments.bind(assignmentController));
-router.post('/assignments', assignmentController.createAssignment.bind(assignmentController));
-router.get('/assignments/:id', assignmentController.getAssignmentById.bind(assignmentController));
-router.put('/assignments/:id', assignmentController.updateAssignment.bind(assignmentController));
-router.post('/assignments/:id/discharge', assignmentController.dischargeAssignment.bind(assignmentController));
-router.get('/assignments/patient/:patientId', assignmentController.getPatientHistory.bind(assignmentController));
-router.get('/assignments/bed/:bedId', assignmentController.getBedHistory.bind(assignmentController));
+router.get('/assignments', assignmentController.getBedAssignments);
+router.post('/assignments', assignmentController.createBedAssignment);
+router.get('/assignments/:id', assignmentController.getBedAssignmentById);
+router.put('/assignments/:id', assignmentController.updateBedAssignment);
+router.post('/assignments/:id/discharge', assignmentController.dischargeBedAssignment);
+router.get('/assignments/patient/:patientId', assignmentController.getPatientBedHistory);
+router.get('/assignments/bed/:bedId', assignmentController.getBedAssignmentHistory);
 
-// ==========================================
 // Bed Transfer Routes - /api/beds/transfers
-// ==========================================
-router.get('/transfers', transferController.listTransfers.bind(transferController));
-router.post('/transfers', transferController.createTransfer.bind(transferController));
-router.get('/transfers/:id', transferController.getTransferById.bind(transferController));
-router.put('/transfers/:id', transferController.updateTransfer.bind(transferController));
-router.post('/transfers/:id/complete', transferController.completeTransfer.bind(transferController));
-router.post('/transfers/:id/cancel', transferController.cancelTransfer.bind(transferController));
-router.get('/transfers/patient/:patientId/history', transferController.getPatientTransferHistory.bind(transferController));
+router.get('/transfers', transferController.getBedTransfers);
+router.post('/transfers', transferController.createBedTransfer);
+router.get('/transfers/:id', transferController.getBedTransferById);
+router.post('/transfers/:id/complete', transferController.completeBedTransfer);
+router.post('/transfers/:id/cancel', transferController.cancelBedTransfer);
+router.get('/transfers/patient/:patientId/history', transferController.getPatientTransferHistory);
 
-// ==========================================
-// Department Routes - /api/beds/departments
-// ==========================================
-router.get('/departments', departmentController.listDepartments.bind(departmentController));
-router.post('/departments', departmentController.createDepartment.bind(departmentController));
-router.get('/departments/:id', departmentController.getDepartmentById.bind(departmentController));
-router.put('/departments/:id', departmentController.updateDepartment.bind(departmentController));
-router.get('/departments/:id/stats', departmentController.getDepartmentStats.bind(departmentController));
+// Department Routes - /api/beds/departments  
+router.get('/departments', departmentController.getDepartments);
+router.post('/departments', departmentController.createDepartment);
+router.get('/departments/:id', departmentController.getDepartmentById);
+router.put('/departments/:id', departmentController.updateDepartment);
+router.get('/departments/:id/stats', departmentController.getDepartmentStats);
+
+// Bed Routes - Specific routes first
+router.get('/', bedController.getBeds);
+router.post('/', bedController.createBed);
+router.get('/occupancy', bedController.getBedOccupancy);
+router.get('/availability', bedController.getAvailableBeds);
+
+// PARAMETERIZED ROUTES MUST BE LAST
+router.get('/:id', bedController.getBedById);
+router.put('/:id', bedController.updateBed);
+router.delete('/:id', bedController.deleteBed);
 
 export default router;

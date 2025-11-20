@@ -1,179 +1,399 @@
-import { Pool, PoolClient } from 'pg';
+/**
+ * Bed Assignment Service
+ * Business logic for patient bed assignments
+ */
+
+import pool from '../database';
 import {
   BedAssignment,
   CreateBedAssignmentData,
   UpdateBedAssignmentData,
   DischargeBedAssignmentData,
-} from '../types/bed';
-import {
-  BedAssignmentNotFoundError,
+  BedAssignmentSearchParams,
+  BedAssignmentsResponse,
   BedAssignmentConflictError,
-  AssignmentAlreadyDischargedError,
-  BedValidationError,
-} from '../errors/BedError';
-import {
-  CreateBedAssignmentSchema,
-  UpdateBedAssignmentSchema,
-  DischargeBedAssignmentSchema,
-} from '../validation/bed.validation';
+  BedUnavailableError,
+} from '../types/bed';
+import bedService from './bed.service';
 
 export class BedAssignmentService {
-  private pool: Pool;
-  constructor(pool: Pool) {
-    this.pool = pool;
-  }
-
-  async createBedAssignment(
-    data: CreateBedAssignmentData,
+  /**
+   * Get bed assignments with filtering and pagination
+   */
+  async getBedAssignments(
     tenantId: string,
-    userId: number
+    params: BedAssignmentSearchParams
+  ): Promise<BedAssignmentsResponse> {
+    // Set tenant schema context
+    await pool.query(`SET search_path TO "${tenantId}", public`);
+    
+    const {
+      page = 1,
+      limit = 10,
+      bed_id,
+      patient_id,
+      status,
+      admission_type,
+      patient_condition,
+      assigned_nurse_id,
+      assigned_doctor_id,
+      admission_date_from,
+      admission_date_to,
+      sort_by = 'admission_date',
+      sort_order = 'desc',
+    } = params;
+
+    const offset = (page - 1) * limit;
+    const queryParams: any[] = [];
+    let paramIndex = 1;
+
+    // Build WHERE clause
+    let whereClause = 'WHERE 1=1';
+
+    if (bed_id) {
+      whereClause += ` AND ba.bed_id = $${paramIndex}`;
+      queryParams.push(bed_id);
+      paramIndex++;
+    }
+
+    if (patient_id) {
+      whereClause += ` AND ba.patient_id = $${paramIndex}`;
+      queryParams.push(patient_id);
+      paramIndex++;
+    }
+
+    if (status) {
+      whereClause += ` AND ba.status = $${paramIndex}`;
+      queryParams.push(status);
+      paramIndex++;
+    }
+
+    if (admission_type) {
+      whereClause += ` AND ba.admission_type = $${paramIndex}`;
+      queryParams.push(admission_type);
+      paramIndex++;
+    }
+
+    if (patient_condition) {
+      whereClause += ` AND ba.patient_condition = $${paramIndex}`;
+      queryParams.push(patient_condition);
+      paramIndex++;
+    }
+
+    if (assigned_nurse_id) {
+      whereClause += ` AND ba.assigned_nurse_id = $${paramIndex}`;
+      queryParams.push(assigned_nurse_id);
+      paramIndex++;
+    }
+
+    if (assigned_doctor_id) {
+      whereClause += ` AND ba.assigned_doctor_id = $${paramIndex}`;
+      queryParams.push(assigned_doctor_id);
+      paramIndex++;
+    }
+
+    if (admission_date_from) {
+      whereClause += ` AND ba.admission_date >= $${paramIndex}`;
+      queryParams.push(admission_date_from);
+      paramIndex++;
+    }
+
+    if (admission_date_to) {
+      whereClause += ` AND ba.admission_date <= $${paramIndex}`;
+      queryParams.push(admission_date_to);
+      paramIndex++;
+    }
+
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as total FROM bed_assignments ba ${whereClause}`;
+    const countResult = await pool.query(countQuery, queryParams);
+    const total = parseInt(countResult.rows[0].total);
+
+    // Get assignments with joined data
+    const assignmentsQuery = `
+      SELECT 
+        ba.*,
+        b.bed_number,
+        b.room_number,
+        b.bed_type,
+        d.name as department_name,
+        p.first_name,
+        p.last_name,
+        p.patient_number,
+        p.date_of_birth,
+        p.gender
+      FROM bed_assignments ba
+      LEFT JOIN beds b ON ba.bed_id = b.id
+      LEFT JOIN departments d ON b.department_id = d.id
+      LEFT JOIN patients p ON ba.patient_id = p.id
+      ${whereClause}
+      ORDER BY ba.${sort_by} ${sort_order}
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    queryParams.push(limit, offset);
+
+    const result = await pool.query(assignmentsQuery, queryParams);
+
+    return {
+      assignments: result.rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get bed assignment by ID
+   */
+  async getBedAssignmentById(tenantId: string, assignmentId: number): Promise<BedAssignment> {
+    await pool.query(`SET search_path TO "${tenantId}", public`);
+    const query = `
+      SELECT 
+        ba.*,
+        b.bed_number,
+        b.room_number,
+        b.bed_type,
+        d.name as department_name,
+        p.first_name,
+        p.last_name,
+        p.patient_number
+      FROM bed_assignments ba
+      LEFT JOIN beds b ON ba.bed_id = b.id
+      LEFT JOIN departments d ON b.department_id = d.id
+      LEFT JOIN patients p ON ba.patient_id = p.id
+      WHERE ba.id = $1
+    `;
+
+    const result = await pool.query(query, [assignmentId]);
+
+    if (result.rows.length === 0) {
+      throw new Error(`Bed assignment with ID ${assignmentId} not found`);
+    }
+
+    return result.rows[0];
+  }
+
+  /**
+   * Create bed assignment
+   */
+  async createBedAssignment(
+    tenantId: string,
+    data: CreateBedAssignmentData,
+    userId?: number
   ): Promise<BedAssignment> {
-    const validated = CreateBedAssignmentSchema.parse(data);
-    const client = await this.pool.connect();
-    try {
-      await client.query(`SET search_path TO "${tenantId}"`);
+    const client = await pool.connect();
 
-      // Check for active assignment (no double-booking)
-      const existing = await client.query(
+    try {
+      await client.query('BEGIN');
+      await client.query(`SET search_path TO "${tenantId}", public`);
+
+      // Check bed availability
+      const isAvailable = await bedService.checkBedAvailability(tenantId, data.bed_id);
+      if (!isAvailable) {
+        throw new BedUnavailableError(data.bed_id, 'Bed is not available for assignment');
+      }
+
+      // Check for existing active assignment
+      const existingAssignment = await client.query(
         'SELECT id FROM bed_assignments WHERE bed_id = $1 AND status = $2',
-        [validated.bed_id, 'active']
-      );
-      if (existing.rows.length > 0) {
-        throw new BedAssignmentConflictError('Bed is already assigned to an active patient');
-      }
-
-      // Check bed exists and is available
-      const bedRow = await client.query('SELECT id, status, is_active FROM beds WHERE id = $1', [validated.bed_id]);
-      if (!bedRow.rows.length) {
-        throw new BedValidationError('Bed not found');
-      }
-      if (!bedRow.rows[0].is_active || bedRow.rows[0].status !== 'available') {
-        throw new BedAssignmentConflictError('Bed is not available for assignment');
-      }
-
-      // Insert bed assignment
-      const assignmentData = {
-        ...validated,
-        status: 'active',
-        admission_date: validated.admission_date || new Date().toISOString(),
-        created_by: userId,
-        updated_by: userId,
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
-      const columns = Object.keys(assignmentData);
-      const values = Object.values(assignmentData);
-      const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
-      const insertQuery = `INSERT INTO bed_assignments (${columns.join(', ')}) VALUES (${placeholders}) RETURNING *`;
-      const result = await client.query(insertQuery, values);
-      const assignment = result.rows[0];
-
-      // Update bed status to occupied
-      await client.query(
-        `UPDATE beds SET status = 'occupied', updated_by = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-        [validated.bed_id, userId]
+        [data.bed_id, 'active']
       );
 
-      return assignment;
+      if (existingAssignment.rows.length > 0) {
+        throw new BedAssignmentConflictError(data.bed_id);
+      }
+
+      // Create assignment
+      const insertQuery = `
+        INSERT INTO bed_assignments (
+          bed_id, patient_id, admission_type, admission_reason,
+          patient_condition, assigned_nurse_id, assigned_doctor_id,
+          expected_discharge_date, notes, status, created_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active', $10)
+        RETURNING *
+      `;
+
+      const result = await client.query(insertQuery, [
+        data.bed_id,
+        data.patient_id,
+        data.admission_type,
+        data.admission_reason || null,
+        data.patient_condition || null,
+        data.assigned_nurse_id || null,
+        data.assigned_doctor_id || null,
+        data.expected_discharge_date || null,
+        data.notes || null,
+        userId || null,
+      ]);
+
+      await client.query('COMMIT');
+      return result.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
     } finally {
       client.release();
     }
   }
 
-  async getBedAssignmentById(assignmentId: number, tenantId: string): Promise<BedAssignment> {
-    const client = await this.pool.connect();
-    try {
-      await client.query(`SET search_path TO "${tenantId}"`);
-      const res = await client.query('SELECT * FROM bed_assignments WHERE id = $1', [assignmentId]);
-      if (!res.rows.length) {
-        throw new BedAssignmentNotFoundError(assignmentId);
-      }
-      return res.rows[0];
-    } finally {
-      client.release();
-    }
-  }
-
+  /**
+   * Update bed assignment
+   */
   async updateBedAssignment(
+    tenantId: string,
     assignmentId: number,
     data: UpdateBedAssignmentData,
-    tenantId: string,
-    userId: number
+    userId?: number
   ): Promise<BedAssignment> {
-    const validated = UpdateBedAssignmentSchema.parse(data);
-    const client = await this.pool.connect();
-    try {
-      await client.query(`SET search_path TO "${tenantId}"`);
-      const existing = await this.getBedAssignmentById(assignmentId, tenantId);
-      if (existing.status !== 'active') {
-        throw new BedAssignmentConflictError('Can only update active assignments');
-      }
-      const toUpdate = Object.assign({}, validated, { updated_by: userId, updated_at: new Date() });
-      const entries = Object.entries(toUpdate).filter(([_, v]) => v !== undefined);
-      if (!entries.length) throw new BedValidationError('No data to update');
-      const setClause = entries.map(([k], i) => `${k} = $${i + 2}`).join(', ');
-      const values = entries.map(([, v]) => v);
-      await client.query(
-        `UPDATE bed_assignments SET ${setClause} WHERE id = $1`,
-        [assignmentId, ...values]
-      );
-      return await this.getBedAssignmentById(assignmentId, tenantId);
-    } finally {
-      client.release();
+    // Check if assignment exists
+    await this.getBedAssignmentById(tenantId, assignmentId);
+
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (data.expected_discharge_date !== undefined) {
+      updates.push(`expected_discharge_date = $${paramIndex}`);
+      values.push(data.expected_discharge_date);
+      paramIndex++;
     }
+
+    if (data.patient_condition !== undefined) {
+      updates.push(`patient_condition = $${paramIndex}`);
+      values.push(data.patient_condition);
+      paramIndex++;
+    }
+
+    if (data.assigned_nurse_id !== undefined) {
+      updates.push(`assigned_nurse_id = $${paramIndex}`);
+      values.push(data.assigned_nurse_id);
+      paramIndex++;
+    }
+
+    if (data.assigned_doctor_id !== undefined) {
+      updates.push(`assigned_doctor_id = $${paramIndex}`);
+      values.push(data.assigned_doctor_id);
+      paramIndex++;
+    }
+
+    if (data.notes !== undefined) {
+      updates.push(`notes = $${paramIndex}`);
+      values.push(data.notes);
+      paramIndex++;
+    }
+
+    if (userId) {
+      updates.push(`updated_by = $${paramIndex}`);
+      values.push(userId);
+      paramIndex++;
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+
+    const query = `
+      UPDATE bed_assignments
+      SET ${updates.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+    values.push(assignmentId);
+
+    const result = await pool.query(query, values);
+    return result.rows[0];
   }
 
+  /**
+   * Discharge patient from bed
+   */
   async dischargeBedAssignment(
+    tenantId: string,
     assignmentId: number,
     data: DischargeBedAssignmentData,
-    tenantId: string,
-    userId: number
+    userId?: number
   ): Promise<BedAssignment> {
-    const validated = DischargeBedAssignmentSchema.parse(data);
-    const client = await this.pool.connect();
+    const client = await pool.connect();
+
     try {
-      await client.query(`SET search_path TO "${tenantId}"`);
-      const existing = await this.getBedAssignmentById(assignmentId, tenantId);
-      if (existing.status !== 'active') {
-        throw new AssignmentAlreadyDischargedError(
-          'Assignment already discharged or not active'
-        );
+      await client.query('BEGIN');
+
+      // Update assignment status
+      const query = `
+        UPDATE bed_assignments
+        SET 
+          status = 'discharged',
+          discharge_date = CURRENT_TIMESTAMP,
+          discharge_reason = $1,
+          notes = COALESCE($2, notes),
+          updated_by = $3,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $4 AND status = 'active'
+        RETURNING *
+      `;
+
+      const result = await client.query(query, [
+        data.discharge_reason,
+        data.notes || null,
+        userId || null,
+        assignmentId,
+      ]);
+
+      if (result.rows.length === 0) {
+        throw new Error('Assignment not found or already discharged');
       }
-      // Update assignment - set status discharged
-      await client.query(
-        `UPDATE bed_assignments SET status = $2, discharge_reason = $3, discharge_notes = $4, discharge_type = $5, actual_discharge_date = $6, updated_by = $7, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-        [assignmentId, 'discharged', validated.discharge_reason, validated.discharge_notes, validated.discharge_type, validated.actual_discharge_date || new Date().toISOString(), userId]
-      );
-      // Update bed status to available
-      await client.query(
-        `UPDATE beds SET status = 'available', updated_by = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-        [existing.bed_id, userId]
-      );
-      return await this.getBedAssignmentById(assignmentId, tenantId);
+
+      await client.query('COMMIT');
+      return result.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
     } finally {
       client.release();
     }
   }
 
-  async getPatientBedHistory(patientId: number, tenantId: string): Promise<BedAssignment[]> {
-    const client = await this.pool.connect();
-    try {
-      await client.query(`SET search_path TO "${tenantId}"`);
-      const result = await client.query('SELECT * FROM bed_assignments WHERE patient_id = $1 ORDER BY admission_date DESC', [patientId]);
-      return result.rows;
-    } finally {
-      client.release();
-    }
+  /**
+   * Get patient bed history
+   */
+  async getPatientBedHistory(tenantId: string, patientId: number): Promise<BedAssignment[]> {
+    const query = `
+      SELECT 
+        ba.*,
+        b.bed_number,
+        b.room_number,
+        d.name as department_name
+      FROM bed_assignments ba
+      LEFT JOIN beds b ON ba.bed_id = b.id
+      LEFT JOIN departments d ON b.department_id = d.id
+      WHERE ba.patient_id = $1
+      ORDER BY ba.admission_date DESC
+    `;
+
+    const result = await pool.query(query, [patientId]);
+    return result.rows;
   }
 
-  async getBedAssignmentHistory(bedId: number, tenantId: string): Promise<BedAssignment[]> {
-    const client = await this.pool.connect();
-    try {
-      await client.query(`SET search_path TO "${tenantId}"`);
-      const result = await client.query('SELECT * FROM bed_assignments WHERE bed_id = $1 ORDER BY admission_date DESC', [bedId]);
-      return result.rows;
-    } finally {
-      client.release();
-    }
+  /**
+   * Get bed assignment history
+   */
+  async getBedAssignmentHistory(tenantId: string, bedId: number): Promise<BedAssignment[]> {
+    const query = `
+      SELECT 
+        ba.*,
+        p.first_name,
+        p.last_name,
+        p.patient_number
+      FROM bed_assignments ba
+      LEFT JOIN patients p ON ba.patient_id = p.id
+      WHERE ba.bed_id = $1
+      ORDER BY ba.admission_date DESC
+    `;
+
+    const result = await pool.query(query, [bedId]);
+    return result.rows;
   }
 }
+
+export default new BedAssignmentService();

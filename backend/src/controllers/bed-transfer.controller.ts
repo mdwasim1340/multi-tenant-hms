@@ -1,246 +1,293 @@
-import { Request, Response, NextFunction } from 'express';
-import { BedTransferService } from '../services/bed-transfer.service';
+/**
+ * Bed Transfer Controller
+ * HTTP request handlers for bed transfer endpoints
+ */
+
+import { Request, Response } from 'express';
+import bedTransferService from '../services/bed-transfer.service';
 import {
+  BedTransferSearchSchema,
   CreateBedTransferSchema,
-  CompleteBedTransferSchema,
+  UpdateBedTransferSchema,
+  CancelBedTransferSchema,
 } from '../validation/bed.validation';
-import { asyncHandler } from '../middleware/errorHandler';
-import { NotFoundError, ValidationError } from '../errors/AppError';
+import { InvalidTransferError } from '../types/bed';
 
 /**
- * BedTransferController
- * Handles all HTTP requests related to bed transfers
+ * GET /api/bed-transfers
+ * List bed transfers with filtering
  */
-export class BedTransferController {
-  private readonly service = new BedTransferService();
-
-  /**
-   * List all bed transfers with optional filtering
-   * GET /api/bed-transfers
-   */
-  listTransfers = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const tenantId = req.headers['x-tenant-id'] as string;
-
-      const {
-        page = '1',
-        limit = '10',
-        status,
-        patientId,
-      } = req.query;
-
-      const filters: any = {};
-      
-      if (status) {
-        filters.status = status as string;
-      }
-      
-      if (patientId) {
-        filters.patient_id = Number(patientId);
-      }
-
-      const result = await this.service.getTransfers(tenantId, {
-        page: Number(page),
-        limit: Number(limit),
-        ...filters,
+export const getBedTransfers = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    
+    // Validate query parameters
+    const params = BedTransferSearchSchema.parse(req.query);
+    
+    const result = await bedTransferService.getBedTransfers(tenantId, params);
+    
+    res.json(result);
+  } catch (error) {
+    if (error instanceof Error && error.name === 'ZodError') {
+      return res.status(400).json({
+        error: 'Validation error',
+        details: error,
       });
-
-      res.status(200).json({
-        success: true,
-        message: 'Bed transfers retrieved successfully',
-        data: result.transfers,
-        pagination: {
-          total: result.total,
-          page: Number(page),
-          limit: Number(limit),
-          totalPages: Math.ceil(result.total / Number(limit)),
-        },
-      });
-    } catch (error) {
-      next(error);
     }
-  });
+    
+    console.error('Get transfers error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch bed transfers',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
 
-  /**
-   * Create a new bed transfer request
-   * POST /api/bed-transfers
-   */
-  createTransfer = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const data = CreateBedTransferSchema.parse(req.body);
-      const tenantId = req.headers['x-tenant-id'] as string;
-      const userId = req.user?.id;
-
-      if (!userId) {
-        throw new ValidationError('User ID is required');
-      }
-
-      const transfer = await this.service.createBedTransfer(data, tenantId, userId);
-
-      res.status(201).json({
-        success: true,
-        message: 'Bed transfer request created successfully',
-        data: transfer,
-      });
-    } catch (error) {
-      next(error);
+/**
+ * GET /api/bed-transfers/:id
+ * Get bed transfer by ID
+ */
+export const getBedTransferById = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const transferId = parseInt(req.params.id);
+    
+    if (isNaN(transferId)) {
+      return res.status(400).json({ error: 'Invalid transfer ID' });
     }
-  });
-
-  /**
-   * Get bed transfer by ID
-   * GET /api/bed-transfers/:id
-   */
-  getTransferById = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const transferId = Number(req.params.id);
-      const tenantId = req.headers['x-tenant-id'] as string;
-
-      if (isNaN(transferId)) {
-        throw new ValidationError('Invalid transfer ID');
-      }
-
-      const transfer = await this.service.getBedTransferById(transferId, tenantId);
-
-      if (!transfer) {
-        throw new NotFoundError('Bed transfer not found');
-      }
-
-      res.status(200).json({
-        success: true,
-        message: 'Bed transfer retrieved successfully',
-        data: transfer,
-      });
-    } catch (error) {
-      next(error);
+    
+    const transfer = await bedTransferService.getBedTransferById(tenantId, transferId);
+    
+    res.json({ transfer });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('not found')) {
+      return res.status(404).json({ error: error.message });
     }
-  });
+    
+    console.error('Get transfer error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch bed transfer',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
 
-  /**
-   * Complete a bed transfer
-   * POST /api/bed-transfers/:id/complete
-   */
-  completeTransfer = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const transferId = Number(req.params.id);
-      const tenantId = req.headers['x-tenant-id'] as string;
-      const userId = req.user?.id;
-
-      if (isNaN(transferId)) {
-        throw new ValidationError('Invalid transfer ID');
-      }
-
-      if (!userId) {
-        throw new ValidationError('User ID is required');
-      }
-
-      const data = CompleteBedTransferSchema.parse(req.body);
-
-      const transfer = await this.service.completeBedTransfer(
-        transferId,
-        data,
-        tenantId,
-        userId
-      );
-
-      res.status(200).json({
-        success: true,
-        message: 'Bed transfer completed successfully',
-        data: transfer,
+/**
+ * POST /api/bed-transfers
+ * Create bed transfer
+ */
+export const createBedTransfer = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const userId = (req as any).user?.id;
+    
+    // Validate request body
+    const data = CreateBedTransferSchema.parse(req.body);
+    
+    const transfer = await bedTransferService.createBedTransfer(tenantId, data, userId);
+    
+    res.status(201).json({
+      message: 'Bed transfer initiated successfully',
+      transfer,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'ZodError') {
+      return res.status(400).json({
+        error: 'Validation error',
+        details: error,
       });
-    } catch (error) {
-      next(error);
     }
-  });
-
-  /**
-   * Cancel a bed transfer
-   * POST /api/bed-transfers/:id/cancel
-   */
-  cancelTransfer = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const transferId = Number(req.params.id);
-      const tenantId = req.headers['x-tenant-id'] as string;
-      const userId = req.user?.id;
-
-      if (isNaN(transferId)) {
-        throw new ValidationError('Invalid transfer ID');
-      }
-
-      if (!userId) {
-        throw new ValidationError('User ID is required');
-      }
-
-      const { cancellation_reason } = req.body;
-
-      if (!cancellation_reason) {
-        throw new ValidationError('Cancellation reason is required');
-      }
-
-      const transfer = await this.service.cancelBedTransfer(
-        transferId,
-        cancellation_reason,
-        tenantId,
-        userId
-      );
-
-      res.status(200).json({
-        success: true,
-        message: 'Bed transfer cancelled successfully',
-        data: transfer,
+    
+    if (error instanceof InvalidTransferError) {
+      return res.status(400).json({
+        error: error.message,
+        code: error.code,
       });
-    } catch (error) {
-      next(error);
     }
-  });
+    
+    console.error('Create transfer error:', error);
+    res.status(500).json({
+      error: 'Failed to create bed transfer',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
 
-  /**
-   * Get transfer history for a specific bed
-   * GET /api/bed-transfers/history/bed/:bedId
-   */
-  getTransferHistory = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const bedId = Number(req.params.bedId);
-      const tenantId = req.headers['x-tenant-id'] as string;
-
-      if (isNaN(bedId)) {
-        throw new ValidationError('Invalid bed ID');
-      }
-
-      const history = await this.service.getTransferHistory(bedId, tenantId);
-
-      res.status(200).json({
-        success: true,
-        message: 'Bed transfer history retrieved successfully',
-        data: history,
+/**
+ * PUT /api/bed-transfers/:id
+ * Update bed transfer
+ */
+export const updateBedTransfer = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const transferId = parseInt(req.params.id);
+    const userId = (req as any).user?.id;
+    
+    if (isNaN(transferId)) {
+      return res.status(400).json({ error: 'Invalid transfer ID' });
+    }
+    
+    // Validate request body
+    const data = UpdateBedTransferSchema.parse(req.body);
+    
+    const transfer = await bedTransferService.updateBedTransfer(
+      tenantId,
+      transferId,
+      data,
+      userId
+    );
+    
+    res.json({
+      message: 'Bed transfer updated successfully',
+      transfer,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'ZodError') {
+      return res.status(400).json({
+        error: 'Validation error',
+        details: error,
       });
-    } catch (error) {
-      next(error);
     }
-  });
-
-  /**
-   * Get transfer history for a specific patient
-   * GET /api/bed-transfers/history/patient/:patientId
-   */
-  getPatientTransferHistory = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const patientId = Number(req.params.patientId);
-      const tenantId = req.headers['x-tenant-id'] as string;
-
-      if (isNaN(patientId)) {
-        throw new ValidationError('Invalid patient ID');
-      }
-
-      const history = await this.service.getPatientTransferHistory(patientId, tenantId);
-
-      res.status(200).json({
-        success: true,
-        message: 'Patient transfer history retrieved successfully',
-        data: history,
+    
+    if (error instanceof InvalidTransferError) {
+      return res.status(400).json({
+        error: error.message,
+        code: error.code,
       });
-    } catch (error) {
-      next(error);
     }
-  });
-}
+    
+    if (error instanceof Error && error.message.includes('not found')) {
+      return res.status(404).json({ error: error.message });
+    }
+    
+    console.error('Update transfer error:', error);
+    res.status(500).json({
+      error: 'Failed to update bed transfer',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+/**
+ * POST /api/bed-transfers/:id/complete
+ * Complete bed transfer
+ */
+export const completeBedTransfer = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const transferId = parseInt(req.params.id);
+    const userId = (req as any).user?.id;
+    
+    if (isNaN(transferId)) {
+      return res.status(400).json({ error: 'Invalid transfer ID' });
+    }
+    
+    const transfer = await bedTransferService.completeBedTransfer(tenantId, transferId, userId);
+    
+    res.json({
+      message: 'Bed transfer completed successfully',
+      transfer,
+    });
+  } catch (error) {
+    if (error instanceof InvalidTransferError) {
+      return res.status(400).json({
+        error: error.message,
+        code: error.code,
+      });
+    }
+    
+    if (error instanceof Error && error.message.includes('not found')) {
+      return res.status(404).json({ error: error.message });
+    }
+    
+    console.error('Complete transfer error:', error);
+    res.status(500).json({
+      error: 'Failed to complete bed transfer',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+/**
+ * POST /api/bed-transfers/:id/cancel
+ * Cancel bed transfer
+ */
+export const cancelBedTransfer = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const transferId = parseInt(req.params.id);
+    const userId = (req as any).user?.id;
+    
+    if (isNaN(transferId)) {
+      return res.status(400).json({ error: 'Invalid transfer ID' });
+    }
+    
+    // Validate request body
+    const data = CancelBedTransferSchema.parse(req.body);
+    
+    const transfer = await bedTransferService.cancelBedTransfer(
+      tenantId,
+      transferId,
+      data.cancellation_reason,
+      userId
+    );
+    
+    res.json({
+      message: 'Bed transfer cancelled successfully',
+      transfer,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'ZodError') {
+      return res.status(400).json({
+        error: 'Validation error',
+        details: error,
+      });
+    }
+    
+    if (error instanceof InvalidTransferError) {
+      return res.status(400).json({
+        error: error.message,
+        code: error.code,
+      });
+    }
+    
+    if (error instanceof Error && error.message.includes('not found')) {
+      return res.status(404).json({ error: error.message });
+    }
+    
+    console.error('Cancel transfer error:', error);
+    res.status(500).json({
+      error: 'Failed to cancel bed transfer',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+/**
+ * GET /api/bed-transfers/patient/:patientId/history
+ * Get patient transfer history
+ */
+export const getPatientTransferHistory = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const patientId = parseInt(req.params.patientId);
+    
+    if (isNaN(patientId)) {
+      return res.status(400).json({ error: 'Invalid patient ID' });
+    }
+    
+    const history = await bedTransferService.getPatientTransferHistory(tenantId, patientId);
+    
+    res.json({
+      patient_id: patientId,
+      history,
+      count: history.length,
+    });
+  } catch (error) {
+    console.error('Get patient transfer history error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch patient transfer history',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
