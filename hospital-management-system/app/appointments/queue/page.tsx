@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Clock, AlertCircle, CheckCircle, Zap, Loader2, User, Calendar } from "lucide-react"
 import { getAppointments, confirmAppointment, completeAppointment, rescheduleAppointment, adjustWaitTime, cancelAppointment, type Appointment } from "@/lib/api/appointments"
 import { QueueActionMenu } from "@/components/appointments/QueueActionMenu"
+import { WaitTimeDisplay } from "@/components/appointments/WaitTimeDisplay"
 import { format, parseISO } from "date-fns"
 
 interface QueueAppointment extends Appointment {
@@ -132,25 +133,6 @@ export default function AppointmentQueue() {
         return "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-200"
       default:
         return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const calculateWaitTime = (appointmentDate: string, waitTimeAdjustment?: number) => {
-    const now = new Date()
-    const apptTime = parseISO(appointmentDate)
-    let diffMinutes = Math.floor((now.getTime() - apptTime.getTime()) / (1000 * 60))
-    
-    // Apply wait time adjustment if present
-    if (waitTimeAdjustment) {
-      diffMinutes += waitTimeAdjustment
-    }
-
-    if (diffMinutes < 0) {
-      return `In ${Math.abs(diffMinutes)} min`
-    } else if (diffMinutes === 0) {
-      return "Now"
-    } else {
-      return `${diffMinutes} min ago`
     }
   }
 
@@ -289,8 +271,11 @@ export default function AppointmentQueue() {
                                 </p>
                               </div>
                               <div>
-                                <p className="text-xs text-muted-foreground">Wait Time</p>
-                                <p className="font-semibold text-foreground">{calculateWaitTime(item.appointment_date, item.wait_time_adjustment)}</p>
+                                <p className="text-xs text-muted-foreground mb-1">Wait Time</p>
+                                <WaitTimeDisplay 
+                                  appointmentDate={item.appointment_date}
+                                  waitTimeAdjustment={item.wait_time_adjustment}
+                                />
                               </div>
                               <div>
                                 <p className="text-xs text-muted-foreground">Duration</p>
@@ -481,8 +466,11 @@ export default function AppointmentQueue() {
                                   </p>
                                 </div>
                                 <div>
-                                  <p className="text-xs text-muted-foreground">Wait Time</p>
-                                  <p className="font-semibold text-foreground">{calculateWaitTime(item.appointment_date, item.wait_time_adjustment)}</p>
+                                  <p className="text-xs text-muted-foreground mb-1">Wait Time</p>
+                                  <WaitTimeDisplay 
+                                    appointmentDate={item.appointment_date}
+                                    waitTimeAdjustment={item.wait_time_adjustment}
+                                  />
                                 </div>
                                 <div>
                                   <p className="text-xs text-muted-foreground">Duration</p>
