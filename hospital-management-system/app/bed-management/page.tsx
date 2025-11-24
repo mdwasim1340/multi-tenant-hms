@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +13,7 @@ import { Plus, Search, AlertCircle, Activity, ChevronRight, Bed, Users, Clock, M
 import { useDepartments, useBedOccupancy, useBeds, useBedAssignments } from "@/hooks/use-bed-management"
 
 export default function BedManagement() {
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("overview")
@@ -287,7 +289,11 @@ export default function BedManagement() {
                               </div>
                             </div>
 
-                            <Button variant="outline" className="w-full bg-transparent">
+                            <Button 
+                              variant="outline" 
+                              className="w-full bg-transparent"
+                              onClick={() => router.push(`/bed-management/department/${encodeURIComponent(dept.name)}`)}
+                            >
                               View Details
                               <ChevronRight className="w-4 h-4 ml-2" />
                             </Button>

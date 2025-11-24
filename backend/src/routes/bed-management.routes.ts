@@ -3,8 +3,11 @@ import * as bedController from '../controllers/bed.controller';
 import * as assignmentController from '../controllers/bed-assignment.controller';
 import * as transferController from '../controllers/bed-transfer.controller';
 import * as departmentController from '../controllers/department.controller';
+import { BedCategoriesController } from '../controllers/bed-categories.controller';
+import pool from '../database';
 
 const router = express.Router();
+const bedCategoriesController = new BedCategoriesController(pool);
 
 // ==========================================
 // ALL SPECIFIC ROUTES MUST COME BEFORE PARAMETERIZED ROUTES
@@ -33,6 +36,14 @@ router.post('/departments', departmentController.createDepartment);
 router.get('/departments/:id', departmentController.getDepartmentById);
 router.put('/departments/:id', departmentController.updateDepartment);
 router.get('/departments/:id/stats', departmentController.getDepartmentStats);
+
+// Bed Categories Routes - /api/beds/categories
+router.get('/categories', bedCategoriesController.getCategories.bind(bedCategoriesController));
+router.post('/categories', bedCategoriesController.createCategory.bind(bedCategoriesController));
+router.get('/categories/:id', bedCategoriesController.getCategoryById.bind(bedCategoriesController));
+router.put('/categories/:id', bedCategoriesController.updateCategory.bind(bedCategoriesController));
+router.delete('/categories/:id', bedCategoriesController.deleteCategory.bind(bedCategoriesController));
+router.get('/categories/:id/beds', bedCategoriesController.getBedsByCategory.bind(bedCategoriesController));
 
 // Bed Routes - Specific routes first
 router.get('/', bedController.getBeds);
