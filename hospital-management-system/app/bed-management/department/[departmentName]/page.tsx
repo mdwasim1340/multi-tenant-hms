@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Cookies from "js-cookie"
-import { useDepartmentBeds, useDepartmentStats } from "@/hooks/use-bed-management"
+import { useBeds, useDepartmentStats } from "@/hooks/use-bed-management"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -64,10 +64,13 @@ import {
 } from "@/components/bed-management"
 import { useBedCategories } from "@/hooks/use-bed-categories"
 
-interface Bed {
-  id: string
-  bedNumber: string
-  status: 'Occupied' | 'Available' | 'Maintenance' | 'Under Cleaning' | 'Reserved'
+// Import Bed type from API
+import { Bed as ApiBed } from "@/lib/api/beds"
+
+// Extend API Bed type with frontend-specific fields
+interface Bed extends Omit<ApiBed, 'id'> {
+  id: string | number  // Allow both string and number
+  bedNumber?: string
   patientName?: string
   patientId?: string
   admissionDate?: string
@@ -75,24 +78,17 @@ interface Bed {
   condition?: 'Critical' | 'Stable' | 'Fair' | 'Good'
   assignedNurse?: string
   assignedDoctor?: string
-  bedType: 'Standard' | 'ICU' | 'Isolation' | 'Pediatric' | 'Bariatric' | 'Maternity'
+  bedType?: string
   categoryId?: number | null
-  floor: string
-  wing: string
-  room: string
-  equipment: string[]
-  lastUpdated: string
+  floor?: string
+  wing?: string
+  room?: string
+  equipment?: string[]
+  lastUpdated?: string
 }
 
-interface DepartmentStats {
-  totalBeds: number
-  occupiedBeds: number
-  availableBeds: number
-  maintenanceBeds: number
-  occupancyRate: number
-  avgOccupancyTime: number
-  criticalPatients: number
-}
+// Use DepartmentStats from API directly
+import { DepartmentStats } from "@/lib/api/beds"
 
 export default function DepartmentBedDetails() {
   const params = useParams()
@@ -107,7 +103,7 @@ export default function DepartmentBedDetails() {
   const [categoryFilter, setCategoryFilter] = useState<number | "all">("all")
   const [sortBy, setSortBy] = useState("bedNumber")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
-  const [selectedBeds, setSelectedBeds] = useState<string[]>([])
+  const [selectedBeds, setSelectedBeds] = useState<(string | number)[]>([])
   const [showBedDetail, setShowBedDetail] = useState(false)
   const [showTransfer, setShowTransfer] = useState(false)
   const [showAddBed, setShowAddBed] = useState(false)
@@ -118,8 +114,25 @@ export default function DepartmentBedDetails() {
   const [activeTab, setActiveTab] = useState("beds")
 
   // Use real API hooks
-  const { beds, loading: bedsLoading, error: bedsError, refetch: refetchBeds } = useDepartmentBeds(departmentName)
-  const { stats: departmentStats, loading: statsLoading, error: statsError, refetch: refetchStats } = useDepartmentStats(departmentName)
+  // Map department name to department ID
+  const departmentIdMap: { [key: string]: number } = {
+    'cardiology': 3,
+    'orthopedics': 4,
+    'neurology': 7,
+    'pediatrics': 5,
+    'icu': 2,
+    'emergency': 1,
+    'maternity': 6,
+    'oncology': 8,
+    'surgery': 9,
+    'general': 10
+  }
+  const departmentId = departmentIdMap[departmentName.toLowerCase()] || null
+  
+  const { beds, loading: bedsLoading, error: bedsError, refetch: refetchBeds } = useBeds(
+    departmentId ? { department_id: departmentId } : undefined
+  )
+  const { stats: departmentStats, loading: statsLoading, error: statsError, refetch: refetchStats } = useDepartmentStats(departmentId)
   const { categories, loading: categoriesLoading, error: categoriesError } = useBedCategories()
 
   // Auto-refresh every 30 seconds
@@ -169,20 +182,25 @@ export default function DepartmentBedDetails() {
     }
   }
 
-  const filteredBeds = (beds || []).filter((bed) => {
+  const filteredBeds = (beds || []).filter((bed: Bed) => {
     const matchesSearch = 
       bed.bedNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      bed.bed_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       bed.patientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       bed.patientId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       false
     
-    const matchesStatus = statusFilter === "all" || bed.status === statusFilter
-    const matchesFloor = floorFilter === "all" || bed.floor === floorFilter
-    const matchesBedType = bedTypeFilter === "all" || bed.bedType === bedTypeFilter
+    // Normalize status for comparison (API uses lowercase)
+    const normalizedBedStatus = bed.status?.toLowerCase()
+    const normalizedFilterStatus = statusFilter.toLowerCase()
+    const matchesStatus = statusFilter === "all" || normalizedBedStatus === normalizedFilterStatus
+    
+    const matchesFloor = floorFilter === "all" || String(bed.floor_number) === floorFilter || bed.floor === floorFilter
+    const matchesBedType = bedTypeFilter === "all" || bed.bed_type === bedTypeFilter || bed.bedType === bedTypeFilter
     const matchesCategory = categoryFilter === "all" || bed.categoryId === categoryFilter
     
     return matchesSearch && matchesStatus && matchesFloor && matchesBedType && matchesCategory
-  }).sort((a, b) => {
+  }).sort((a: Bed, b: Bed) => {
     let aValue: any = a[sortBy as keyof Bed]
     let bValue: any = b[sortBy as keyof Bed]
     
@@ -203,7 +221,7 @@ export default function DepartmentBedDetails() {
         setShowBedDetail(true)
         break
       case 'transfer':
-        if (bed.status === 'Occupied') {
+        if (bed.status?.toLowerCase() === 'occupied') {
           setShowTransfer(true)
         }
         break
@@ -211,7 +229,7 @@ export default function DepartmentBedDetails() {
         setShowUpdateBed(true)
         break
       case 'discharge':
-        if (bed.status === 'Occupied') {
+        if (bed.status?.toLowerCase() === 'occupied') {
           setShowDischarge(true)
         }
         break
@@ -340,7 +358,7 @@ export default function DepartmentBedDetails() {
                       {statsLoading ? (
                         <div className="h-8 w-16 bg-muted animate-pulse rounded mt-2" />
                       ) : (
-                        <p className="text-2xl font-bold text-foreground mt-2">{departmentStats?.totalBeds || 0}</p>
+                        <p className="text-2xl font-bold text-foreground mt-2">{departmentStats?.total_beds || 0}</p>
                       )}
                     </div>
                     <div className="w-12 h-12 rounded-lg bg-blue-50 dark:bg-blue-950 flex items-center justify-center">
@@ -359,8 +377,8 @@ export default function DepartmentBedDetails() {
                         <div className="h-8 w-16 bg-muted animate-pulse rounded mt-2" />
                       ) : (
                         <>
-                          <p className="text-2xl font-bold text-foreground mt-2">{departmentStats?.occupiedBeds || 0}</p>
-                          <p className="text-xs text-red-600 dark:text-red-400 mt-2">{departmentStats?.occupancyRate || 0}%</p>
+                          <p className="text-2xl font-bold text-foreground mt-2">{departmentStats?.occupied_beds || 0}</p>
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-2">{departmentStats?.occupancy_rate || 0}%</p>
                         </>
                       )}
                     </div>
@@ -379,7 +397,7 @@ export default function DepartmentBedDetails() {
                       {statsLoading ? (
                         <div className="h-8 w-16 bg-muted animate-pulse rounded mt-2" />
                       ) : (
-                        <p className="text-2xl font-bold text-foreground mt-2">{departmentStats?.availableBeds || 0}</p>
+                        <p className="text-2xl font-bold text-foreground mt-2">{departmentStats?.available_beds || 0}</p>
                       )}
                     </div>
                     <div className="w-12 h-12 rounded-lg bg-green-50 dark:bg-green-950 flex items-center justify-center">
@@ -393,11 +411,11 @@ export default function DepartmentBedDetails() {
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">Avg Occupancy Time</p>
+                      <p className="text-sm text-muted-foreground">Maintenance Beds</p>
                       {statsLoading ? (
                         <div className="h-8 w-20 bg-muted animate-pulse rounded mt-2" />
                       ) : (
-                        <p className="text-2xl font-bold text-foreground mt-2">{departmentStats?.avgOccupancyTime || 0} days</p>
+                        <p className="text-2xl font-bold text-foreground mt-2">{departmentStats?.maintenance_beds || 0}</p>
                       )}
                     </div>
                     <div className="w-12 h-12 rounded-lg bg-purple-50 dark:bg-purple-950 flex items-center justify-center">
@@ -597,7 +615,7 @@ export default function DepartmentBedDetails() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredBeds.map((bed) => (
+                        filteredBeds.map((bed: Bed) => (
                         <TableRow key={bed.id} className="hover:bg-muted/50">
                           <TableCell>
                             <Checkbox
@@ -690,7 +708,8 @@ export default function DepartmentBedDetails() {
                             </div>
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
-                            {new Date(bed.lastUpdated).toLocaleString()}
+                            {bed.lastUpdated ? new Date(bed.lastUpdated).toLocaleString() : 
+                             bed.updated_at ? new Date(bed.updated_at).toLocaleString() : '-'}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
@@ -702,7 +721,7 @@ export default function DepartmentBedDetails() {
                               >
                                 <Eye className="w-4 h-4" />
                               </Button>
-                              {bed.status === 'Occupied' && (
+                              {bed.status?.toLowerCase() === 'occupied' && (
                                 <>
                                   <Button
                                     variant="ghost"
@@ -770,11 +789,11 @@ export default function DepartmentBedDetails() {
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {categories.map((category) => {
+                        {categories.map((category: any) => {
                           // Filter beds in this department that belong to this category using backend categoryId
-                          const categoryBeds = (beds || []).filter(bed => bed.categoryId === category.id)
-                          const availableBeds = categoryBeds.filter(bed => bed.status === 'Available').length
-                          const occupiedBeds = categoryBeds.filter(bed => bed.status === 'Occupied').length
+                          const categoryBeds = (beds || []).filter((bed: Bed) => bed.categoryId === category.id)
+                          const availableBeds = categoryBeds.filter((bed: Bed) => bed.status?.toLowerCase() === 'available').length
+                          const occupiedBeds = categoryBeds.filter((bed: Bed) => bed.status?.toLowerCase() === 'occupied').length
 
                           const getIconEmoji = (iconName: string) => {
                             const iconMap: { [key: string]: string } = {
@@ -914,7 +933,7 @@ export default function DepartmentBedDetails() {
       {/* Modals */}
       {showBedDetail && selectedBed && (
         <BedDetailModal
-          bed={selectedBed}
+          bed={selectedBed as any}
           isOpen={showBedDetail}
           onClose={() => setShowBedDetail(false)}
         />
@@ -922,7 +941,7 @@ export default function DepartmentBedDetails() {
 
       {showTransfer && selectedBed && (
         <TransferModal
-          bed={selectedBed}
+          bed={selectedBed as any}
           isOpen={showTransfer}
           onClose={() => setShowTransfer(false)}
           onTransfer={async (transferData: any) => {
@@ -1069,7 +1088,7 @@ export default function DepartmentBedDetails() {
 
       {showUpdateBed && selectedBed && (
         <UpdateBedModal
-          bed={selectedBed}
+          bed={selectedBed as any}
           isOpen={showUpdateBed}
           onClose={() => setShowUpdateBed(false)}
           onUpdate={async (bedData: any) => {
@@ -1089,7 +1108,7 @@ export default function DepartmentBedDetails() {
 
       {showDischarge && selectedBed && (
         <DischargeModal
-          bed={selectedBed}
+          bed={selectedBed as any}
           isOpen={showDischarge}
           onClose={() => setShowDischarge(false)}
           onDischarge={async (dischargeData: any) => {
