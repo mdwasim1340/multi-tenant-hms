@@ -39,7 +39,7 @@ router.get('/assignments/bed/:bedId', assignmentController.getBedHistory.bind(as
 router.get('/transfers', transferController.listTransfers.bind(transferController));
 router.post('/transfers', transferController.createTransfer.bind(transferController));
 router.get('/transfers/:id', transferController.getTransferById.bind(transferController));
-router.put('/transfers/:id', transferController.updateTransfer.bind(transferController));
+// router.put('/transfers/:id', transferController.updateTransfer.bind(transferController)); // TODO: Implement updateTransfer method
 router.post('/transfers/:id/complete', transferController.completeTransfer.bind(transferController));
 router.post('/transfers/:id/cancel', transferController.cancelTransfer.bind(transferController));
 router.get('/transfers/patient/:patientId/history', transferController.getPatientTransferHistory.bind(transferController));

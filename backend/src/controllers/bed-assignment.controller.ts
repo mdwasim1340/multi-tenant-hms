@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { BedAssignmentService } from '../services/bed-assignment.service';
 import { CreateBedAssignmentSchema, UpdateBedAssignmentSchema, DischargeBedAssignmentSchema } from '../validation/bed.validation';
+import pool from '../database';
 
 export class BedAssignmentController {
-  private readonly service = new BedAssignmentService();
+  private readonly service = new BedAssignmentService(pool);
 
   async listAssignments(req: Request, res: Response, next: NextFunction) {
     try {
@@ -20,7 +21,7 @@ export class BedAssignmentController {
     try {
       const data = CreateBedAssignmentSchema.parse(req.body);
       const tenantId = req.headers['x-tenant-id'] as string;
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
       // TODO: call service.createBedAssignment(data, tenantId, userId)
       res.status(201).json({ /* assignment */ });
     } catch (error) {
@@ -44,7 +45,7 @@ export class BedAssignmentController {
       const data = UpdateBedAssignmentSchema.parse(req.body);
       const assignmentId = Number(req.params.id);
       const tenantId = req.headers['x-tenant-id'] as string;
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
       // TODO: call service.updateBedAssignment(assignmentId, data, tenantId, userId)
       res.json({ /* assignment */ });
     } catch (error) {
@@ -57,7 +58,7 @@ export class BedAssignmentController {
       const data = DischargeBedAssignmentSchema.parse(req.body);
       const assignmentId = Number(req.params.id);
       const tenantId = req.headers['x-tenant-id'] as string;
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
       // TODO: call service.dischargeBedAssignment(assignmentId, data, tenantId, userId)
       res.json({ /* assignment */ });
     } catch (error) {
@@ -87,3 +88,4 @@ export class BedAssignmentController {
     }
   }
 }
+

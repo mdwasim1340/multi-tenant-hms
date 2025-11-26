@@ -7,13 +7,14 @@ import {
 } from '../validation/bed.validation';
 import { asyncHandler } from '../middleware/errorHandler';
 import { NotFoundError, ValidationError } from '../errors/AppError';
+import pool from '../database';
 
 /**
  * BedController
  * Handles all HTTP requests related to bed management
  */
 export class BedController {
-  private readonly service = new BedService();
+  private readonly service = new BedService(pool);
 
   /**
    * List all beds with optional filtering and pagination
@@ -31,13 +32,13 @@ export class BedController {
         limit,
         search,
         status,
-        departmentId,
+        department_id,
       } = query;
 
       // Call service to get beds
       const result = await this.service.getBeds(
         tenantId,
-        { page, limit, search, status, departmentId }
+        { page, limit, search, status, department_id }
       );
 
       res.status(200).json({
@@ -48,7 +49,7 @@ export class BedController {
           total: result.total,
           page: result.page,
           limit: result.limit,
-          totalPages: result.totalPages,
+          totalPages: result.total_pages,
         },
       });
     } catch (error) {
@@ -64,7 +65,7 @@ export class BedController {
     try {
       const data = CreateBedSchema.parse(req.body);
       const tenantId = req.headers['x-tenant-id'] as string;
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
 
       if (!userId) {
         throw new ValidationError('User ID is required');
@@ -119,7 +120,7 @@ export class BedController {
     try {
       const bedId = Number(req.params.id);
       const tenantId = req.headers['x-tenant-id'] as string;
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
 
       if (isNaN(bedId)) {
         throw new ValidationError('Invalid bed ID');
@@ -156,7 +157,8 @@ export class BedController {
         throw new ValidationError('Invalid bed ID');
       }
 
-      await this.service.deleteBed(bedId, tenantId);
+      const userId = (req as any).user?.id || 0;
+      await this.service.deleteBed(bedId, tenantId, userId);
 
       res.status(200).json({
         success: true,
@@ -178,7 +180,8 @@ export class BedController {
         ? Number(req.query.departmentId) 
         : undefined;
 
-      const occupancy = await this.service.getBedOccupancy(tenantId, departmentId);
+      const filters = departmentId ? { department_id: departmentId } : undefined;
+      const occupancy = await this.service.getBedOccupancy(tenantId, filters);
 
       res.status(200).json({
         success: true,
@@ -213,7 +216,7 @@ export class BedController {
         criteria.features = (features as string).split(',');
       }
 
-      const availability = await this.service.checkBedAvailability(tenantId, criteria);
+      const availability = await this.service.checkBedAvailability(criteria, tenantId);
 
       res.status(200).json({
         success: true,
@@ -225,3 +228,5 @@ export class BedController {
     }
   });
 }
+
+

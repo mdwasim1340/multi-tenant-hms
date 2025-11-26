@@ -24,6 +24,44 @@ export class BedTransferService {
     this.pool = pool;
   }
 
+  async listTransfers(tenantId: string, params: any): Promise<{ transfers: BedTransfer[]; total: number }> {
+    const client = await this.pool.connect();
+    try {
+      await client.query(`SET search_path TO "${tenantId}"`);
+      const { page = 1, limit = 10, status, patient_id } = params;
+      const offset = (page - 1) * limit;
+      
+      let query = 'SELECT * FROM bed_transfers WHERE 1=1';
+      const values: any[] = [];
+      let paramIndex = 1;
+      
+      if (status) {
+        query += ` AND status = $${paramIndex}`;
+        values.push(status);
+        paramIndex++;
+      }
+      
+      if (patient_id) {
+        query += ` AND patient_id = $${paramIndex}`;
+        values.push(patient_id);
+        paramIndex++;
+      }
+      
+      query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      values.push(limit, offset);
+      
+      const result = await client.query(query, values);
+      const countResult = await client.query('SELECT COUNT(*) FROM bed_transfers WHERE 1=1');
+      
+      return {
+        transfers: result.rows,
+        total: parseInt(countResult.rows[0].count)
+      };
+    } finally {
+      client.release();
+    }
+  }
+
   async createBedTransfer(data: CreateBedTransferData, tenantId: string, userId: number): Promise<BedTransfer> {
     const validated = CreateBedTransferSchema.parse(data);
     const client = await this.pool.connect();

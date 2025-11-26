@@ -236,7 +236,7 @@ export class BedService {
       if (updateData.status && updateData.status !== existingBed.status) {
         await this.validateStatusTransition(
           existingBed.status,
-          updateData.status,
+          updateData.status as string,
           bedId,
           tenantId,
           client

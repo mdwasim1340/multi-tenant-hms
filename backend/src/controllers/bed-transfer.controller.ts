@@ -6,13 +6,14 @@ import {
 } from '../validation/bed.validation';
 import { asyncHandler } from '../middleware/errorHandler';
 import { NotFoundError, ValidationError } from '../errors/AppError';
+import pool from '../database';
 
 /**
  * BedTransferController
  * Handles all HTTP requests related to bed transfers
  */
 export class BedTransferController {
-  private readonly service = new BedTransferService();
+  private readonly service = new BedTransferService(pool);
 
   /**
    * List all bed transfers with optional filtering
@@ -39,7 +40,7 @@ export class BedTransferController {
         filters.patient_id = Number(patientId);
       }
 
-      const result = await this.service.getTransfers(tenantId, {
+      const result = await this.service.listTransfers(tenantId, {
         page: Number(page),
         limit: Number(limit),
         ...filters,
@@ -69,7 +70,7 @@ export class BedTransferController {
     try {
       const data = CreateBedTransferSchema.parse(req.body);
       const tenantId = req.headers['x-tenant-id'] as string;
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
 
       if (!userId) {
         throw new ValidationError('User ID is required');
@@ -124,7 +125,7 @@ export class BedTransferController {
     try {
       const transferId = Number(req.params.id);
       const tenantId = req.headers['x-tenant-id'] as string;
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
 
       if (isNaN(transferId)) {
         throw new ValidationError('Invalid transfer ID');
@@ -161,7 +162,7 @@ export class BedTransferController {
     try {
       const transferId = Number(req.params.id);
       const tenantId = req.headers['x-tenant-id'] as string;
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
 
       if (isNaN(transferId)) {
         throw new ValidationError('Invalid transfer ID');
@@ -232,7 +233,7 @@ export class BedTransferController {
         throw new ValidationError('Invalid patient ID');
       }
 
-      const history = await this.service.getPatientTransferHistory(patientId, tenantId);
+      const history = await this.service.getTransferHistory(patientId, tenantId);
 
       res.status(200).json({
         success: true,
@@ -244,3 +245,5 @@ export class BedTransferController {
     }
   });
 }
+
+

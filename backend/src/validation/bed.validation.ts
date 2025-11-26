@@ -69,8 +69,8 @@ export const BedSearchSchema = z.object({
   room_number: z.string().optional(),
   is_active: z.string().transform((val) => val === 'true').optional(),
   search: z.string().optional(),
-  page: z.string().transform(Number).default('1'),
-  limit: z.string().transform(Number).default('10'),
+  page: z.string().transform(Number).optional().default(1),
+  limit: z.string().transform(Number).optional().default(10),
   sort_by: z.string().optional(),
   sort_order: z.enum(['asc', 'desc']).optional(),
 });

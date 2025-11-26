@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { DepartmentService } from '../services/department.service';
 import { CreateDepartmentSchema, UpdateDepartmentSchema } from '../validation/bed.validation';
+import pool from '../database';
 
 export class DepartmentController {
-  private readonly service = new DepartmentService();
+  private readonly service = new DepartmentService(pool);
 
   async listDepartments(req: Request, res: Response, next: NextFunction) {
     try {
@@ -19,7 +20,7 @@ export class DepartmentController {
     try {
       const data = CreateDepartmentSchema.parse(req.body);
       const tenantId = req.headers['x-tenant-id'] as string;
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
       // TODO: this.service.createDepartment(data, tenantId, userId)
       res.status(201).json({ /* department */ });
     } catch (error) {
@@ -43,7 +44,7 @@ export class DepartmentController {
       const data = UpdateDepartmentSchema.parse(req.body);
       const departmentId = Number(req.params.id);
       const tenantId = req.headers['x-tenant-id'] as string;
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
       // TODO: this.service.updateDepartment(departmentId, data, tenantId, userId)
       res.json({ /* department */ });
     } catch (error) {
@@ -62,3 +63,5 @@ export class DepartmentController {
     }
   }
 }
+
+
