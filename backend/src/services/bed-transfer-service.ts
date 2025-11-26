@@ -299,15 +299,13 @@ export class BedTransferService {
       to_bed_id: row.to_bed_id,
       from_department_id: row.from_department_id,
       to_department_id: row.to_department_id,
-      transfer_date: new Date(row.transfer_date),
-      completion_date: row.completion_date ? new Date(row.completion_date) : undefined,
-      reason: row.reason,
+      transfer_date: row.transfer_date,
+      transfer_reason: row.transfer_reason || row.reason,
+      completion_date: row.completion_date,
       status: row.status,
       notes: row.notes,
-      created_at: new Date(row.created_at),
-      updated_at: new Date(row.updated_at),
-      created_by: row.created_by,
-      updated_by: row.updated_by,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
     };
   }
 }

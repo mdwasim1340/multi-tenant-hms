@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import { z } from 'zod';
-import bedStatusTracker from '../services/bed-status-tracker';
+import { BedStatusTracker } from '../services/bed-status-tracker';
+
+const bedStatusTracker = new BedStatusTracker();
 import { authMiddleware } from '../middleware/auth';
 import { tenantMiddleware } from '../middleware/tenant';
 
@@ -84,7 +86,7 @@ router.put('/status/:bedId', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Invalid request data',
-        details: error.errors
+        details: error.issues
       });
     }
 
@@ -109,8 +111,8 @@ router.get('/cleaning-priority', async (req: Request, res: Response) => {
       success: true,
       beds: prioritizedBeds,
       count: prioritizedBeds.length,
-      stat_count: prioritizedBeds.filter(b => b.cleaning_priority === 'stat').length,
-      overdue_count: prioritizedBeds.filter(b => b.is_overdue).length
+      stat_count: prioritizedBeds.filter((b: any) => b.cleaning_priority === 'stat').length,
+      overdue_count: prioritizedBeds.filter((b: any) => b.is_overdue).length
     });
   } catch (error: any) {
     console.error('Error fetching cleaning priorities:', error);
@@ -182,7 +184,7 @@ router.post('/alert-housekeeping', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Invalid request data',
-        details: error.errors
+        details: error.issues
       });
     }
 

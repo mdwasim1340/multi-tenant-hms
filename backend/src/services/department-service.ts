@@ -58,13 +58,7 @@ export class DepartmentService {
     );
 
     return {
-      departments: deptResult.rows.map(row => this.formatDepartment(row)),
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
+      departments: deptResult.rows.map(row => this.formatDepartment(row))
     };
   }
 
@@ -250,16 +244,19 @@ export class DepartmentService {
     const recentDischarges = parseInt(dischargesResult.rows[0].count) || 0;
 
     return {
-      department_id: dept.id,
-      department_name: dept.name,
-      total_beds: totalBeds,
-      occupied_beds: occupiedBeds,
-      available_beds: parseInt(bedStats.available_beds) || 0,
-      maintenance_beds: parseInt(bedStats.maintenance_beds) || 0,
-      occupancy_rate: totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0,
-      average_stay_days: Math.round(avgStay * 10) / 10,
-      recent_admissions: recentAdmissions,
-      recent_discharges: recentDischarges,
+      department: dept,
+      occupancy: {
+        total_beds: totalBeds,
+        occupied_beds: occupiedBeds,
+        available_beds: parseInt(bedStats.available_beds) || 0,
+        maintenance_beds: parseInt(bedStats.maintenance_beds) || 0,
+        cleaning_beds: 0,
+        reserved_beds: 0,
+        occupancy_rate: totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0,
+        availability_rate: totalBeds > 0 ? ((totalBeds - occupiedBeds) / totalBeds) * 100 : 0,
+      },
+      recent_assignments: [],
+      recent_transfers: [],
     };
   }
 
@@ -277,8 +274,8 @@ export class DepartmentService {
       total_bed_capacity: row.total_bed_capacity,
       active_bed_count: row.active_bed_count,
       status: row.status,
-      created_at: new Date(row.created_at),
-      updated_at: new Date(row.updated_at),
+      created_at: row.created_at,
+      updated_at: row.updated_at,
       created_by: row.created_by,
       updated_by: row.updated_by,
     };

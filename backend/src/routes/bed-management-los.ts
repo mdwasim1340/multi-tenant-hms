@@ -54,7 +54,7 @@ router.post('/predict-los', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
-        details: error.errors,
+        details: error.issues,
       });
     }
 

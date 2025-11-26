@@ -32,10 +32,7 @@ router.get('/discharge-readiness/:patientId', async (req: Request, res: Response
     }
 
     // Check if feature is enabled
-    const featureEnabled = await aiFeatureManager.isFeatureEnabled(
-      tenantId,
-      'discharge_readiness'
-    );
+    const featureEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'discharge_readiness' as any);
 
     if (!featureEnabled) {
       return res.status(403).json({
@@ -78,10 +75,7 @@ router.get('/discharge-ready-patients', async (req: Request, res: Response) => {
     }
 
     // Check if feature is enabled
-    const featureEnabled = await aiFeatureManager.isFeatureEnabled(
-      tenantId,
-      'discharge_readiness'
-    );
+    const featureEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'discharge_readiness' as any);
 
     if (!featureEnabled) {
       return res.status(403).json({
@@ -135,10 +129,7 @@ router.post('/discharge-barriers/:admissionId', async (req: Request, res: Respon
     }
 
     // Check if feature is enabled
-    const featureEnabled = await aiFeatureManager.isFeatureEnabled(
-      tenantId,
-      'discharge_readiness'
-    );
+    const featureEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'discharge_readiness' as any);
 
     if (!featureEnabled) {
       return res.status(403).json({
@@ -183,10 +174,7 @@ router.get('/discharge-metrics', async (req: Request, res: Response) => {
     }
 
     // Check if feature is enabled
-    const featureEnabled = await aiFeatureManager.isFeatureEnabled(
-      tenantId,
-      'discharge_readiness'
-    );
+    const featureEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'discharge_readiness' as any);
 
     if (!featureEnabled) {
       return res.status(403).json({
@@ -239,10 +227,7 @@ router.post('/batch-discharge-predictions', async (req: Request, res: Response) 
     }
 
     // Check if feature is enabled
-    const featureEnabled = await aiFeatureManager.isFeatureEnabled(
-      tenantId,
-      'discharge_readiness'
-    );
+    const featureEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'discharge_readiness' as any);
 
     if (!featureEnabled) {
       return res.status(403).json({
@@ -290,3 +275,4 @@ router.post('/batch-discharge-predictions', async (req: Request, res: Response) 
 });
 
 export default router;
+

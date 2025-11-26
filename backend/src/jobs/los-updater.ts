@@ -3,7 +3,7 @@
  * Scheduled job to update LOS predictions daily for all active admissions
  */
 
-import cron from 'node-cron';
+import * as cron from 'node-cron';
 import pool from '../database';
 import { losPredictionService } from '../services/los-prediction-service';
 

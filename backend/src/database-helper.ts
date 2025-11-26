@@ -24,7 +24,10 @@ export async function queryWithTenant<T = any>(
     // Execute the actual query
     const result = await client.query(queryText, values);
     
-    return result;
+    return {
+      rows: result.rows,
+      rowCount: result.rowCount || 0
+    };
   } finally {
     // Always release the client back to the pool
     client.release();

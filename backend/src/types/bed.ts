@@ -195,8 +195,10 @@ export interface UpdateBedData {
 export interface CreateBedAssignmentData {
   bed_id: number;
   patient_id: number;
+  admission_date?: string;
   admission_type: AdmissionType;
   admission_reason?: string;
+  reason_for_assignment?: string;
   patient_condition?: PatientCondition;
   assigned_nurse_id?: number;
   assigned_doctor_id?: number;
@@ -205,6 +207,8 @@ export interface CreateBedAssignmentData {
 }
 
 export interface UpdateBedAssignmentData {
+  status?: AssignmentStatus;
+  discharge_date?: string;
   expected_discharge_date?: string;
   patient_condition?: PatientCondition;
   assigned_nurse_id?: number;
@@ -213,6 +217,7 @@ export interface UpdateBedAssignmentData {
 }
 
 export interface DischargeBedAssignmentData {
+  discharge_date?: string;
   discharge_reason: string;
   notes?: string;
 }
@@ -221,14 +226,29 @@ export interface CreateBedTransferData {
   patient_id: number;
   from_bed_id: number;
   to_bed_id: number;
+  transfer_date?: string;
   transfer_reason: string;
+  reason?: string;
   transfer_type?: TransferType;
   notes?: string;
 }
 
 export interface UpdateBedTransferData {
+  status?: TransferStatus;
+  completion_date?: string;
   transfer_reason?: string;
   transfer_type?: TransferType;
+  notes?: string;
+}
+
+export interface CompleteBedTransferData {
+  completion_date?: string;
+  notes?: string;
+}
+
+export interface CancelBedTransferData {
+  reason?: string;
+  cancellation_reason: string;
   notes?: string;
 }
 
@@ -385,6 +405,24 @@ export interface AvailableBedsQuery {
   floor_number?: number;
   required_features?: string[];
   exclude_bed_ids?: number[];
+}
+
+export interface BedAvailabilityResponse {
+  bed_id?: number;
+  bed_number?: string;
+  available_beds?: Bed[];
+  total_available?: number;
+  filters_applied?: AvailableBedsQuery;
+  [key: string]: any;
+}
+
+export interface AvailableBedsResponse {
+  beds?: Bed[];
+  available_beds?: any[];
+  total_available?: number;
+  department_id?: number;
+  department_name?: string;
+  count?: number;
 }
 
 // ==================

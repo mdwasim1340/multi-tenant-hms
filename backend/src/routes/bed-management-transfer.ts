@@ -27,10 +27,7 @@ router.get('/transfer-priorities', async (req: Request, res: Response) => {
     }
 
     // Check if feature is enabled
-    const featureEnabled = await aiFeatureManager.isFeatureEnabled(
-      tenantId,
-      'transfer_optimization'
-    );
+    const featureEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'transfer_optimization' as any);
 
     if (!featureEnabled) {
       return res.status(403).json({
@@ -77,10 +74,7 @@ router.post('/optimize-transfer', async (req: Request, res: Response) => {
     }
 
     // Check if feature is enabled
-    const featureEnabled = await aiFeatureManager.isFeatureEnabled(
-      tenantId,
-      'transfer_optimization'
-    );
+    const featureEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'transfer_optimization' as any);
 
     if (!featureEnabled) {
       return res.status(403).json({
@@ -124,10 +118,7 @@ router.get('/bed-availability/:unit', async (req: Request, res: Response) => {
     }
 
     // Check if feature is enabled
-    const featureEnabled = await aiFeatureManager.isFeatureEnabled(
-      tenantId,
-      'transfer_optimization'
-    );
+    const featureEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'transfer_optimization' as any);
 
     if (!featureEnabled) {
       return res.status(403).json({
@@ -176,10 +167,7 @@ router.post('/notify-transfer', async (req: Request, res: Response) => {
     }
 
     // Check if feature is enabled
-    const featureEnabled = await aiFeatureManager.isFeatureEnabled(
-      tenantId,
-      'transfer_optimization'
-    );
+    const featureEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'transfer_optimization' as any);
 
     if (!featureEnabled) {
       return res.status(403).json({
@@ -224,10 +212,7 @@ router.get('/transfer-metrics', async (req: Request, res: Response) => {
     }
 
     // Check if feature is enabled
-    const featureEnabled = await aiFeatureManager.isFeatureEnabled(
-      tenantId,
-      'transfer_optimization'
-    );
+    const featureEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'transfer_optimization' as any);
 
     if (!featureEnabled) {
       return res.status(403).json({
@@ -260,3 +245,4 @@ router.get('/transfer-metrics', async (req: Request, res: Response) => {
 });
 
 export default router;
+

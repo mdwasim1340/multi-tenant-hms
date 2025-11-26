@@ -39,7 +39,7 @@ router.get('/features', async (req: Request, res: Response) => {
 
     const featureStatuses = await Promise.all(
       features.map(async (feature) => {
-        const isEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, feature);
+        const isEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, feature as any);
         
         // Get feature metadata
         const result = await pool.query(`
@@ -134,7 +134,7 @@ router.post('/features/:feature/enable', async (req: Request, res: Response) => 
     }
 
     // Enable the feature
-    await aiFeatureManager.enableFeature(tenantId, feature, enabled_by);
+    await aiFeatureManager.enableFeature(tenantId, feature as any, enabled_by);
 
     // Update configuration if provided
     if (configuration) {
@@ -218,7 +218,7 @@ router.post('/features/:feature/disable', async (req: Request, res: Response) =>
     }
 
     // Disable the feature
-    await aiFeatureManager.disableFeature(tenantId, feature, disabled_by);
+    await aiFeatureManager.disableFeature(tenantId, feature as any, disabled_by);
 
     // Log the action in audit log
     await pool.query(`
@@ -340,7 +340,7 @@ router.get('/metrics/los-accuracy', async (req: Request, res: Response) => {
     }
 
     // Check if feature is enabled
-    const isEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'los_prediction');
+    const isEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'los_prediction' as any);
     if (!isEnabled) {
       return res.status(403).json({
         error: 'LOS prediction is not enabled for this tenant',
@@ -502,7 +502,7 @@ router.get('/metrics/ed-boarding', async (req: Request, res: Response) => {
     }
 
     // Check if feature is enabled
-    const isEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'transfer_optimization');
+    const isEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'transfer_optimization' as any);
     if (!isEnabled) {
       return res.status(403).json({
         error: 'Transfer optimization is not enabled for this tenant',
@@ -586,7 +586,7 @@ router.get('/metrics/capacity-forecast', async (req: Request, res: Response) => 
     }
 
     // Check if feature is enabled
-    const isEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'capacity_forecasting');
+    const isEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'capacity_forecasting' as any);
     if (!isEnabled) {
       return res.status(403).json({
         error: 'Capacity forecasting is not enabled for this tenant',

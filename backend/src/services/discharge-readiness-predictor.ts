@@ -1,4 +1,4 @@
-import { pool } from '../database';
+import pool from '../database';
 
 /**
  * Discharge Readiness Predictor Service
@@ -657,7 +657,7 @@ class DischargeReadinessPredictor {
         ORDER BY drp.overall_readiness_score DESC, drp.predicted_discharge_date ASC
       `, [minScore]);
 
-      return result.rows.map(row => ({
+      return result.rows.map((row: any) => ({
         patient_id: row.patient_id,
         admission_id: row.admission_id,
         medical_readiness_score: row.medical_readiness_score,
@@ -798,7 +798,7 @@ class DischargeReadinessPredictor {
       `, [startDate, endDate]);
 
       const barriersByCategory: Record<string, number> = {};
-      barriersResult.rows.forEach(row => {
+      barriersResult.rows.forEach((row: any) => {
         barriersByCategory[row.category] = parseInt(row.count);
       });
 

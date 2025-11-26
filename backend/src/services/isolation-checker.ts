@@ -197,9 +197,12 @@ export class IsolationChecker {
         unit_id: row.unit_id,
         unit_name: row.unit_name,
         isolation_type: row.isolation_type,
+        available_rooms: parseInt(row.available_count),
         available_count: parseInt(row.available_count),
         occupied_count: parseInt(row.occupied_count),
+        total_rooms: parseInt(row.total_count),
         total_count: parseInt(row.total_count),
+        availability_percentage: (parseInt(row.available_count) / parseInt(row.total_count)) * 100,
         utilization_rate: (parseInt(row.occupied_count) / parseInt(row.total_count)) * 100
       }));
     } finally {

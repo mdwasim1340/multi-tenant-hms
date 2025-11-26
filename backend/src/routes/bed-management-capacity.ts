@@ -37,10 +37,7 @@ router.get('/capacity-forecast/:unit', async (req: Request, res: Response) => {
     }
 
     // Check if feature is enabled
-    const featureEnabled = await aiFeatureManager.isFeatureEnabled(
-      tenantId,
-      'capacity_forecasting'
-    );
+    const featureEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'capacity_forecasting' as any);
 
     if (!featureEnabled) {
       return res.status(403).json({
@@ -91,10 +88,7 @@ router.get('/seasonal-patterns/:unit', async (req: Request, res: Response) => {
     }
 
     // Check if feature is enabled
-    const featureEnabled = await aiFeatureManager.isFeatureEnabled(
-      tenantId,
-      'capacity_forecasting'
-    );
+    const featureEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'capacity_forecasting' as any);
 
     if (!featureEnabled) {
       return res.status(403).json({
@@ -153,10 +147,7 @@ router.get('/staffing-recommendations/:unit', async (req: Request, res: Response
     }
 
     // Check if feature is enabled
-    const featureEnabled = await aiFeatureManager.isFeatureEnabled(
-      tenantId,
-      'capacity_forecasting'
-    );
+    const featureEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'capacity_forecasting' as any);
 
     if (!featureEnabled) {
       return res.status(403).json({
@@ -205,10 +196,7 @@ router.get('/surge-capacity/:unit', async (req: Request, res: Response) => {
     }
 
     // Check if feature is enabled
-    const featureEnabled = await aiFeatureManager.isFeatureEnabled(
-      tenantId,
-      'capacity_forecasting'
-    );
+    const featureEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'capacity_forecasting' as any);
 
     if (!featureEnabled) {
       return res.status(403).json({
@@ -252,10 +240,7 @@ router.get('/capacity-metrics', async (req: Request, res: Response) => {
     }
 
     // Check if feature is enabled
-    const featureEnabled = await aiFeatureManager.isFeatureEnabled(
-      tenantId,
-      'capacity_forecasting'
-    );
+    const featureEnabled = await aiFeatureManager.isFeatureEnabled(tenantId, 'capacity_forecasting' as any);
 
     if (!featureEnabled) {
       return res.status(403).json({
@@ -288,3 +273,4 @@ router.get('/capacity-metrics', async (req: Request, res: Response) => {
 });
 
 export default router;
+

@@ -63,15 +63,68 @@ export const LOSPredictionSchema = z.object({
 // ============================================================================
 // Bed Requirements and Recommendations
 // ============================================================================
+export type IsolationType = 'contact' | 'droplet' | 'airborne' | 'protective';
+
+export interface IsolationRequirement {
+  patient_id?: number;
+  type?: IsolationType | null;
+  isolation_type?: IsolationType | null;
+  required?: boolean;
+  isolation_required?: boolean;
+  reason?: string;
+  reasons?: string[];
+  checked_at?: Date;
+  requires_negative_pressure?: boolean;
+  requires_positive_pressure?: boolean;
+  requires_anteroom?: boolean;
+  ppe_requirements?: string[];
+}
+
+export interface IsolationRoomAvailability {
+  unit_id?: any;
+  unit_name?: any;
+  isolation_type: IsolationType;
+  available_rooms: number;
+  available_count?: number;
+  occupied_count?: number;
+  total_rooms: number;
+  total_count?: number;
+  availability_percentage: number;
+  utilization_rate?: number;
+}
+
 export interface BedRequirements {
   patient_id: number;
   isolation_required: boolean;
-  isolation_type?: 'contact' | 'droplet' | 'airborne';
+  isolation_type?: IsolationType;
   telemetry_required: boolean;
   oxygen_required: boolean;
   specialty_unit?: string;
   proximity_preference?: string;
   gender_preference?: string;
+}
+
+export interface BedFeatures {
+  isolation_capable: boolean;
+  isolation_type?: IsolationType;
+  telemetry: boolean;
+  telemetry_capable?: boolean;
+  oxygen: boolean;
+  oxygen_capable?: boolean;
+  oxygen_available?: boolean;
+  bariatric_capable?: boolean;
+  specialty_unit?: string;
+}
+
+export interface BedScore {
+  bed_id: number;
+  bed_number: string;
+  unit_name: string;
+  floor: number;
+  score: number;
+  reasons?: string[];
+  warnings?: string[];
+  features: BedFeatures;
 }
 
 export interface BedRecommendation {
@@ -400,7 +453,7 @@ export const AIFeatureManagementSchema = z.object({
   ]),
   enabled: z.boolean(),
   disabled_reason: z.string().optional(),
-  configuration: z.record(z.any()).optional(),
+  configuration: z.record(z.string(), z.any()).optional(),
 });
 
 // ============================================================================
@@ -457,30 +510,4 @@ export interface CapacityForecastResponse {
   current_utilization: number;
 }
 
-// ============================================================================
-// Export all types
-// ============================================================================
-export type {
-  PatientAdmission,
-  LOSPrediction,
-  BedRequirements,
-  BedRecommendation,
-  BedStatus,
-  BedAssignment,
-  DischargeReadiness,
-  DischargeBarrier,
-  Intervention,
-  TransferPriority,
-  CapacityForecast,
-  StaffingRecommendation,
-  BedTurnoverMetric,
-  BedManagementPerformance,
-  AIFeatureManagement,
-  AIFeatureAuditLog,
-  PredictLOSRequest,
-  RecommendBedsRequest,
-  RecommendBedsResponse,
-  DischargeReadyPatientsResponse,
-  TransferPrioritiesResponse,
-  CapacityForecastResponse,
-};
+// Types are already exported as interfaces above, no need for duplicate export

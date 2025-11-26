@@ -1,4 +1,4 @@
-import { pool } from '../database';
+import pool from '../database';
 
 /**
  * Transfer Optimizer Service
@@ -112,7 +112,7 @@ class TransferOptimizer {
       const result = await client.query(query, params);
 
       // Calculate priority scores for each patient
-      const patients: EDPatient[] = result.rows.map(row => {
+      const patients: EDPatient[] = result.rows.map((row: any) => {
         const priorityScore = this.calculatePriorityScore(
           row.acuity_level,
           row.wait_time_hours,

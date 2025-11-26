@@ -66,7 +66,7 @@ router.post('/beds', requirePermission('beds', 'write'), async (req, res) => {
     if (error.name === 'ZodError') {
       return res.status(400).json({
         error: 'Validation error',
-        details: error.errors,
+        details: error.issues,
       });
     }
     
@@ -122,7 +122,7 @@ router.put('/beds/:id', requirePermission('beds', 'write'), async (req, res) => 
     res.json({ message: 'Bed updated successfully', bed });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      return res.status(400).json({ error: 'Validation error', details: error.errors });
+      return res.status(400).json({ error: 'Validation error', details: error.issues });
     }
     if (error.code === 'BED_NOT_FOUND') {
       return res.status(404).json({ error: error.message });

@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import { z } from 'zod';
-import bedAssignmentOptimizer from '../services/bed-assignment-optimizer';
+import { BedAssignmentOptimizer } from '../services/bed-assignment-optimizer';
+
+const bedAssignmentOptimizer = new BedAssignmentOptimizer();
 import isolationChecker from '../services/isolation-checker';
 import { authMiddleware } from '../middleware/auth';
 import { tenantMiddleware } from '../middleware/tenant';
@@ -52,7 +54,7 @@ router.post('/recommend-beds', async (req: Request, res: Response) => {
 
     const recommendations = await bedAssignmentOptimizer.recommendBeds(
       tenantId,
-      requirements
+      requirements as any
     );
 
     res.json({
@@ -68,7 +70,7 @@ router.post('/recommend-beds', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Invalid request data',
-        details: error.errors
+        details: error.issues
       });
     }
 
@@ -125,7 +127,7 @@ router.post('/assign-bed', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Invalid request data',
-        details: error.errors
+        details: error.issues
       });
     }
 
@@ -261,7 +263,7 @@ router.post('/check-isolation', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Invalid request data',
-        details: error.errors
+        details: error.issues
       });
     }
 
@@ -298,7 +300,7 @@ router.post('/validate-assignment', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Invalid request data',
-        details: error.errors
+        details: error.issues
       });
     }
 

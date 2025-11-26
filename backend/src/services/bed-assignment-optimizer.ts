@@ -22,7 +22,7 @@ import {
  * 
  * Uses rule-based scoring algorithm for MVP, designed for future ML enhancement.
  */
-export class BedAssignmentOptimizer {
+class BedAssignmentOptimizer {
   private featureManager: AIFeatureManagerService;
 
   constructor() {
@@ -40,7 +40,7 @@ export class BedAssignmentOptimizer {
     // Check if feature is enabled
     const isEnabled = await this.featureManager.isFeatureEnabled(
       tenantId,
-      'bed_assignment_optimization'
+      'bed_assignment_optimization' as any
     );
 
     if (!isEnabled) {
@@ -61,9 +61,9 @@ export class BedAssignmentOptimizer {
 
     // Sort by score (descending) and return top 3
     const topRecommendations = scoredBeds
-      .sort((a, b) => b.score - a.score)
+      .sort((a: any, b: any) => b.score - a.score)
       .slice(0, 3)
-      .map(scored => this.createRecommendation(scored));
+      .map((scored: any) => this.createRecommendation(scored));
 
     return topRecommendations;
   }
@@ -146,8 +146,8 @@ export class BedAssignmentOptimizer {
     }
 
     // 5. Proximity Preferences (Low Priority - 10 points)
-    if (requirements.proximity_to_nurses_station) {
-      const distance = bed.distance_to_nurses_station || 999;
+    if ((requirements as any).proximity_to_nurses_station) {
+      const distance = (bed as any).distance_to_nurses_station || 999;
       if (distance <= 20) {
         score += 10;
         reasons.push('Close to nurses station (high visibility)');
@@ -164,8 +164,8 @@ export class BedAssignmentOptimizer {
     }
 
     // 6. Bariatric Requirements (Critical if needed - 10 points)
-    if (requirements.bariatric_bed) {
-      if (bed.bariatric_capable) {
+    if ((requirements as any).bariatric_bed) {
+      if ((bed as any).bariatric_capable) {
         score += 10;
         reasons.push('Bariatric-capable bed');
       } else {
@@ -178,8 +178,8 @@ export class BedAssignmentOptimizer {
     }
 
     // 7. Staff Ratio Considerations (Low Priority - 5 points)
-    const currentRatio = await this.getUnitStaffRatio(bed.unit_id);
-    if (currentRatio && currentRatio <= requirements.max_nurse_patient_ratio) {
+    const currentRatio = await this.getUnitStaffRatio((bed as any).unit_id);
+    if (currentRatio && currentRatio <= (requirements as any).max_nurse_patient_ratio) {
       score += 5;
       reasons.push(`Adequate staffing ratio: 1:${currentRatio}`);
     } else if (currentRatio) {
@@ -203,13 +203,16 @@ export class BedAssignmentOptimizer {
       bed_id: bed.id,
       bed_number: bed.bed_number,
       unit_name: bed.unit_name,
+      floor: bed.floor_number || 0,
       score,
       reasons,
       warnings,
       features: {
         isolation_capable: bed.isolation_capable,
         isolation_type: bed.isolation_type,
+        telemetry: bed.telemetry_capable || false,
         telemetry_capable: bed.telemetry_capable,
+        oxygen: bed.oxygen_available || false,
         oxygen_available: bed.oxygen_available,
         bariatric_capable: bed.bariatric_capable
       }
@@ -347,7 +350,7 @@ export class BedAssignmentOptimizer {
       }
 
       // Filter by bariatric if required
-      if (requirements.bariatric_bed) {
+      if ((requirements as any).bariatric_bed) {
         query += ` AND b.bariatric_capable = true`;
       }
 
@@ -396,17 +399,16 @@ export class BedAssignmentOptimizer {
   /**
    * Create a recommendation object from a scored bed
    */
-  private createRecommendation(scored: BedScore): BedRecommendation {
+  private createRecommendation(scored: any): BedRecommendation {
     return {
       bed_id: scored.bed_id,
       bed_number: scored.bed_number,
       unit_name: scored.unit_name,
+      floor: scored.floor || 0,
       score: scored.score,
-      confidence: this.calculateConfidence(scored.score),
-      reasoning: scored.reasons.join('; '),
-      warnings: scored.warnings.length > 0 ? scored.warnings.join('; ') : undefined,
+      reasoning: scored.reasons?.join('; ') || '',
       features: scored.features,
-      recommended_at: new Date()
+      current_status: 'available'
     };
   }
 

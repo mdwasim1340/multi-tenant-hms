@@ -305,7 +305,7 @@ export class CategoryService {
 
           // Prevent circular reference (check if parent is a descendant)
           const isDescendant = await this.isDescendantOf(
-            updateData.parent_category_id,
+            Number(updateData.parent_category_id),
             categoryId,
             tenantId,
             client
@@ -365,14 +365,22 @@ export class CategoryService {
       const category = await this.getCategoryById(categoryId, tenantId, client);
 
       // Check for child categories
-      if (category.child_count && category.child_count > 0) {
+      const childCountResult = await client.query(
+        'SELECT COUNT(*) as count FROM inventory_categories WHERE parent_category_id = $1',
+        [categoryId]
+      );
+      if (parseInt(childCountResult.rows[0].count) > 0) {
         throw new InventoryValidationError(
           'Cannot delete category with child categories'
         );
       }
 
       // Check for active items
-      if (category.item_count && category.item_count > 0) {
+      const itemCountResult = await client.query(
+        'SELECT COUNT(*) as count FROM inventory_items WHERE category_id = $1',
+        [categoryId]
+      );
+      if (parseInt(itemCountResult.rows[0].count) > 0) {
         throw new InventoryValidationError(
           'Cannot delete category with active inventory items'
         );

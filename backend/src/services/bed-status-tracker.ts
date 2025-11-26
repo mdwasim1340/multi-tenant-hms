@@ -12,7 +12,7 @@ import { AIFeatureManagerService } from './ai-feature-manager';
  * - Target time monitoring
  * - Cleaning status management
  */
-export class BedStatusTracker {
+class BedStatusTracker {
   private featureManager: AIFeatureManagerService;
 
   // Target turnover times (in minutes)
