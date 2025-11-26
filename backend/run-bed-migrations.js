@@ -39,6 +39,21 @@ const runBedMigrations = async () => {
       // Set schema context
       await client.query(`SET search_path TO "${tenant.id}"`);
       
+      // Check if patients table exists (required for bed_assignments foreign key)
+      const { rows: patientTableCheck } = await client.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = '${tenant.id}' 
+          AND table_name = 'patients'
+        );
+      `);
+      
+      if (!patientTableCheck[0].exists) {
+        console.log(`  ⚠️  Skipping - patients table not found (required for bed assignments)`);
+        console.log('');
+        continue;
+      }
+      
       for (const file of migrationFiles) {
         const filePath = path.join(__dirname, 'migrations', file);
         
