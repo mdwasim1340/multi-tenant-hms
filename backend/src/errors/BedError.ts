@@ -97,9 +97,9 @@ export class BedAssignmentNotFoundError extends BedError {
 }
 
 export class BedAssignmentConflictError extends BedError {
-  constructor(bedId: number) {
+  constructor(message: string) {
     super(
-      `Bed ${bedId} already has an active assignment. Cannot assign to another patient.`,
+      message,
       409,
       'BED_ASSIGNMENT_CONFLICT'
     );
@@ -117,9 +117,9 @@ export class PatientAlreadyAssignedError extends BedError {
 }
 
 export class AssignmentAlreadyDischargedError extends BedError {
-  constructor(assignmentId: number) {
+  constructor(message: string) {
     super(
-      `Bed assignment ${assignmentId} is already discharged`,
+      message,
       400,
       'ASSIGNMENT_ALREADY_DISCHARGED'
     );
@@ -149,9 +149,9 @@ export class InvalidTransferError extends BedError {
 }
 
 export class TransferAlreadyCompletedError extends BedError {
-  constructor(transferId: number) {
+  constructor(message: string) {
     super(
-      `Bed transfer ${transferId} is already completed`,
+      message,
       400,
       'TRANSFER_ALREADY_COMPLETED'
     );
@@ -159,9 +159,9 @@ export class TransferAlreadyCompletedError extends BedError {
 }
 
 export class SameBedTransferError extends BedError {
-  constructor() {
+  constructor(message: string) {
     super(
-      'Cannot transfer patient to the same bed',
+      message,
       400,
       'SAME_BED_TRANSFER'
     );
@@ -169,9 +169,9 @@ export class SameBedTransferError extends BedError {
 }
 
 export class DestinationBedOccupiedError extends BedError {
-  constructor(bedId: number) {
+  constructor(message: string) {
     super(
-      `Destination bed ${bedId} is already occupied`,
+      message,
       409,
       'DESTINATION_BED_OCCUPIED'
     );
