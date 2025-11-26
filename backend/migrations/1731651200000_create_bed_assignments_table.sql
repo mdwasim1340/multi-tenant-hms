@@ -44,11 +44,19 @@ CREATE TABLE IF NOT EXISTS bed_assignments (
 -- Only one active assignment per bed at any time
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
+-- Create immutable function for COALESCE in index
+CREATE OR REPLACE FUNCTION coalesce_discharge_date_immutable(actual_discharge_date TIMESTAMP WITH TIME ZONE)
+RETURNS TIMESTAMP WITH TIME ZONE AS $$
+BEGIN
+    RETURN COALESCE(actual_discharge_date, 'infinity'::timestamp);
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
 ALTER TABLE bed_assignments
     ADD CONSTRAINT bed_assignments_no_overlap
     EXCLUDE USING gist (
         bed_id WITH =,
-        tstzrange(admission_date, COALESCE(actual_discharge_date, 'infinity'::timestamp), '[)') WITH &&
+        tstzrange(admission_date, coalesce_discharge_date_immutable(actual_discharge_date), '[)') WITH &&
     )
     WHERE (status = 'active');
 
