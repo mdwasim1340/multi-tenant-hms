@@ -144,7 +144,7 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         },
         {
           label: "Bed Assignment",
-          href: "/bed-management/assignment",
+          href: "/beds",
           icon: Bed,
         },
         {

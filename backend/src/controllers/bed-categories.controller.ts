@@ -319,6 +319,20 @@ export class BedCategoriesController {
     try {
       const { id } = req.params;
       const { page = 1, limit = 10 } = req.query;
+      const tenantId = req.headers['x-tenant-id'] as string;
+      
+      // ✅ FIX: Validate tenant ID
+      if (!tenantId) {
+        res.status(400).json({
+          error: 'X-Tenant-ID header is required',
+          code: 'MISSING_TENANT_ID'
+        });
+        return;
+      }
+
+      // ✅ FIX: Set tenant schema context before querying beds table
+      await this.pool.query(`SET search_path TO "${tenantId}", public`);
+      
       const offset = (Number(page) - 1) * Number(limit);
 
       const result = await this.pool.query(`
@@ -327,13 +341,12 @@ export class BedCategoriesController {
           b.bed_number,
           b.status,
           b.bed_type,
-          b.floor as floor_number,
-          b.room as room_number,
+          b.floor_number,
+          b.room_number,
           b.wing,
           b.features,
           b.created_at,
           b.updated_at,
-          COALESCE(bc.name, b.unit) as department_name,
           bc.name as category_name,
           bc.color as category_color,
           bc.icon as category_icon
@@ -365,6 +378,7 @@ export class BedCategoriesController {
       console.error('Error fetching beds by category:', error);
       res.status(500).json({
         error: 'Failed to fetch beds by category',
+        message: error instanceof Error ? error.message : 'Unknown error',
         code: 'FETCH_BEDS_BY_CATEGORY_ERROR'
       });
     }

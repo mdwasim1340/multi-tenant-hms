@@ -38,6 +38,7 @@ import {
 import { useBedCategory, useBedsByCategory } from "@/hooks/use-bed-categories"
 import { UpdateBedModal } from "@/components/bed-management/update-bed-modal"
 import { AddBedModal } from "@/components/bed-management/add-bed-modal"
+import { BedDetailsModal } from "@/components/bed-management/bed-details-modal"
 import { BedManagementAPI } from "@/lib/api/bed-management"
 import { toast } from "sonner"
 
@@ -53,6 +54,7 @@ export default function BedCategoryDetails() {
   const [selectedBed, setSelectedBed] = useState<any>(null)
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false)
   const [isAddBedModalOpen, setIsAddBedModalOpen] = useState(false)
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
 
   const { category, loading: categoryLoading, error: categoryError } = useBedCategory(categoryId)
   const { beds, pagination, loading: bedsLoading, error: bedsError, refetch } = useBedsByCategory(categoryId, currentPage, pageSize)
@@ -152,6 +154,12 @@ export default function BedCategoryDetails() {
     }
   }
 
+  // Handler for viewing bed details
+  const handleViewBedDetails = (bed: any) => {
+    setSelectedBed(bed)
+    setIsDetailsModalOpen(true)
+  }
+
   // Handler for editing a bed
   const handleEditBed = (bed: any) => {
     setSelectedBed(bed)
@@ -159,9 +167,27 @@ export default function BedCategoryDetails() {
   }
 
   // Handler for updating a bed
-  const handleUpdateBed = async (bedId: number, bedData: any) => {
+  const handleUpdateBed = async (updateData: any) => {
     try {
-      await BedManagementAPI.updateBed(bedId, bedData)
+      if (!selectedBed?.id) {
+        toast.error('No bed selected for update')
+        return
+      }
+      
+      // Transform the modal's updateData format to API format
+      const bedData: any = {}
+      
+      if (updateData.bedInfo) {
+        if (updateData.bedInfo.bedNumber) bedData.bed_number = updateData.bedInfo.bedNumber
+        if (updateData.bedInfo.bedType) bedData.bed_type = updateData.bedInfo.bedType
+        if (updateData.bedInfo.floor) bedData.floor_number = parseInt(updateData.bedInfo.floor) || updateData.bedInfo.floor
+        if (updateData.bedInfo.wing) bedData.wing = updateData.bedInfo.wing
+        if (updateData.bedInfo.room) bedData.room_number = updateData.bedInfo.room
+        if (updateData.bedInfo.status) bedData.status = updateData.bedInfo.status.toLowerCase()
+        if (updateData.bedInfo.equipment) bedData.features = updateData.bedInfo.equipment
+      }
+      
+      await BedManagementAPI.updateBed(selectedBed.id, bedData)
       toast.success('Bed updated successfully')
       setIsUpdateModalOpen(false)
       setSelectedBed(null)
@@ -478,7 +504,7 @@ export default function BedCategoryDetails() {
                               <TableRow key={bed.id} className="hover:bg-muted/50">
                                 <TableCell>
                                   <button
-                                    onClick={() => router.push(`/bed-management/beds/${bed.id}`)}
+                                    onClick={() => handleViewBedDetails(bed)}
                                     className="font-medium text-primary hover:underline"
                                   >
                                     {bed.bed_number}
@@ -516,7 +542,7 @@ export default function BedCategoryDetails() {
                                         Edit Bed
                                       </DropdownMenuItem>
                                       <DropdownMenuItem
-                                        onClick={() => router.push(`/bed-management/beds/${bed.id}`)}
+                                        onClick={() => handleViewBedDetails(bed)}
                                         className="cursor-pointer"
                                       >
                                         <Bed className="mr-2 h-4 w-4" />
@@ -587,6 +613,23 @@ export default function BedCategoryDetails() {
           isOpen={isAddBedModalOpen}
           onClose={() => setIsAddBedModalOpen(false)}
           onAdd={handleAddBed}
+        />
+      )}
+
+      {/* Bed Details Modal */}
+      {selectedBed && (
+        <BedDetailsModal
+          bed={selectedBed}
+          isOpen={isDetailsModalOpen}
+          onClose={() => {
+            setIsDetailsModalOpen(false)
+            setSelectedBed(null)
+          }}
+          onEdit={() => {
+            setIsDetailsModalOpen(false)
+            setIsUpdateModalOpen(true)
+            // selectedBed is already set
+          }}
         />
       )}
     </div>

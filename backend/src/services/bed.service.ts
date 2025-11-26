@@ -25,7 +25,7 @@ export class BedService {
     
     const {
       page = 1,
-      limit = 10,
+      limit = 1000,
       department_id,
       status,
       bed_type,
@@ -171,39 +171,82 @@ export class BedService {
     const {
       bed_number,
       department_id,
+      category_id,
       bed_type,
       floor_number,
       room_number,
       wing,
+      status,
       features,
       notes,
     } = data;
 
+    // Map category_id to department_id if only category_id is provided
+    let finalDepartmentId = department_id;
+    if (!finalDepartmentId && category_id) {
+      // Map category to department (categories and departments have similar IDs in this system)
+      finalDepartmentId = category_id;
+    }
+
+    // Convert features to PostgreSQL array format
+    let featuresArray: string[] | null = null;
+    if (features) {
+      if (Array.isArray(features)) {
+        featuresArray = features;
+      } else if (typeof features === 'object') {
+        // Extract feature names from object (e.g., {equipment: [...], features: [...]})
+        const allFeatures: string[] = [];
+        if (features.equipment && Array.isArray(features.equipment)) {
+          allFeatures.push(...features.equipment);
+        }
+        if (features.features && Array.isArray(features.features)) {
+          allFeatures.push(...features.features);
+        }
+        // Also handle boolean flags like {monitor: true, oxygen: true}
+        Object.entries(features).forEach(([key, value]) => {
+          if (value === true && key !== 'equipment' && key !== 'features') {
+            allFeatures.push(key);
+          }
+        });
+        featuresArray = allFeatures.length > 0 ? allFeatures : null;
+      }
+    }
+
     const query = `
       INSERT INTO beds (
-        bed_number, department_id, bed_type, floor_number, room_number,
-        wing, features, notes, status, is_active, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'available', true, $9)
+        bed_number, department_id, category_id, bed_type, floor_number, room_number,
+        wing, features, notes, status, is_active, created_by, unit
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, $11, $12)
       RETURNING *
     `;
 
     const result = await pool.query(query, [
       bed_number,
-      department_id,
-      bed_type,
+      finalDepartmentId || null,
+      category_id || null,
+      bed_type || 'standard',
       floor_number || null,
       room_number || null,
       wing || null,
-      features ? JSON.stringify(features) : null,
+      featuresArray, // PostgreSQL will handle array conversion
       notes || null,
+      status || 'available',
       userId || null,
+      'General', // Default unit value since it's NOT NULL
     ]);
 
-    // Update department bed count
-    await pool.query(
-      'UPDATE departments SET active_bed_count = active_bed_count + 1 WHERE id = $1',
-      [department_id]
-    );
+    // Update department bed count if department_id is set
+    if (finalDepartmentId) {
+      try {
+        await pool.query(
+          'UPDATE departments SET active_bed_count = active_bed_count + 1 WHERE id = $1',
+          [finalDepartmentId]
+        );
+      } catch (err) {
+        // Ignore if departments table doesn't exist or department not found
+        console.log('Note: Could not update department bed count:', (err as Error).message);
+      }
+    }
 
     return result.rows[0];
   }
@@ -270,8 +313,31 @@ export class BedService {
     }
 
     if (data.features !== undefined) {
+      // Convert features to PostgreSQL array format (same as createBed)
+      let featuresArray: string[] | null = null;
+      if (data.features) {
+        if (Array.isArray(data.features)) {
+          featuresArray = data.features;
+        } else if (typeof data.features === 'object') {
+          // Extract feature names from object (e.g., {equipment: [...], features: [...]})
+          const allFeatures: string[] = [];
+          if ((data.features as any).equipment && Array.isArray((data.features as any).equipment)) {
+            allFeatures.push(...(data.features as any).equipment);
+          }
+          if ((data.features as any).features && Array.isArray((data.features as any).features)) {
+            allFeatures.push(...(data.features as any).features);
+          }
+          // Also handle boolean flags like {monitor: true, oxygen: true}
+          Object.entries(data.features).forEach(([key, value]) => {
+            if (value === true && key !== 'equipment' && key !== 'features') {
+              allFeatures.push(key);
+            }
+          });
+          featuresArray = allFeatures.length > 0 ? allFeatures : null;
+        }
+      }
       updates.push(`features = $${paramIndex}`);
-      values.push(JSON.stringify(data.features));
+      values.push(featuresArray); // PostgreSQL will handle array conversion
       paramIndex++;
     }
 

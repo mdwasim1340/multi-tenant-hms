@@ -25,7 +25,19 @@ export const getBeds = async (req: Request, res: Response) => {
     // Validate query parameters
     const params = BedSearchSchema.parse(req.query);
     
+    console.log('🔍 BACKEND - getBeds called with params:', {
+      limit: params.limit,
+      page: params.page,
+      rawQuery: req.query
+    });
+    
     const result = await bedService.getBeds(tenantId, params);
+    
+    console.log('🔍 BACKEND - getBeds returning:', {
+      bedsCount: result.beds.length,
+      total: result.pagination.total,
+      limit: result.pagination.limit
+    });
     
     res.json(result);
   } catch (error) {

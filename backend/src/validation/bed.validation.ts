@@ -53,33 +53,41 @@ export const DepartmentSearchSchema = z.object({
 
 export const CreateBedSchema = z.object({
   bed_number: z.string().min(1).max(50),
-  department_id: z.number().int().positive(),
-  bed_type: BedTypeSchema,
+  department_id: z.number().int().positive().optional(),
+  category_id: z.number().int().positive().optional(),
+  bed_type: z.string().min(1).max(50), // Allow any string, will be validated/mapped in service
   floor_number: z.number().int().min(0).max(50).optional(),
   room_number: z.string().max(50).optional(),
   wing: z.string().max(50).optional(),
+  status: BedStatusSchema.optional(), // Allow status to be set on creation
   features: z.record(z.string(), z.any()).optional(),
   notes: z.string().max(1000).optional(),
+}).refine(data => data.department_id || data.category_id, {
+  message: 'Either department_id or category_id must be provided',
+  path: ['department_id'],
 });
 
 export const UpdateBedSchema = z.object({
   bed_number: z.string().min(1).max(50).optional(),
   department_id: z.number().int().positive().optional(),
-  bed_type: BedTypeSchema.optional(),
-  floor_number: z.number().int().min(0).max(50).optional(),
+  category_id: z.number().int().positive().optional(),
+  bed_type: z.string().max(50).optional(), // Allow any string for flexibility
+  floor_number: z.union([z.number(), z.string()]).transform(val => 
+    typeof val === 'string' ? (val ? parseInt(val, 10) : undefined) : val
+  ).optional(),
   room_number: z.string().max(50).optional(),
   wing: z.string().max(50).optional(),
-  status: BedStatusSchema.optional(),
-  features: z.record(z.string(), z.any()).optional(),
-  last_cleaned_at: z.string().datetime().optional(),
-  last_maintenance_at: z.string().datetime().optional(),
+  status: z.string().max(50).optional(), // Allow any string for flexibility
+  features: z.any().optional(), // Allow any format for features
+  last_cleaned_at: z.string().optional(),
+  last_maintenance_at: z.string().optional(),
   notes: z.string().max(1000).optional(),
   is_active: z.boolean().optional(),
 });
 
 export const BedSearchSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(10),
+  limit: z.coerce.number().int().min(1).max(1000).default(1000),
   department_id: z.coerce.number().int().positive().optional(),
   status: BedStatusSchema.optional(),
   bed_type: BedTypeSchema.optional(),

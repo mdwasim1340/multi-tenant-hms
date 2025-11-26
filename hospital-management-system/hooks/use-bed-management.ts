@@ -55,7 +55,7 @@ export function useDepartmentStats(departmentId: number | null) {
       setLoading(true);
       setError(null);
       const data = await bedManagementApi.departments.getDepartmentStats(departmentId);
-      setStats(data.stats);
+      setStats(data); // ✅ FIX: Backend returns stats directly, not wrapped
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch department stats');
       console.error('Error fetching department stats:', err);
@@ -90,16 +90,23 @@ export function useBeds(filters?: {
     try {
       setLoading(true);
       setError(null);
+      console.log('🔍 Fetching beds with filters:', filters);
       const data = await bedManagementApi.beds.getBeds(filters);
-      setBeds(data.beds);
+      console.log('🔍 Beds API response:', data);
+      setBeds(data.beds || []);
       setPagination(data.pagination);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch beds');
-      console.error('Error fetching beds:', err);
+      console.error('❌ Error fetching beds:', err);
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [
+    filters?.department_id,
+    filters?.bed_type,
+    filters?.status,
+    filters?.floor_number
+  ]); // ✅ FIX: Use individual properties to avoid object reference issues
 
   useEffect(() => {
     fetchBeds();
@@ -156,7 +163,7 @@ export function useAvailableBeds(filters?: {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters?.department_id, filters?.bed_type]); // ✅ FIX: Use individual properties
 
   useEffect(() => {
     fetchAvailableBeds();
@@ -192,7 +199,7 @@ export function useBedAssignments(filters?: {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters?.bed_id, filters?.patient_id, filters?.status]); // ✅ FIX: Use individual properties
 
   useEffect(() => {
     fetchAssignments();
@@ -255,7 +262,7 @@ export function useBedTransfers(filters?: {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters?.patient_id, filters?.status]); // ✅ FIX: Use individual properties
 
   useEffect(() => {
     fetchTransfers();

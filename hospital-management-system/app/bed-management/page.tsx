@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Search, AlertCircle, Activity, ChevronRight, Bed, Users, Clock, MapPin, Loader2 } from "lucide-react"
 import { useDepartments, useBedOccupancy, useBeds, useBedAssignments } from "@/hooks/use-bed-management"
+import { useBedCategories } from "@/hooks/use-bed-categories"
 
 export default function BedManagement() {
   const router = useRouter()
@@ -33,6 +34,7 @@ export default function BedManagement() {
   const { occupancy, loading: occLoading, error: occError } = useBedOccupancy()
   const { beds, loading: bedsLoading, error: bedsError } = useBeds(bedFilters)
   const { assignments, loading: assignmentsLoading } = useBedAssignments(assignmentFilters)
+  const { categories, loading: categoriesLoading, error: categoriesError } = useBedCategories()
 
   // Calculate occupancy metrics from real data
   const occupancyMetrics = useMemo(() => {
@@ -80,8 +82,8 @@ export default function BedManagement() {
       const deptBeds = beds.filter(bed => bed.department_id === dept.id)
       const occupiedBeds = deptBeds.filter(bed => bed.status === 'occupied').length
       const availableBeds = deptBeds.filter(bed => bed.status === 'available').length
-      const totalBeds = deptBeds.length || dept.bed_capacity
-      const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0
+      const totalBeds = deptBeds.length || dept.bed_capacity || 0
+      const occupancyRate = totalBeds && totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0
       
       return {
         id: dept.id,
@@ -108,6 +110,7 @@ export default function BedManagement() {
         bedNumber: bed.bed_number,
         department: dept?.name || 'Unknown',
         departmentId: bed.department_id,
+        categoryId: bed.category_id, // ✅ ADDED: Include category_id for filtering
         status: bed.status.charAt(0).toUpperCase() + bed.status.slice(1),
         patient: assignment?.patient_name || null,
         patientId: assignment?.patient_id?.toString() || null,
@@ -174,9 +177,12 @@ export default function BedManagement() {
                 <h1 className="text-3xl font-bold text-foreground">Bed Management</h1>
                 <p className="text-muted-foreground mt-1">Real-time bed occupancy and patient allocation</p>
               </div>
-              <Button className="bg-primary hover:bg-primary/90">
-                <Plus className="w-4 h-4 mr-2" />
-                Assign Bed
+              <Button 
+                className="bg-primary hover:bg-primary/90"
+                onClick={() => router.push('/bed-management/categories')}
+              >
+                <Bed className="w-4 h-4 mr-2" />
+                Manage Categories
               </Button>
             </div>
 
@@ -227,8 +233,9 @@ export default function BedManagement() {
 
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-8">
+              <TabsList className="grid w-full grid-cols-4 mb-8">
                 <TabsTrigger value="overview">Department Overview</TabsTrigger>
+                <TabsTrigger value="categories">By Category</TabsTrigger>
                 <TabsTrigger value="beds">Bed Details</TabsTrigger>
                 <TabsTrigger value="transfers">Patient Transfers</TabsTrigger>
               </TabsList>
@@ -292,7 +299,18 @@ export default function BedManagement() {
                             <Button 
                               variant="outline" 
                               className="w-full bg-transparent"
-                              onClick={() => router.push(`/bed-management/department/${encodeURIComponent(dept.name)}`)}
+                              onClick={() => {
+                                // Find matching category by name to navigate to category page
+                                const matchingCategory = categories?.find(
+                                  cat => cat.name.toLowerCase() === dept.name.toLowerCase()
+                                )
+                                if (matchingCategory) {
+                                  router.push(`/bed-management/categories/${matchingCategory.id}`)
+                                } else {
+                                  // Fallback to department page if no matching category found
+                                  router.push(`/bed-management/department/${encodeURIComponent(dept.name)}`)
+                                }
+                              }}
                             >
                               View Details
                               <ChevronRight className="w-4 h-4 ml-2" />
@@ -302,6 +320,211 @@ export default function BedManagement() {
                       </Card>
                     ))}
                   </div>
+                )}
+              </TabsContent>
+
+              {/* Category-Based View Tab */}
+              <TabsContent value="categories" className="space-y-6">
+                {categoriesLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    <span className="ml-2 text-muted-foreground">Loading categories...</span>
+                  </div>
+                ) : categoriesError ? (
+                  <div className="text-center py-12">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                    <p className="text-red-600">Error loading categories: {categoriesError}</p>
+                  </div>
+                ) : categories.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground">No bed categories found. Please create categories first.</p>
+                    <Button 
+                      className="mt-4"
+                      onClick={() => router.push('/bed-management/categories')}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Categories
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Category Summary Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {categories.map((category) => {
+                        const categoryBeds = beds?.filter(bed => bed.category_id === category.id) || []
+                        const occupiedBeds = categoryBeds.filter(bed => bed.status === 'occupied').length
+                        const availableBeds = categoryBeds.filter(bed => bed.status === 'available').length
+                        const totalBeds = categoryBeds.length
+                        const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0
+
+                        return (
+                          <Card 
+                            key={category.id} 
+                            className="border-border/50 hover:shadow-md transition-shadow cursor-pointer"
+                            onClick={() => router.push(`/bed-management/categories/${category.id}`)}
+                          >
+                            <CardContent className="pt-6">
+                              <div className="space-y-4">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div 
+                                      className="w-12 h-12 rounded-lg flex items-center justify-center"
+                                      style={{ backgroundColor: `${category.color}20` }}
+                                    >
+                                      <Bed className="w-6 h-6" style={{ color: category.color }} />
+                                    </div>
+                                    <div>
+                                      <h3 className="font-semibold text-foreground">{category.name}</h3>
+                                      <p className="text-sm text-muted-foreground">{category.description}</p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">Total Beds</span>
+                                    <span className="font-semibold text-foreground">{totalBeds}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">Occupied</span>
+                                    <span className="font-semibold text-blue-600">{occupiedBeds}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">Available</span>
+                                    <span className="font-semibold text-green-600">{availableBeds}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">Occupancy Rate</span>
+                                    <Badge variant="outline">{occupancyRate}%</Badge>
+                                  </div>
+                                </div>
+
+                                {/* Occupancy Bar */}
+                                <div className="w-full bg-muted rounded-full h-2">
+                                  <div
+                                    className="h-2 rounded-full transition-all"
+                                    style={{ 
+                                      width: `${occupancyRate}%`,
+                                      backgroundColor: category.color
+                                    }}
+                                  ></div>
+                                </div>
+
+                                {/* View Details Button */}
+                                <Button 
+                                  variant="outline" 
+                                  className="w-full bg-transparent"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    router.push(`/bed-management/categories/${category.id}`)
+                                  }}
+                                >
+                                  View Details
+                                  <ChevronRight className="w-4 h-4 ml-2" />
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </div>
+
+                    {/* Beds Grouped by Category */}
+                    <div className="space-y-6">
+                      {categories.map((category) => {
+                        const categoryBeds = bedsWithAssignments.filter(bed => bed.categoryId === category.id)
+
+                        if (categoryBeds.length === 0) return null
+
+                        return (
+                          <div key={category.id} className="space-y-4">
+                            <div className="flex items-center gap-3">
+                              <div 
+                                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                                style={{ backgroundColor: `${category.color}20` }}
+                              >
+                                <Bed className="w-5 h-5" style={{ color: category.color }} />
+                              </div>
+                              <div>
+                                <h3 className="text-lg font-semibold text-foreground">{category.name}</h3>
+                                <p className="text-sm text-muted-foreground">
+                                  {categoryBeds.length} bed{categoryBeds.length !== 1 ? 's' : ''}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {categoryBeds.map((bed) => (
+                                <Card key={bed.id} className="border-border/50 hover:shadow-md transition-shadow">
+                                  <CardContent className="pt-6">
+                                    <div className="space-y-4">
+                                      {/* Bed Header */}
+                                      <div className="flex items-start justify-between">
+                                        <div>
+                                          <h3 className="font-semibold text-foreground">Bed {bed.bedNumber}</h3>
+                                          <p className="text-sm text-muted-foreground">{bed.department}</p>
+                                        </div>
+                                        <Badge className={getStatusColor(bed.status)}>{bed.status}</Badge>
+                                      </div>
+
+                                      {/* Patient Info */}
+                                      {bed.patient ? (
+                                        <div className="bg-muted rounded-lg p-3 space-y-2">
+                                          <div>
+                                            <p className="text-xs text-muted-foreground">Patient</p>
+                                            <p className="font-semibold text-foreground">{bed.patient}</p>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                              <p className="text-xs text-muted-foreground">Admitted</p>
+                                              <p className="text-sm font-medium text-foreground">{bed.admissionDate}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-xs text-muted-foreground">Condition</p>
+                                              <p className={`text-sm font-medium ${getConditionColor(bed.condition)}`}>
+                                                {bed.condition || 'N/A'}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div 
+                                          className="rounded-lg p-3"
+                                          style={{ backgroundColor: `${category.color}10` }}
+                                        >
+                                          <p className="text-sm font-medium" style={{ color: category.color }}>
+                                            Available for assignment
+                                          </p>
+                                        </div>
+                                      )}
+
+                                      {/* Actions */}
+                                      <div className="flex gap-2">
+                                        {bed.status === "Available" ? (
+                                          <Button variant="outline" className="flex-1 bg-transparent">
+                                            Assign Patient
+                                          </Button>
+                                        ) : (
+                                          <>
+                                            <Button variant="outline" className="flex-1 bg-transparent">
+                                              Transfer
+                                            </Button>
+                                            <Button variant="outline" className="flex-1 bg-transparent">
+                                              Update
+                                            </Button>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
                 )}
               </TabsContent>
 

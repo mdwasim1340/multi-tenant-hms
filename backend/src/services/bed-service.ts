@@ -387,12 +387,14 @@ export class BedService {
       }
     }
 
+    // ✅ FIX: Include department_id in INSERT statement
     const result = await this.pool.query(
-      `INSERT INTO beds (bed_number, category_id, unit, room, floor, bed_type, status, features, notes, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+      `INSERT INTO beds (bed_number, department_id, category_id, unit, room, floor, bed_type, status, features, notes, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
        RETURNING *`,
       [
         bedData.bed_number,
+        bedData.department_id || null, // ✅ FIX: Include department_id
         bedData.category_id || null,
         unit,
         bedData.room || bedData.room_number || null,

@@ -114,15 +114,16 @@ export default function DepartmentBedDetails() {
   const [activeTab, setActiveTab] = useState("beds")
 
   // Use real API hooks
-  // Map department name to department ID
+  // Map department name to department ID (CORRECTED based on actual database)
   const departmentIdMap: { [key: string]: number } = {
-    'cardiology': 3,
-    'orthopedics': 4,
-    'neurology': 7,
-    'pediatrics': 5,
-    'icu': 2,
-    'emergency': 1,
-    'maternity': 6,
+    'cardiology': 1,
+    'orthopedics': 2,
+    'neurology': 3,
+    'pediatrics': 4,
+    'icu': 5,
+    'emergency': 6,
+    'emergency room': 6,
+    'maternity': 7,
     'oncology': 8,
     'surgery': 9,
     'general': 10
@@ -378,7 +379,7 @@ export default function DepartmentBedDetails() {
                       ) : (
                         <>
                           <p className="text-2xl font-bold text-foreground mt-2">{departmentStats?.occupied_beds || 0}</p>
-                          <p className="text-xs text-red-600 dark:text-red-400 mt-2">{departmentStats?.occupancy_rate || 0}%</p>
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-2">{Math.round(departmentStats?.occupancy_rate || 0)}%</p>
                         </>
                       )}
                     </div>

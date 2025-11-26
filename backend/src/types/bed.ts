@@ -165,11 +165,13 @@ export interface UpdateDepartmentData {
 
 export interface CreateBedData {
   bed_number: string;
-  department_id: number;
-  bed_type: BedType;
+  department_id?: number;
+  category_id?: number;
+  bed_type: string; // Allow any string, will be validated/mapped
   floor_number?: number;
   room_number?: string;
   wing?: string;
+  status?: BedStatus;
   features?: Record<string, any>;
   notes?: string;
 }
@@ -177,12 +179,13 @@ export interface CreateBedData {
 export interface UpdateBedData {
   bed_number?: string;
   department_id?: number;
-  bed_type?: BedType;
-  floor_number?: number;
+  category_id?: number;
+  bed_type?: string;
+  floor_number?: number | string;
   room_number?: string;
   wing?: string;
-  status?: BedStatus;
-  features?: Record<string, any>;
+  status?: string;
+  features?: any;
   last_cleaned_at?: string;
   last_maintenance_at?: string;
   notes?: string;

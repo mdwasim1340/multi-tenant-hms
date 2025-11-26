@@ -1,25 +1,19 @@
 /**
  * Bed Management API Client
- * Connects frontend to backend bed management endpoints
+ * Handles all bed management operations
  */
 
-import { api } from '../api';
-
-// ==========================================
-// TypeScript Interfaces
-// ==========================================
+import { api } from './client';
 
 export interface Department {
   id: number;
   name: string;
-  description?: string;
-  bed_capacity: number;
-  floor_number?: number;
-  building?: string;
-  head_of_department?: string;
-  contact_number?: string;
-  created_at: string;
-  updated_at: string;
+  department_code: string;
+  floor_number: number;
+  total_bed_capacity: number;
+  active_bed_count: number;
+  status: string;
+  bed_capacity?: number; // Alternative field name
 }
 
 export interface DepartmentStats {
@@ -29,60 +23,44 @@ export interface DepartmentStats {
   occupied_beds: number;
   available_beds: number;
   maintenance_beds: number;
-  reserved_beds: number;
   occupancy_rate: number;
+  avgOccupancyTime?: number;
+  criticalPatients?: number;
 }
 
 export interface Bed {
   id: number;
   bed_number: string;
   department_id: number;
-  department_name?: string;
-  bed_type: 'general' | 'icu' | 'private' | 'semi-private' | 'emergency' | 'pediatric' | 'maternity';
-  status: 'available' | 'occupied' | 'maintenance' | 'reserved';
+  category_id?: number; // ✅ ADDED: Bed category ID for grouping
+  unit?: string; // ✅ ADDED: Unit/Category name (ICU, Cardiology, etc.)
+  bed_type: string;
+  status: string;
   floor_number?: number;
   room_number?: string;
+  wing?: string;
   features?: string[];
-  notes?: string;
-  created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface BedAssignment {
   id: number;
   bed_id: number;
   patient_id: number;
+  patient_name: string;
   admission_date: string;
-  discharge_date?: string;
-  admission_reason?: string;
-  discharge_reason?: string;
-  status: 'active' | 'discharged' | 'transferred';
-  notes?: string;
-  created_at: string;
-  updated_at: string;
-  // Joined data
-  bed_number?: string;
-  patient_name?: string;
-  department_name?: string;
+  status: string;
 }
 
 export interface BedTransfer {
   id: number;
-  assignment_id: number;
   from_bed_id: number;
   to_bed_id: number;
-  transfer_date: string;
-  transfer_reason?: string;
-  status: 'pending' | 'completed' | 'cancelled';
-  completed_at?: string;
-  cancelled_at?: string;
-  notes?: string;
+  patient_id: number;
+  reason: string;
+  priority: string;
+  status: string;
   created_at: string;
-  updated_at: string;
-  // Joined data
-  patient_name?: string;
-  from_bed_number?: string;
-  to_bed_number?: string;
 }
 
 export interface BedOccupancy {
@@ -90,333 +68,306 @@ export interface BedOccupancy {
   occupied_beds: number;
   available_beds: number;
   maintenance_beds: number;
-  reserved_beds: number;
   occupancy_rate: number;
-  by_type: {
-    [key: string]: {
-      total: number;
-      occupied: number;
-      available: number;
-    };
-  };
 }
 
-// ==========================================
-// Department API
-// ==========================================
-
-export const departmentApi = {
-  /**
-   * Get all departments
-   */
-  async getDepartments(): Promise<{ departments: Department[] }> {
+class BedManagementAPI {
+  // Department operations
+  async getDepartments() {
     const response = await api.get('/api/departments');
     return response.data;
-  },
+  }
 
-  /**
-   * Get department by ID
-   */
-  async getDepartmentById(id: number): Promise<{ department: Department }> {
-    const response = await api.get(`/api/beds/departments/${id}`);
+  async getDepartmentStats(departmentId: number) {
+    const response = await api.get(`/api/departments/${departmentId}/stats`);
     return response.data;
-  },
+  }
 
-  /**
-   * Create new department
-   */
-  async createDepartment(data: {
-    name: string;
-    description?: string;
-    bed_capacity: number;
-    floor_number?: number;
-    building?: string;
-    head_of_department?: string;
-    contact_number?: string;
-  }): Promise<{ message: string; department: Department }> {
-    const response = await api.post('/api/beds/departments', data);
-    return response.data;
-  },
-
-  /**
-   * Update department
-   */
-  async updateDepartment(
-    id: number,
-    data: Partial<{
-      name: string;
-      description: string;
-      bed_capacity: number;
-      floor_number: number;
-      building: string;
-      head_of_department: string;
-      contact_number: string;
-    }>
-  ): Promise<{ message: string; department: Department }> {
-    const response = await api.put(`/api/beds/departments/${id}`, data);
-    return response.data;
-  },
-
-  /**
-   * Get department statistics
-   */
-  async getDepartmentStats(id: number): Promise<{ stats: DepartmentStats }> {
-    const response = await api.get(`/api/beds/departments/${id}/stats`);
-    return response.data;
-  },
-};
-
-// ==========================================
-// Bed API
-// ==========================================
-
-export const bedApi = {
-  /**
-   * Get beds with filtering
-   */
-  async getBeds(params?: {
+  // Bed operations
+  async getBeds(filters?: {
     department_id?: number;
+    category_id?: number; // ✅ ADDED: Filter by bed category
     bed_type?: string;
     status?: string;
     floor_number?: number;
-    page?: number;
-    limit?: number;
-  }): Promise<{ beds: Bed[]; pagination: any }> {
-    const response = await api.get('/api/beds', { params });
-    return response.data;
-  },
+  }) {
+    const params = new URLSearchParams();
+    if (filters?.department_id) params.append('department_id', filters.department_id.toString());
+    if (filters?.category_id) params.append('category_id', filters.category_id.toString()); // ✅ ADDED
+    if (filters?.bed_type) params.append('bed_type', filters.bed_type);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.floor_number) params.append('floor_number', filters.floor_number.toString());
 
-  /**
-   * Get bed by ID
-   */
-  async getBedById(id: number): Promise<{ bed: Bed }> {
-    const response = await api.get(`/api/beds/${id}`);
+    const queryString = params.toString();
+    const url = `/api/beds${queryString ? `?${queryString}` : ''}`;
+    console.log('🔍 API: Calling', url);
+    const response = await api.get(url);
+    console.log('🔍 API: Response status', response.status);
+    console.log('🔍 API: Response data', response.data);
+    console.log('🔍 API: Beds count', response.data?.beds?.length || 0);
     return response.data;
-  },
+  }
 
-  /**
-   * Create new bed
-   */
-  async createBed(data: {
+  async getBedOccupancy() {
+    const response = await api.get('/api/beds/occupancy');
+    return response.data;
+  }
+
+  async getAvailableBeds(filters?: {
+    department_id?: number;
+    bed_type?: string;
+  }) {
+    const params = new URLSearchParams();
+    if (filters?.department_id) params.append('department_id', filters.department_id.toString());
+    if (filters?.bed_type) params.append('bed_type', filters.bed_type);
+
+    const queryString = params.toString();
+    const response = await api.get(`/api/beds/availability${queryString ? `?${queryString}` : ''}`);
+    return response.data;
+  }
+
+  async createBed(bedData: {
     bed_number: string;
     department_id: number;
     bed_type: string;
     floor_number?: number;
     room_number?: string;
-    features?: string[];
+    wing?: string;
+    features?: any;
     notes?: string;
-  }): Promise<{ message: string; bed: Bed }> {
-    const response = await api.post('/api/beds', data);
+  }) {
+    const response = await api.post('/api/beds', bedData);
     return response.data;
-  },
+  }
 
-  /**
-   * Update bed
-   */
-  async updateBed(
-    id: number,
-    data: Partial<{
-      bed_number: string;
-      department_id: number;
-      bed_type: string;
-      status: string;
-      floor_number: number;
-      room_number: string;
-      features: string[];
-      notes: string;
-    }>
-  ): Promise<{ message: string; bed: Bed }> {
-    const response = await api.put(`/api/beds/${id}`, data);
-    return response.data;
-  },
-
-  /**
-   * Delete bed
-   */
-  async deleteBed(id: number): Promise<{ message: string }> {
-    const response = await api.delete(`/api/beds/${id}`);
-    return response.data;
-  },
-
-  /**
-   * Get bed occupancy metrics
-   */
-  async getBedOccupancy(): Promise<{ occupancy: BedOccupancy }> {
-    const response = await api.get('/api/beds/occupancy');
-    return response.data;
-  },
-
-  /**
-   * Get available beds
-   */
-  async getAvailableBeds(params?: {
-    department_id?: number;
+  async updateBed(bedId: number, bedData: {
     bed_type?: string;
-  }): Promise<{ beds: Bed[]; count: number }> {
-    const response = await api.get('/api/beds/availability', { params });
+    floor_number?: string;
+    room_number?: string;
+    wing?: string;
+    status?: string;
+    features?: any;
+    notes?: string;
+  }) {
+    const response = await api.put(`/api/beds/${bedId}`, bedData);
     return response.data;
-  },
-};
+  }
 
-// ==========================================
-// Bed Assignment API
-// ==========================================
+  async deleteBed(bedId: number) {
+    const response = await api.delete(`/api/beds/${bedId}`);
+    return response.data;
+  }
 
-export const bedAssignmentApi = {
-  /**
-   * Get bed assignments
-   */
-  async getAssignments(params?: {
+  // Assignment operations
+  async getAssignments(filters?: {
     bed_id?: number;
     patient_id?: number;
     status?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<{ assignments: BedAssignment[]; pagination: any }> {
-    const response = await api.get('/api/beds/assignments', { params });
-    return response.data;
-  },
+  }) {
+    const params = new URLSearchParams();
+    if (filters?.bed_id) params.append('bed_id', filters.bed_id.toString());
+    if (filters?.patient_id) params.append('patient_id', filters.patient_id.toString());
+    if (filters?.status) params.append('status', filters.status);
 
-  /**
-   * Get assignment by ID
-   */
-  async getAssignmentById(id: number): Promise<{ assignment: BedAssignment }> {
-    const response = await api.get(`/api/beds/assignments/${id}`);
+    const queryString = params.toString();
+    const response = await api.get(`/api/beds/assignments${queryString ? `?${queryString}` : ''}`);
     return response.data;
-  },
+  }
 
-  /**
-   * Create bed assignment
-   */
-  async createAssignment(data: {
-    bed_id: number;
-    patient_id: number;
-    admission_date: string;
-    admission_reason?: string;
-    notes?: string;
-  }): Promise<{ message: string; assignment: BedAssignment }> {
-    const response = await api.post('/api/beds/assignments', data);
+  async createAssignment(assignmentData: any) {
+    const response = await api.post('/api/beds/assignments', assignmentData);
     return response.data;
-  },
+  }
 
-  /**
-   * Update assignment
-   */
-  async updateAssignment(
-    id: number,
-    data: Partial<{
-      admission_reason: string;
-      notes: string;
-    }>
-  ): Promise<{ message: string; assignment: BedAssignment }> {
-    const response = await api.put(`/api/beds/assignments/${id}`, data);
+  async dischargePatient(assignmentId: number, dischargeData: any) {
+    const response = await api.post(`/api/beds/assignments/${assignmentId}/discharge`, dischargeData);
     return response.data;
-  },
+  }
 
-  /**
-   * Discharge patient
-   */
-  async dischargePatient(
-    id: number,
-    data: {
-      discharge_date: string;
-      discharge_reason?: string;
-    }
-  ): Promise<{ message: string; assignment: BedAssignment }> {
-    const response = await api.post(`/api/beds/assignments/${id}/discharge`, data);
-    return response.data;
-  },
-
-  /**
-   * Get patient bed history
-   */
-  async getPatientHistory(patientId: number): Promise<{ assignments: BedAssignment[] }> {
+  async getPatientHistory(patientId: number) {
     const response = await api.get(`/api/beds/assignments/patient/${patientId}`);
     return response.data;
-  },
+  }
 
-  /**
-   * Get bed assignment history
-   */
-  async getBedHistory(bedId: number): Promise<{ assignments: BedAssignment[] }> {
-    const response = await api.get(`/api/beds/assignments/bed/${bedId}`);
-    return response.data;
-  },
-};
-
-// ==========================================
-// Bed Transfer API
-// ==========================================
-
-export const bedTransferApi = {
-  /**
-   * Get bed transfers
-   */
-  async getTransfers(params?: {
+  // Transfer operations
+  async getTransfers(filters?: {
     patient_id?: number;
     status?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<{ transfers: BedTransfer[]; pagination: any }> {
-    const response = await api.get('/api/beds/transfers', { params });
-    return response.data;
-  },
+  }) {
+    const params = new URLSearchParams();
+    if (filters?.patient_id) params.append('patient_id', filters.patient_id.toString());
+    if (filters?.status) params.append('status', filters.status);
 
-  /**
-   * Get transfer by ID
-   */
-  async getTransferById(id: number): Promise<{ transfer: BedTransfer }> {
-    const response = await api.get(`/api/beds/transfers/${id}`);
+    const queryString = params.toString();
+    const response = await api.get(`/api/beds/transfers${queryString ? `?${queryString}` : ''}`);
     return response.data;
-  },
+  }
 
-  /**
-   * Create bed transfer
-   */
-  async createTransfer(data: {
-    assignment_id: number;
-    from_bed_id: number;
-    to_bed_id: number;
-    transfer_date: string;
-    transfer_reason?: string;
-    notes?: string;
-  }): Promise<{ message: string; transfer: BedTransfer }> {
-    const response = await api.post('/api/beds/transfers', data);
+  async createTransfer(transferData: any) {
+    const response = await api.post('/api/beds/transfers', transferData);
     return response.data;
-  },
+  }
 
-  /**
-   * Complete transfer
-   */
-  async completeTransfer(id: number): Promise<{ message: string; transfer: BedTransfer }> {
-    const response = await api.post(`/api/beds/transfers/${id}/complete`);
+  async completeTransfer(transferId: number) {
+    const response = await api.post(`/api/beds/transfers/${transferId}/complete`);
     return response.data;
-  },
+  }
 
-  /**
-   * Cancel transfer
-   */
-  async cancelTransfer(id: number): Promise<{ message: string; transfer: BedTransfer }> {
-    const response = await api.post(`/api/beds/transfers/${id}/cancel`);
+  async cancelTransfer(transferId: number) {
+    const response = await api.post(`/api/beds/transfers/${transferId}/cancel`);
     return response.data;
-  },
+  }
 
-  /**
-   * Get patient transfer history
-   */
-  async getPatientTransferHistory(patientId: number): Promise<{ transfers: BedTransfer[] }> {
+  async getPatientTransferHistory(patientId: number) {
     const response = await api.get(`/api/beds/transfers/patient/${patientId}/history`);
     return response.data;
+  }
+
+  // Enhanced bed management operations
+  async getDashboardMetrics() {
+    const response = await api.get('/api/bed-management/dashboard/metrics');
+    return response.data;
+  }
+
+  async getBedsVisualization(filters?: {
+    department_id?: number;
+    status?: string;
+    bed_type?: string;
+    floor_number?: number;
+    search?: string;
+  }) {
+    const params = new URLSearchParams();
+    if (filters?.department_id) params.append('department_id', filters.department_id.toString());
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.bed_type) params.append('bed_type', filters.bed_type);
+    if (filters?.floor_number) params.append('floor_number', filters.floor_number.toString());
+    if (filters?.search) params.append('search', filters.search);
+
+    const queryString = params.toString();
+    const response = await api.get(`/api/bed-management/beds/visualization${queryString ? `?${queryString}` : ''}`);
+    return response.data;
+  }
+
+  async createEnhancedAssignment(assignmentData: {
+    bed_id: number;
+    patient_name: string;
+    patient_mrn?: string;
+    patient_age?: number;
+    patient_gender?: string;
+    admission_date: string;
+    expected_discharge_date?: string;
+    condition?: string;
+    assigned_doctor?: string;
+    assigned_nurse?: string;
+    admission_reason?: string;
+    allergies?: string;
+    current_medications?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+    notes?: string;
+  }) {
+    const response = await api.post('/api/bed-management/assignments', assignmentData);
+    return response.data;
+  }
+
+  async createEnhancedTransfer(transferData: {
+    from_bed_id: number;
+    to_bed_id: number;
+    patient_id?: number;
+    reason: string;
+    priority?: string;
+    scheduled_time?: string;
+    notes?: string;
+    new_doctor?: string;
+    new_nurse?: string;
+    transport_method?: string;
+    equipment_needed?: string;
+  }) {
+    const response = await api.post('/api/bed-management/transfers', transferData);
+    return response.data;
+  }
+
+  async scheduleMaintenance(maintenanceData: {
+    bed_id: number;
+    maintenance_type: string;
+    priority?: string;
+    description: string;
+    estimated_duration?: number;
+    scheduled_time?: string;
+    assigned_technician?: string;
+    equipment_needed?: string;
+    safety_precautions?: string;
+    requires_patient_relocation?: boolean;
+  }) {
+    const response = await api.post('/api/bed-management/maintenance', maintenanceData);
+    return response.data;
+  }
+
+  async getBedHistory(bedId: number, limit?: number, offset?: number) {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (offset) params.append('offset', offset.toString());
+
+    const queryString = params.toString();
+    const response = await api.get(`/api/bed-management/history/${bedId}${queryString ? `?${queryString}` : ''}`);
+    return response.data;
+  }
+
+  async getOccupancyReport(filters?: {
+    start_date?: string;
+    end_date?: string;
+    department_id?: number;
+    group_by?: string;
+  }) {
+    const params = new URLSearchParams();
+    if (filters?.start_date) params.append('start_date', filters.start_date);
+    if (filters?.end_date) params.append('end_date', filters.end_date);
+    if (filters?.department_id) params.append('department_id', filters.department_id.toString());
+    if (filters?.group_by) params.append('group_by', filters.group_by);
+
+    const queryString = params.toString();
+    const response = await api.get(`/api/bed-management/reports/occupancy${queryString ? `?${queryString}` : ''}`);
+    return response.data;
+  }
+}
+
+// Export grouped API methods
+const bedManagementApi = {
+  departments: {
+    getDepartments: () => new BedManagementAPI().getDepartments(),
+    getDepartmentStats: (id: number) => new BedManagementAPI().getDepartmentStats(id),
+  },
+  beds: {
+    getBeds: (filters?: any) => new BedManagementAPI().getBeds(filters),
+    getBedOccupancy: () => new BedManagementAPI().getBedOccupancy(),
+    getAvailableBeds: (filters?: any) => new BedManagementAPI().getAvailableBeds(filters),
+    createBed: (data: any) => new BedManagementAPI().createBed(data),
+    updateBed: (id: number, data: any) => new BedManagementAPI().updateBed(id, data),
+    deleteBed: (id: number) => new BedManagementAPI().deleteBed(id),
+  },
+  assignments: {
+    getAssignments: (filters?: any) => new BedManagementAPI().getAssignments(filters),
+    createAssignment: (data: any) => new BedManagementAPI().createAssignment(data),
+    dischargePatient: (id: number, data: any) => new BedManagementAPI().dischargePatient(id, data),
+    getPatientHistory: (patientId: number) => new BedManagementAPI().getPatientHistory(patientId),
+  },
+  transfers: {
+    getTransfers: (filters?: any) => new BedManagementAPI().getTransfers(filters),
+    createTransfer: (data: any) => new BedManagementAPI().createTransfer(data),
+    completeTransfer: (id: number) => new BedManagementAPI().completeTransfer(id),
+    cancelTransfer: (id: number) => new BedManagementAPI().cancelTransfer(id),
+    getPatientTransferHistory: (patientId: number) => new BedManagementAPI().getPatientTransferHistory(patientId),
+  },
+  enhanced: {
+    getDashboardMetrics: () => new BedManagementAPI().getDashboardMetrics(),
+    getBedsVisualization: (filters?: any) => new BedManagementAPI().getBedsVisualization(filters),
+    createEnhancedAssignment: (data: any) => new BedManagementAPI().createEnhancedAssignment(data),
+    createEnhancedTransfer: (data: any) => new BedManagementAPI().createEnhancedTransfer(data),
+    scheduleMaintenance: (data: any) => new BedManagementAPI().scheduleMaintenance(data),
+    getBedHistory: (bedId: number, limit?: number, offset?: number) => new BedManagementAPI().getBedHistory(bedId, limit, offset),
+    getOccupancyReport: (filters?: any) => new BedManagementAPI().getOccupancyReport(filters),
   },
 };
 
-// ==========================================
-// Export all APIs
-// ==========================================
-
-export default {
-  departments: departmentApi,
-  beds: bedApi,
-  assignments: bedAssignmentApi,
-  transfers: bedTransferApi,
-};
+export default bedManagementApi;
+export { BedManagementAPI };

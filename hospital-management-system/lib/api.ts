@@ -43,8 +43,12 @@ api.interceptors.response.use(
     }
     
     if (error.response?.status === 401) {
-      console.error('❌ Authentication error:', error.response?.data?.error || 'Unauthorized');
-      console.error('💡 Please check your login credentials');
+      // Only log 401 errors for critical endpoints, not for optional branding
+      const url = error.config?.url || '';
+      if (!url.includes('/branding')) {
+        console.error('❌ Authentication error:', error.response?.data?.error || 'Unauthorized');
+        console.error('💡 Please check your login credentials');
+      }
     }
     
     // Don't auto-redirect - let the UI handle the error

@@ -61,6 +61,14 @@ app.use(cors({
 // Middleware to parse JSON bodies
 app.use(express.json());
 
+// Request logging middleware - log all incoming requests
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${req.method} ${req.path}`);
+  console.log(`  Headers: X-Tenant-ID=${req.headers['x-tenant-id']}, X-App-ID=${req.headers['x-app-id']}`);
+  next();
+});
+
 // App authentication middleware - protect against direct access
 import { apiAppAuthMiddleware } from './middleware/appAuth';
 app.use('/api', apiAppAuthMiddleware);
@@ -109,6 +117,7 @@ import labResultsRouter from './routes/lab-results.routes';
 import imagingRouter from './routes/imaging.routes';
 import labPanelsRouter from './routes/lab-panels.routes';
 import bedManagementRouter from './routes/bed-management.routes';
+import bedManagementEnhancedRouter from './routes/bed-management-enhanced';
 import departmentsRouter from './routes/departments';
 import staffRouter from './routes/staff';
 import staffOnboardingRouter from './routes/staff-onboarding';
@@ -146,6 +155,9 @@ app.use('/api/notifications', tenantMiddleware, hospitalAuthMiddleware, requireA
 
 // Bed Management routes - Team Beta Sprint 1
 app.use('/api/beds', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), bedManagementRouter);
+
+// Enhanced Bed Management routes - Real-time visualization and operations
+app.use('/api/bed-management', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), bedManagementEnhancedRouter);
 
 // Departments routes - Separate to avoid conflicts
 app.use('/api/departments', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), departmentsRouter);
