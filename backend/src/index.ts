@@ -122,6 +122,7 @@ import departmentsRouter from './routes/departments';
 import staffRouter from './routes/staff';
 import staffOnboardingRouter from './routes/staff-onboarding';
 import notificationsRouter from './routes/notifications';
+import n8nRouter from './routes/n8n.routes';
 
 // Apply tenant middleware, authentication, and application access control to hospital routes
 app.use('/files', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), filesRouter);
@@ -161,6 +162,9 @@ app.use('/api/bed-management', tenantMiddleware, hospitalAuthMiddleware, require
 
 // Departments routes - Separate to avoid conflicts
 app.use('/api/departments', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), departmentsRouter);
+
+// n8n AI Agent routes - Public access for chatbot (no tenant/auth required for chat widget)
+app.use('/api/n8n', n8nRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {

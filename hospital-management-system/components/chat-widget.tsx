@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { MessageCircle, X, Send, Mic, MicOff } from "lucide-react"
+import { MessageCircle, X, Send, Mic, MicOff, Stethoscope, Building2, AlertCircle, HelpCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Link from "next/link"
 
 interface Message {
@@ -14,14 +15,25 @@ interface Message {
   timestamp: Date
 }
 
+type Department = "opd" | "ward" | "emergency" | "general"
+
+const DEPARTMENTS = [
+  { value: "opd", label: "OPD (Outpatient)", icon: Stethoscope, color: "text-blue-500" },
+  { value: "ward", label: "Ward Management", icon: Building2, color: "text-green-500" },
+  { value: "emergency", label: "Emergency", icon: AlertCircle, color: "text-red-500" },
+  { value: "general", label: "General Query", icon: HelpCircle, color: "text-purple-500" },
+] as const
+
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
+  const [department, setDepartment] = useState<Department>("general")
+  const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
       role: "assistant",
       content:
-        "Hello! I'm MediFlow Assistant. How can I help you today? I can assist with appointments, patient information, hospital services, and general inquiries.",
+        "Hello! I'm MediFlow AI Assistant. Please select a department above, and I'll connect you with the specialized AI agent to help you.",
       timestamp: new Date(),
     },
   ])
@@ -79,20 +91,27 @@ export function ChatWidget() {
     }
 
     setMessages((prev) => [...prev, userMessage])
+    const currentInput = input
     setInput("")
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/chat", {
+      // Call backend n8n integration
+      const response = await fetch("http://localhost:3000/api/n8n/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: messages.map((m) => ({ role: m.role, content: m.content })),
-          userMessage: input,
+          message: currentInput,
+          sessionId: sessionId,
+          department: department,
         }),
       })
 
       const data = await response.json()
+
+      if (!data.success) {
+        throw new Error(data.error || "Failed to get response from AI agent")
+      }
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -107,13 +126,25 @@ export function ChatWidget() {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Sorry, I encountered an error. Please try again.",
+        content: "Sorry, I encountered an error connecting to the AI agent. Please try again or select a different department.",
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleDepartmentChange = (newDept: Department) => {
+    setDepartment(newDept)
+    const deptInfo = DEPARTMENTS.find((d) => d.value === newDept)
+    const welcomeMessage: Message = {
+      id: Date.now().toString(),
+      role: "assistant",
+      content: `Switched to ${deptInfo?.label} agent. How can I assist you with ${deptInfo?.label.toLowerCase()} related queries?`,
+      timestamp: new Date(),
+    }
+    setMessages((prev) => [...prev, welcomeMessage])
   }
 
   return (
@@ -132,15 +163,34 @@ export function ChatWidget() {
         <Card className="fixed bottom-24 right-6 w-96 max-w-[calc(100vw-24px)] h-[600px] max-h-[calc(100vh-120px)] flex flex-col shadow-2xl z-40 animate-fade-in">
           {/* Header */}
           <div className="bg-gradient-to-r from-primary to-accent p-4 text-primary-foreground rounded-t-lg">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="font-semibold">MediFlow Assistant</h3>
-                <p className="text-xs opacity-90">AI-powered hospital support</p>
+                <h3 className="font-semibold">MediFlow AI Assistant</h3>
+                <p className="text-xs opacity-90">n8n-powered department agents</p>
               </div>
               <Link href="/chat" className="text-xs hover:underline">
                 Full Chat
               </Link>
             </div>
+            {/* Department Selector */}
+            <Select value={department} onValueChange={(value) => handleDepartmentChange(value as Department)}>
+              <SelectTrigger className="w-full bg-white/10 border-white/20 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DEPARTMENTS.map((dept) => {
+                  const Icon = dept.icon
+                  return (
+                    <SelectItem key={dept.value} value={dept.value}>
+                      <div className="flex items-center gap-2">
+                        <Icon className={`h-4 w-4 ${dept.color}`} />
+                        <span>{dept.label}</span>
+                      </div>
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Messages */}
@@ -184,8 +234,8 @@ export function ChatWidget() {
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-                placeholder="Type your question..."
+                onKeyPress={(e) => e.key === "Enter" && !isLoading && handleSendMessage()}
+                placeholder={`Ask ${DEPARTMENTS.find((d) => d.value === department)?.label} agent...`}
                 disabled={isLoading}
                 className="flex-1"
               />
@@ -194,6 +244,7 @@ export function ChatWidget() {
                 variant={isListening ? "default" : "outline"}
                 size="icon"
                 title={isListening ? "Stop listening" : "Start voice input"}
+                disabled={isLoading}
               >
                 {isListening ? <MicOff size={18} /> : <Mic size={18} />}
               </Button>
@@ -201,7 +252,12 @@ export function ChatWidget() {
                 <Send size={18} />
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">Ask about appointments, patient info, services, or FAQs</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Connected to {DEPARTMENTS.find((d) => d.value === department)?.label}
+              </p>
+              <p className="text-xs text-muted-foreground">Session: {sessionId.slice(-8)}</p>
+            </div>
           </div>
         </Card>
       )}
