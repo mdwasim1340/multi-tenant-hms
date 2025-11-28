@@ -1,385 +1,406 @@
-# Production Deployment Checklist
-
-Complete checklist for deploying the multi-tenant backend to production.
-
-## 📋 Pre-Deployment Checklist
-
-### Local Environment
-- [ ] All code committed to GitHub
-- [ ] All tests passing locally
-- [ ] `.env.production` file configured with correct credentials
-- [ ] SSH key available at `n8n/LightsailDefaultKey-ap-south-1.pem`
-- [ ] SSH key permissions set to 400
-
-### Server Access
-- [ ] Can SSH into server: `ssh -i n8n/LightsailDefaultKey-ap-south-1.pem bitnami@65.0.78.75`
-- [ ] Server has internet connectivity
-- [ ] GitHub repository accessible from server
-
-### DNS Configuration
-- [ ] Domain `backend.aajminpolyclinic.com.np` points to 65.0.78.75
-- [ ] DNS propagation complete (check with `nslookup backend.aajminpolyclinic.com.np`)
-
-## 🚀 Deployment Steps
-
-### Step 1: Prepare SSH Access
-
-```bash
-# Set correct permissions
-chmod 400 n8n/LightsailDefaultKey-ap-south-1.pem
-
-# Test connection
-ssh -i n8n/LightsailDefaultKey-ap-south-1.pem bitnami@65.0.78.75
-```
-
-**Expected Result**: Successfully connected to server
-- [ ] SSH connection successful
-
-### Step 2: Run Preparation Check
-
-```bash
-cd backend
-chmod +x scripts/prepare-deployment.sh
-./scripts/prepare-deployment.sh
-```
-
-**Expected Result**: Server status report showing installed software
-- [ ] Node.js installed (or will be installed)
-- [ ] PM2 installed (or will be installed)
-- [ ] PostgreSQL installed (or will be installed)
-- [ ] Nginx installed (or will be installed)
-
-### Step 3: First-Time Server Setup (Skip if already done)
-
-```bash
-# Copy setup script to server
-scp -i n8n/LightsailDefaultKey-ap-south-1.pem \
-    backend/scripts/setup-production.sh \
-    bitnami@65.0.78.75:/home/bitnami/
-
-# SSH into server
-ssh -i n8n/LightsailDefaultKey-ap-south-1.pem bitnami@65.0.78.75
-
-# Run setup script
-chmod +x setup-production.sh
-./setup-production.sh
-```
-
-**This will install and configure:**
-- [ ] Node.js 20.x
-- [ ] PM2 process manager
-- [ ] PostgreSQL database
-- [ ] Database created: `multitenant_db`
-- [ ] Nginx web server
-- [ ] SSL certificate (Let's Encrypt)
-- [ ] Firewall rules (UFW)
-- [ ] Repository cloned
-- [ ] Application built
-- [ ] PM2 started
-
-**Expected Duration**: 10-15 minutes
-
-### Step 4: Configure Environment Variables
-
-```bash
-# SSH into server
-ssh -i n8n/LightsailDefaultKey-ap-south-1.pem bitnami@65.0.78.75
-
-# Navigate to project
-cd /home/bitnami/multi-tenant-backend
-
-# Edit environment file
-nano .env
-```
-
-**Update these values:**
-
-```bash
-# Database (if different from default)
-DB_PASSWORD=password
-
-# Security (already generated)
-JWT_SECRET=4Vl0Th1zn3aG+1T5dhLynENkCxKJGdi2eS3MOQX1WGk=
-
-# CORS (add production frontend URLs)
-ALLOWED_ORIGINS=https://hospital.aajminpolyclinic.com.np,https://admin.aajminpolyclinic.com.np
-
-# Email (update if needed)
-EMAIL_SENDER=noreply@aajminpolyclinic.com.np
-```
-
-**Save and exit**: `Ctrl+X`, then `Y`, then `Enter`
-
-- [ ] Environment variables configured
-- [ ] JWT secret set
-- [ ] CORS origins updated
-- [ ] Email sender updated
-
-### Step 5: Run Database Migrations
-
-```bash
-# Still on server
-cd /home/bitnami/multi-tenant-backend
-
-# Run migrations
-npm run migrate:up
-```
-
-**Expected Result**: All migrations applied successfully
-- [ ] Migrations completed without errors
-- [ ] Database tables created
-- [ ] Tenant schemas created
-
-### Step 6: Start Application
-
-```bash
-# Start with PM2
-pm2 start ecosystem.config.js --env production --only backend-api-prod
-
-# Save PM2 configuration
-pm2 save
-
-# Check status
-pm2 status
-```
-
-**Expected Result**: Application running with status "online"
-- [ ] PM2 process started
-- [ ] Status shows "online"
-- [ ] No errors in logs
-
-### Step 7: Verify Deployment
-
-```bash
-# Exit from server
-exit
-
-# From local machine, run health check
-cd backend
-./scripts/check-deployment.sh
-```
-
-**Expected Results:**
-- [ ] SSH connection successful
-- [ ] Server information displayed
-- [ ] PM2 shows backend-api-prod as "online"
-- [ ] PostgreSQL is running
-- [ ] Nginx is running
-- [ ] API health check passed
-
-### Step 8: Test API Endpoints
-
-```bash
-# Test health endpoint
-curl https://backend.aajminpolyclinic.com.np/health
-
-# Expected response:
-# {"status":"ok","timestamp":"2025-11-28T..."}
-```
-
-- [ ] Health endpoint returns 200 OK
-- [ ] Response contains status and timestamp
-
-### Step 9: Test with Frontend
-
-If you have frontend applications ready:
-
-```bash
-# Test from Hospital Management System
-curl -X GET https://backend.aajminpolyclinic.com.np/api/patients \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "X-Tenant-ID: tenant_id" \
-  -H "X-App-ID: hospital-management" \
-  -H "X-API-Key: your_api_key"
-```
-
-- [ ] API responds to authenticated requests
-- [ ] Multi-tenant isolation working
-- [ ] CORS headers correct
-
-### Step 10: Monitor Logs
-
-```bash
-# SSH back into server
-ssh -i n8n/LightsailDefaultKey-ap-south-1.pem bitnami@65.0.78.75
-
-# View logs
-pm2 logs backend-api-prod
-
-# Monitor in real-time
-pm2 monit
-```
-
-- [ ] No error messages in logs
-- [ ] Application responding to requests
-- [ ] Memory usage normal (< 500MB per instance)
-
-## 🔄 Subsequent Deployments
-
-For future deployments after initial setup:
-
-```bash
-# From local machine
-cd backend
-./deploy.sh
-```
-
-**This will:**
-1. Connect to server via SSH
-2. Pull latest changes from GitHub
-3. Install dependencies
-4. Build TypeScript
-5. Restart PM2 process
-6. Verify deployment
-
-- [ ] Deployment script completed successfully
-- [ ] Application restarted
-- [ ] Health check passed
-
-## 🔒 Security Verification
-
-### Firewall Check
-
-```bash
-# On server
-sudo ufw status
-```
-
-**Expected ports open:**
-- [ ] 22/tcp (SSH)
-- [ ] 80/tcp (HTTP)
-- [ ] 443/tcp (HTTPS)
-
-### SSL Certificate Check
-
-```bash
-# On server
-sudo certbot certificates
-```
-
-- [ ] Certificate valid
-- [ ] Expiry date > 30 days
-- [ ] Auto-renewal configured
-
-### Environment Security
-
-```bash
-# On server
-ls -la /home/bitnami/multi-tenant-backend/.env
-```
-
-- [ ] .env file exists
-- [ ] Permissions are 600 or 644
-- [ ] Not committed to Git
-
-## 📊 Post-Deployment Monitoring
-
-### First 24 Hours
-
-- [ ] Monitor PM2 logs every 2 hours
-- [ ] Check memory usage: `pm2 monit`
-- [ ] Verify no crashes: `pm2 list`
-- [ ] Test all critical endpoints
-- [ ] Monitor error rates
-
-### First Week
-
-- [ ] Daily health checks
-- [ ] Review logs for errors
-- [ ] Monitor database performance
-- [ ] Check disk space: `df -h`
-- [ ] Verify backups working
-
-### Ongoing
-
-- [ ] Weekly health checks
-- [ ] Monthly security updates
-- [ ] SSL certificate renewal (automatic)
-- [ ] Database backups (configure schedule)
-- [ ] Log rotation working
-
-## 🚨 Rollback Plan
-
-If deployment fails:
-
-```bash
-# SSH into server
-ssh -i n8n/LightsailDefaultKey-ap-south-1.pem bitnami@65.0.78.75
-cd /home/bitnami/multi-tenant-backend
-
-# View recent commits
-git log --oneline -10
-
-# Rollback to previous version
-git checkout <previous-commit-hash>
-
-# Rebuild
-npm install
-npm run build
-
-# Restart
-pm2 restart backend-api-prod
-
-# Verify
-pm2 logs backend-api-prod
-```
-
-- [ ] Rollback procedure tested
-- [ ] Previous version working
-
-## 📞 Emergency Contacts
-
-### If Something Goes Wrong
-
-1. **Check logs first**: `pm2 logs backend-api-prod`
-2. **Check server status**: `./scripts/check-deployment.sh`
-3. **Restart application**: `pm2 restart backend-api-prod`
-4. **Check database**: `sudo systemctl status postgresql`
-5. **Check Nginx**: `sudo systemctl status nginx`
-
-### Common Issues
-
-| Issue | Solution |
-|-------|----------|
-| Application won't start | Check logs: `pm2 logs backend-api-prod` |
-| Port 3000 in use | `sudo lsof -i :3000` then kill process |
-| Database connection failed | `sudo systemctl restart postgresql` |
-| Nginx error | `sudo nginx -t` then `sudo systemctl restart nginx` |
-| SSL certificate expired | `sudo certbot renew` |
-| Out of memory | Increase server resources or optimize code |
-| Disk space full | Clean logs: `pm2 flush` and old files |
-
-## ✅ Final Verification
-
-Before marking deployment complete:
-
-- [ ] Application accessible at https://backend.aajminpolyclinic.com.np
-- [ ] Health endpoint returns 200 OK
-- [ ] SSL certificate valid
-- [ ] All environment variables configured
-- [ ] Database migrations applied
-- [ ] PM2 process running in cluster mode
-- [ ] Logs show no errors
-- [ ] Frontend can connect to backend
-- [ ] Multi-tenant isolation verified
-- [ ] Authentication working
-- [ ] CORS configured correctly
-- [ ] Firewall rules active
-- [ ] Monitoring in place
-- [ ] Backup strategy defined
-- [ ] Rollback plan tested
-- [ ] Documentation updated
-
-## 📝 Deployment Log
-
-Record each deployment:
-
-| Date | Version | Deployed By | Status | Notes |
-|------|---------|-------------|--------|-------|
-| 2025-11-28 | 1.0.0 | [Name] | ✅ Success | Initial deployment |
-|  |  |  |  |  |
+# Hospital Management System - Deployment Checklist
+
+**Server**: 65.0.78.75 (bitnami@aajminpolyclinic.com.np)  
+**Date**: _______________  
+**Deployed By**: _______________
 
 ---
 
-**Last Updated**: November 28, 2025  
-**Next Review**: After first deployment
+## ✅ Pre-Deployment (Complete Before Starting)
+
+### Local Preparation
+- [ ] All code committed to git repository
+- [ ] Backend builds successfully locally
+- [ ] Frontend builds successfully locally
+- [ ] All tests passing
+- [ ] Environment variables documented
+- [ ] Database migrations tested locally
+- [ ] Backup of current production (if updating)
+
+### Server Access
+- [ ] SSH key available: `n8n/LightsailDefaultKey-ap-south-1.pem`
+- [ ] Can connect to server: `ssh -i "n8n/LightsailDefaultKey-ap-south-1.pem" bitnami@65.0.78.75`
+- [ ] Have sudo access if needed
+
+### Documentation Review
+- [ ] Read `LIGHTSAIL_DEPLOYMENT_PLAN.md`
+- [ ] Read `DEPLOYMENT_QUICK_REFERENCE.md`
+- [ ] Understand port allocation (3001=backend, 3002=frontend)
+- [ ] Know rollback procedure
+
+---
+
+## 🔍 Phase 0: Analysis (15 min)
+
+- [ ] Upload `analyze-lightsail-deployment.sh` to server
+- [ ] Run analysis script
+- [ ] Download and review `deployment-analysis.txt`
+- [ ] Verify port 3000 is in use (existing service)
+- [ ] Verify ports 3001, 3002 are available
+- [ ] Confirm web server type (Apache/Nginx)
+- [ ] Check disk space (need 5GB+)
+- [ ] Check memory (need 2GB+ free)
+- [ ] Document existing services
+
+**⚠️ STOP if conflicts found. Resolve before continuing.**
+
+---
+
+## 📦 Phase 1: Build & Prepare (30 min)
+
+### Build Backend
+- [ ] `cd backend`
+- [ ] `npm install --production`
+- [ ] `npm run build` (if applicable)
+- [ ] Test: `node src/index.js` starts without errors
+- [ ] Create `.env.production` with correct values
+- [ ] Verify PORT=3001 in .env
+
+### Build Frontend
+- [ ] `cd hospital-management-system`
+- [ ] `npm install --production`
+- [ ] `npm run build`
+- [ ] Verify `.next` folder created
+- [ ] Create `.env.production` with correct values
+- [ ] Verify PORT=3002 in .env
+- [ ] Verify NEXT_PUBLIC_API_URL points to api.aajminpolyclinic.com.np
+
+### Create Deployment Package
+- [ ] Create `deployment-package` folder
+- [ ] Copy backend files (exclude node_modules)
+- [ ] Copy frontend files (exclude node_modules, include .next)
+- [ ] Copy environment files
+- [ ] Create `ecosystem.config.js` for PM2
+
+---
+
+## 🚀 Phase 2: Server Setup (1 hour)
+
+### Connect to Server
+- [ ] SSH into server
+- [ ] Verify current user: `whoami` (should be bitnami)
+- [ ] Check existing services: `pm2 list`
+
+### Install Dependencies
+- [ ] Check Node.js version: `node --version` (need 18+)
+- [ ] Install/update Node.js if needed
+- [ ] Check PM2: `pm2 --version`
+- [ ] Install PM2 if needed: `sudo npm install -g pm2`
+- [ ] Check PostgreSQL: `psql --version`
+- [ ] Install PostgreSQL if needed
+
+### Create Directories
+- [ ] `sudo mkdir -p /opt/hospital-management`
+- [ ] `sudo chown bitnami:bitnami /opt/hospital-management`
+- [ ] `mkdir -p /opt/hospital-management/{backend,frontend,logs,backups}`
+
+### Setup Database
+- [ ] Connect to PostgreSQL: `sudo -u postgres psql`
+- [ ] Create database: `CREATE DATABASE multitenant_db;`
+- [ ] Create user: `CREATE USER hospital_user WITH PASSWORD 'secure_password';`
+- [ ] Grant privileges: `GRANT ALL PRIVILEGES ON DATABASE multitenant_db TO hospital_user;`
+- [ ] Test connection: `psql -U hospital_user -d multitenant_db -h localhost`
+- [ ] Exit and document credentials
+
+---
+
+## 📤 Phase 3: Upload Files (30 min)
+
+### Transfer Backend
+- [ ] `scp -i "n8n/LightsailDefaultKey-ap-south-1.pem" -r backend/* bitnami@65.0.78.75:/opt/hospital-management/backend/`
+- [ ] Verify files uploaded: `ls -la /opt/hospital-management/backend/`
+
+### Transfer Frontend
+- [ ] `scp -i "n8n/LightsailDefaultKey-ap-south-1.pem" -r hospital-management-system/* bitnami@65.0.78.75:/opt/hospital-management/frontend/`
+- [ ] Verify files uploaded: `ls -la /opt/hospital-management/frontend/`
+
+### Transfer Configuration
+- [ ] Upload backend .env
+- [ ] Upload frontend .env.local
+- [ ] Upload ecosystem.config.js
+- [ ] Verify all files present
+
+---
+
+## 🔧 Phase 4: Install & Configure (45 min)
+
+### Backend Setup
+- [ ] `cd /opt/hospital-management/backend`
+- [ ] `npm install --production`
+- [ ] Verify .env file: `cat .env | grep PORT` (should show 3001)
+- [ ] Run migrations: `npm run migrate up`
+- [ ] Verify migrations: `psql -U hospital_user -d multitenant_db -c "\dt"`
+- [ ] Test backend: `node src/index.js` (Ctrl+C after verification)
+
+### Frontend Setup
+- [ ] `cd /opt/hospital-management/frontend`
+- [ ] `npm install --production`
+- [ ] Verify .env.local: `cat .env.local | grep PORT` (should show 3002)
+- [ ] Verify build exists: `ls -la .next/`
+- [ ] Test frontend: `npm start` (Ctrl+C after verification)
+
+### PM2 Configuration
+- [ ] Verify ecosystem.config.js in `/opt/hospital-management/`
+- [ ] Check ports in config: backend=3001, frontend=3002
+- [ ] Start services: `pm2 start ecosystem.config.js`
+- [ ] Check status: `pm2 status`
+- [ ] View logs: `pm2 logs --lines 20`
+- [ ] Save PM2 config: `pm2 save`
+- [ ] Setup startup: `pm2 startup` (follow instructions)
+
+### Verify Services Running
+- [ ] Backend: `curl http://localhost:3001/health`
+- [ ] Frontend: `curl http://localhost:3002`
+- [ ] PM2 status shows both running
+- [ ] No errors in logs
+
+---
+
+## 🌐 Phase 5: Web Server Configuration (45 min)
+
+### Identify Web Server
+- [ ] Check Apache: `sudo systemctl status apache2`
+- [ ] Check Nginx: `sudo systemctl status nginx`
+- [ ] Document which one is active
+
+### Apache Configuration (if using Apache)
+- [ ] Create vhost file: `/opt/bitnami/apache/conf/vhosts/hospital-vhost.conf`
+- [ ] Add backend proxy (api.aajminpolyclinic.com.np → localhost:3001)
+- [ ] Add frontend proxy (aajminpolyclinic.com.np → localhost:3002)
+- [ ] Enable proxy modules: `sudo a2enmod proxy proxy_http`
+- [ ] Test config: `sudo /opt/bitnami/apache/bin/apachectl configtest`
+- [ ] Restart Apache: `sudo /opt/bitnami/ctlscript.sh restart apache`
+
+### Nginx Configuration (if using Nginx)
+- [ ] Create config: `/etc/nginx/sites-available/hospital`
+- [ ] Add backend proxy (api.aajminpolyclinic.com.np → localhost:3001)
+- [ ] Add frontend proxy (aajminpolyclinic.com.np → localhost:3002)
+- [ ] Enable site: `sudo ln -s /etc/nginx/sites-available/hospital /etc/nginx/sites-enabled/`
+- [ ] Test config: `sudo nginx -t`
+- [ ] Restart Nginx: `sudo systemctl restart nginx`
+
+### DNS Configuration
+- [ ] Verify DNS A record: aajminpolyclinic.com.np → 65.0.78.75
+- [ ] Verify DNS A record: api.aajminpolyclinic.com.np → 65.0.78.75
+- [ ] Verify DNS A record: www.aajminpolyclinic.com.np → 65.0.78.75
+- [ ] Test DNS: `nslookup aajminpolyclinic.com.np`
+- [ ] Wait for DNS propagation if needed (up to 24 hours)
+
+---
+
+## 🔒 Phase 6: SSL Setup (30 min)
+
+### Install Certbot
+- [ ] `sudo apt install -y certbot`
+- [ ] For Apache: `sudo apt install -y python3-certbot-apache`
+- [ ] For Nginx: `sudo apt install -y python3-certbot-nginx`
+
+### Obtain Certificates
+- [ ] Run certbot for all domains
+- [ ] Apache: `sudo certbot --apache -d aajminpolyclinic.com.np -d www.aajminpolyclinic.com.np -d api.aajminpolyclinic.com.np`
+- [ ] Nginx: `sudo certbot --nginx -d aajminpolyclinic.com.np -d www.aajminpolyclinic.com.np -d api.aajminpolyclinic.com.np`
+- [ ] Verify certificates: `sudo certbot certificates`
+- [ ] Test auto-renewal: `sudo certbot renew --dry-run`
+
+### Update Configuration for HTTPS
+- [ ] Update vhost/config for HTTPS (port 443)
+- [ ] Add HTTP to HTTPS redirect
+- [ ] Test config
+- [ ] Restart web server
+
+---
+
+## 🗄️ Phase 7: Database & Tenant Setup (30 min)
+
+### Create Tenant
+- [ ] Connect to database: `psql -U hospital_user -d multitenant_db`
+- [ ] Insert tenant record for aajmin_polyclinic
+- [ ] Create tenant schema: `CREATE SCHEMA "tenant_aajmin";`
+- [ ] Run tenant-specific migrations
+- [ ] Verify tenant tables exist
+- [ ] Create admin user for tenant
+- [ ] Assign admin role
+- [ ] Document tenant ID and credentials
+
+### Test Database
+- [ ] Query tenants: `SELECT * FROM tenants;`
+- [ ] Verify tenant schema exists
+- [ ] Test API with tenant headers
+- [ ] Exit database
+
+---
+
+## 🔥 Phase 8: Firewall & Security (15 min)
+
+### Configure Firewall
+- [ ] Check status: `sudo ufw status`
+- [ ] Allow SSH: `sudo ufw allow 22/tcp`
+- [ ] Allow HTTP: `sudo ufw allow 80/tcp`
+- [ ] Allow HTTPS: `sudo ufw allow 443/tcp`
+- [ ] Block 3001: `sudo ufw deny 3001/tcp` (optional)
+- [ ] Block 3002: `sudo ufw deny 3002/tcp` (optional)
+- [ ] Enable firewall: `sudo ufw enable`
+- [ ] Verify: `sudo ufw status verbose`
+
+### Security Checks
+- [ ] Verify .env files have correct permissions (600)
+- [ ] Verify database password is strong
+- [ ] Verify API keys are set
+- [ ] Verify JWT secret is set
+- [ ] No sensitive data in logs
+
+---
+
+## ✅ Phase 9: Testing (45 min)
+
+### Backend API Tests
+- [ ] Health check: `curl https://api.aajminpolyclinic.com.np/health`
+- [ ] Test signin endpoint
+- [ ] Test with tenant headers
+- [ ] Verify CORS headers
+- [ ] Check response times
+- [ ] Review API logs for errors
+
+### Frontend Tests
+- [ ] Access: `https://aajminpolyclinic.com.np`
+- [ ] Verify page loads
+- [ ] Test login functionality
+- [ ] Test navigation
+- [ ] Check browser console for errors
+- [ ] Test API calls from frontend
+- [ ] Verify tenant isolation
+
+### Performance Tests
+- [ ] Backend load test: `ab -n 100 -c 10 https://api.aajminpolyclinic.com.np/health`
+- [ ] Frontend load test: `ab -n 50 -c 5 https://aajminpolyclinic.com.np/`
+- [ ] Check response times acceptable
+- [ ] Monitor server resources during tests
+
+### Cross-Browser Testing
+- [ ] Test in Chrome
+- [ ] Test in Firefox
+- [ ] Test in Safari
+- [ ] Test on mobile device
+
+---
+
+## 📊 Phase 10: Monitoring Setup (30 min)
+
+### Log Rotation
+- [ ] Create logrotate config: `/etc/logrotate.d/hospital-management`
+- [ ] Test logrotate: `sudo logrotate -f /etc/logrotate.d/hospital-management`
+
+### PM2 Monitoring
+- [ ] Install pm2-logrotate: `pm2 install pm2-logrotate`
+- [ ] Configure log rotation
+- [ ] Test: `pm2 logs --lines 10`
+
+### Health Checks
+- [ ] Create health-check.sh script
+- [ ] Make executable: `chmod +x health-check.sh`
+- [ ] Test script: `./health-check.sh`
+- [ ] Add to crontab: `crontab -e`
+- [ ] Add: `*/5 * * * * /opt/hospital-management/health-check.sh`
+
+### Backup Setup
+- [ ] Create backup-db.sh script
+- [ ] Create backup-app.sh script
+- [ ] Make executable
+- [ ] Test both scripts
+- [ ] Add to crontab (daily DB, weekly app)
+- [ ] Verify backups created
+
+---
+
+## 📝 Phase 11: Documentation (30 min)
+
+### Create Operations Manual
+- [ ] Document all URLs
+- [ ] Document all credentials (securely)
+- [ ] Document common commands
+- [ ] Document troubleshooting steps
+- [ ] Document update procedure
+- [ ] Document rollback procedure
+
+### Team Handover
+- [ ] Share access credentials securely
+- [ ] Walkthrough deployment with team
+- [ ] Demonstrate common operations
+- [ ] Review monitoring setup
+- [ ] Review backup/restore procedure
+
+---
+
+## 🎉 Phase 12: Go Live (15 min)
+
+### Final Checks
+- [ ] All services running: `pm2 status`
+- [ ] SSL certificates valid
+- [ ] DNS resolving correctly
+- [ ] Frontend accessible
+- [ ] Backend API responding
+- [ ] No errors in logs
+- [ ] Monitoring active
+- [ ] Backups configured
+
+### Announce Go-Live
+- [ ] Notify stakeholders
+- [ ] Share URLs
+- [ ] Share support contacts
+- [ ] Monitor for first 24 hours
+
+---
+
+## 📞 Post-Deployment
+
+### Day 1 Monitoring
+- [ ] Check logs every 2 hours
+- [ ] Monitor server resources
+- [ ] Check for errors
+- [ ] Verify backups running
+- [ ] Test all major features
+
+### Week 1 Tasks
+- [ ] Daily log review
+- [ ] Performance monitoring
+- [ ] User feedback collection
+- [ ] Address any issues
+- [ ] Optimize as needed
+
+### Ongoing Maintenance
+- [ ] Weekly log review
+- [ ] Monthly security updates
+- [ ] Quarterly SSL renewal check
+- [ ] Regular backup verification
+- [ ] Performance optimization
+
+---
+
+## 🚨 Rollback Procedure (If Needed)
+
+- [ ] Stop PM2 services
+- [ ] Restore database from backup
+- [ ] Restore application files from backup
+- [ ] Restart services
+- [ ] Verify rollback successful
+- [ ] Document what went wrong
+- [ ] Plan fix for next deployment
+
+---
+
+## ✍️ Sign-Off
+
+**Deployment Completed By**: _______________  
+**Date**: _______________  
+**Time**: _______________  
+**Status**: ⬜ Success ⬜ Partial ⬜ Rolled Back  
+
+**Notes**:
+_____________________________________________
+_____________________________________________
+_____________________________________________
+
+**Next Steps**:
+_____________________________________________
+_____________________________________________
+_____________________________________________
