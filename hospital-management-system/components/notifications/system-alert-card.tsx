@@ -1,7 +1,7 @@
 'use client';
 
 import { Notification } from '@/lib/types/notification';
-import { formatTimeAgo, getTypeIcon } from '@/lib/types/notification';
+import { formatTimeAgo, getNotificationTypeIcon } from '@/lib/types/notification';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,7 @@ export function SystemAlertCard({
   onDismiss,
   dismissed = false,
 }: SystemAlertCardProps) {
-  const typeIcon = getTypeIcon(notification.type);
+  const typeIcon = getNotificationTypeIcon(notification.type);
 
   // Determine alert severity based on type
   const getSeverityColor = () => {
