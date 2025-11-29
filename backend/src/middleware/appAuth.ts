@@ -8,6 +8,8 @@ const ALLOWED_ORIGINS = [
   'http://10.66.66.8:3001', // Hospital Management System (network)
   'http://10.66.66.8:3002', // Admin Dashboard (network)
   'http://10.66.66.8:3003', // Future apps (network)
+  'https://aajminpolyclinic.healthsync.live', // Production Hospital System
+  'http://aajminpolyclinic.healthsync.live', // Production Hospital System (HTTP)
 ];
 
 // Check if origin is a valid subdomain
@@ -15,8 +17,15 @@ const isValidSubdomainOrigin = (origin: string): boolean => {
   try {
     const url = new URL(origin);
     // Allow *.localhost:3001, *.localhost:3002, *.localhost:3003
-    return url.hostname.endsWith('.localhost') && 
-           (url.port === '3001' || url.port === '3002' || url.port === '3003');
+    if (url.hostname.endsWith('.localhost') && 
+        (url.port === '3001' || url.port === '3002' || url.port === '3003')) {
+      return true;
+    }
+    // Allow *.healthsync.live (production subdomains)
+    if (url.hostname.endsWith('.healthsync.live')) {
+      return true;
+    }
+    return false;
   } catch {
     return false;
   }

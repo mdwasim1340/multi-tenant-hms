@@ -3,7 +3,7 @@
  * Handles all medical records API calls
  */
 
-import { apiClient } from './client';
+import api from './client';
 
 export interface VitalSigns {
   blood_pressure?: string;
@@ -104,7 +104,7 @@ export interface AttachFileData {
  * Get list of medical records
  */
 export async function getMedicalRecords(params?: ListRecordsParams) {
-  const response = await apiClient.get('/api/medical-records', { params });
+  const response = await api.get('/api/medical-records', { params });
   return response.data;
 }
 
@@ -112,7 +112,7 @@ export async function getMedicalRecords(params?: ListRecordsParams) {
  * Get a single medical record by ID
  */
 export async function getMedicalRecord(id: number) {
-  const response = await apiClient.get(`/api/medical-records/${id}`);
+  const response = await api.get(`/api/medical-records/${id}`);
   return response.data;
 }
 
@@ -120,7 +120,7 @@ export async function getMedicalRecord(id: number) {
  * Create a new medical record
  */
 export async function createMedicalRecord(data: CreateRecordData) {
-  const response = await apiClient.post('/api/medical-records', data);
+  const response = await api.post('/api/medical-records', data);
   return response.data;
 }
 
@@ -128,7 +128,7 @@ export async function createMedicalRecord(data: CreateRecordData) {
  * Update an existing medical record
  */
 export async function updateMedicalRecord(id: number, data: UpdateRecordData) {
-  const response = await apiClient.put(`/api/medical-records/${id}`, data);
+  const response = await api.put(`/api/medical-records/${id}`, data);
   return response.data;
 }
 
@@ -136,7 +136,7 @@ export async function updateMedicalRecord(id: number, data: UpdateRecordData) {
  * Delete a medical record
  */
 export async function deleteMedicalRecord(id: number) {
-  const response = await apiClient.delete(`/api/medical-records/${id}`);
+  const response = await api.delete(`/api/medical-records/${id}`);
   return response.data;
 }
 
@@ -148,7 +148,7 @@ export async function requestUploadUrl(
   contentType: string,
   fileSize: number
 ): Promise<UploadUrlResponse> {
-  const response = await apiClient.post('/api/medical-records/upload-url', {
+  const response = await api.post('/api/medical-records/upload-url', {
     filename,
     content_type: contentType,
     file_size: fileSize
@@ -160,7 +160,7 @@ export async function requestUploadUrl(
  * Get presigned URL for file download
  */
 export async function getDownloadUrl(fileId: string) {
-  const response = await apiClient.get(`/api/medical-records/download-url/${fileId}`);
+  const response = await api.get(`/api/medical-records/download-url/${fileId}`);
   return response.data;
 }
 
@@ -191,7 +191,7 @@ export async function uploadFileToS3(
  * Attach file to medical record
  */
 export async function attachFileToRecord(recordId: number, data: AttachFileData) {
-  const response = await apiClient.post(
+  const response = await api.post(
     `/api/medical-records/${recordId}/attachments`,
     data
   );
@@ -202,7 +202,7 @@ export async function attachFileToRecord(recordId: number, data: AttachFileData)
  * Get attachments for a medical record
  */
 export async function getRecordAttachments(recordId: number) {
-  const response = await apiClient.get(`/api/medical-records/${recordId}/attachments`);
+  const response = await api.get(`/api/medical-records/${recordId}/attachments`);
   return response.data;
 }
 
@@ -210,7 +210,7 @@ export async function getRecordAttachments(recordId: number) {
  * Finalize a medical record (make it read-only)
  */
 export async function finalizeRecord(recordId: number) {
-  const response = await apiClient.post(`/api/medical-records/${recordId}/finalize`);
+  const response = await api.post(`/api/medical-records/${recordId}/finalize`);
   return response.data;
 }
 

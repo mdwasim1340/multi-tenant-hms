@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
@@ -12,7 +12,7 @@ import { AppointmentList } from "@/components/appointments/AppointmentList"
 import AppointmentCalendar from "@/components/appointments/AppointmentCalendar"
 import { Appointment } from "@/lib/api/appointments"
 
-export default function Appointments() {
+function AppointmentsContent() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeTab, setActiveTab] = useState("calendar")
   const [refreshKey, setRefreshKey] = useState(0)
@@ -177,6 +177,14 @@ export default function Appointments() {
         </main>
       </div>
     </div>
+  )
+}
+
+export default function Appointments() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <AppointmentsContent />
+    </Suspense>
   )
 }
 

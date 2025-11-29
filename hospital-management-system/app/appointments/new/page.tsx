@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
 import { TopBar } from '@/components/top-bar';
@@ -13,7 +13,7 @@ import AppointmentForm from '@/components/appointments/AppointmentForm';
 import { Appointment, getAppointmentById } from '@/lib/api/appointments';
 import { Loader2 } from 'lucide-react';
 
-export default function NewAppointmentPage() {
+function NewAppointmentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -109,5 +109,13 @@ export default function NewAppointmentPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function NewAppointmentPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+      <NewAppointmentContent />
+    </Suspense>
   );
 }

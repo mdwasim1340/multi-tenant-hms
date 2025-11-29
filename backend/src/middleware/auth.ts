@@ -104,21 +104,45 @@ export const hospitalAuthMiddleware = (req: Request, res: Response, next: NextFu
       return res.status(401).json({ message: 'Invalid token' });
     }
 
-    const groups = (payload as any)['cognito:groups'];
-    if (!groups || (!groups.includes('hospital-admin') && !groups.includes('system-admin') && !groups.includes('admin'))) {
-      return res.status(403).json({ message: 'Forbidden: Hospital admins only' });
-    }
-
     req.user = payload;
-    // Map JWT to local DB user id when possible
+    
+    // Map JWT to local DB user id
     try {
       const email = (payload as any).email || (payload as any)['cognito:username'];
       const user = email ? await getUserByEmail(email) : null;
       (req as any).userId = user?.id ?? (payload as any).sub ?? (payload as any)['cognito:username'];
+      
+      // Check database roles instead of Cognito groups for hospital access
+      // This allows users with database roles to access hospital system
+      // even if they don't have Cognito groups set
+      if (user?.id) {
+        // User found in database - allow access (role-based permissions will be checked by requirePermission middleware)
+        return next();
+      }
+      
+      // Fallback to Cognito groups check if user not in database
+      const groups = (payload as any)['cognito:groups'];
+      if (groups && (groups.includes('hospital-admin') || groups.includes('system-admin') || groups.includes('admin'))) {
+        return next();
+      }
+      
+      // If no database user and no Cognito groups, deny access
+      return res.status(403).json({ 
+        message: 'Forbidden: User not authorized for hospital system',
+        hint: 'User must have a database account with assigned roles or be in a Cognito group'
+      });
+      
     } catch (mapErr) {
+      console.error('Error mapping user:', mapErr);
       (req as any).userId = (payload as any).sub || (payload as any)['cognito:username'];
+      
+      // Fallback to Cognito groups check
+      const groups = (payload as any)['cognito:groups'];
+      if (!groups || (!groups.includes('hospital-admin') && !groups.includes('system-admin') && !groups.includes('admin'))) {
+        return res.status(403).json({ message: 'Forbidden: Hospital admins only' });
+      }
+      next();
     }
-    next();
   });
 };
 

@@ -1,0 +1,36 @@
+===========================================
+COPY THIS ENTIRE BLOCK - PASTE IN AWS SSH
+===========================================
+
+cd ~/backend && cp .env.production .env.production.backup 2>/dev/null; cp ecosystem.config.js ecosystem.config.js.backup 2>/dev/null; mv .env.production .env.temp 2>/dev/null; mv ecosystem.config.js ecosystem.temp 2>/dev/null; git fetch origin && git reset --hard origin/development && mv .env.temp .env.production 2>/dev/null; mv ecosystem.temp ecosystem.config.js 2>/dev/null; npm run build && pm2 restart backend && echo "✅ Deployment Complete!" && pm2 status
+
+===========================================
+
+If backend is in different location, replace ~/backend with:
+- /var/www/backend
+- /opt/backend
+- Or the path you found
+
+===========================================
+WHAT THIS DOES:
+===========================================
+1. Navigates to backend directory
+2. Backs up .env.production and ecosystem.config.js
+3. Moves them temporarily to avoid git conflicts
+4. Force pulls latest code from development branch
+5. Restores config files
+6. Builds TypeScript
+7. Restarts backend service
+8. Shows status
+
+===========================================
+EXPECTED OUTPUT:
+===========================================
+✅ Deployment Complete!
+┌─────┬──────────┬─────────┬─────────┐
+│ id  │ name     │ status  │ restart │
+├─────┼──────────┼─────────┼─────────┤
+│ 0   │ backend  │ online  │ 1       │
+└─────┴──────────┴─────────┴─────────┘
+
+===========================================

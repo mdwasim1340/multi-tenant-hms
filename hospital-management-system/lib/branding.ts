@@ -45,8 +45,12 @@ export async function fetchBranding(tenantId: string): Promise<BrandingConfig | 
       console.log(`ℹ️  Branding access restricted for tenant: ${tenantId}`);
     } else if (error.response?.status === 401) {
       // Silent - authentication required but not available yet
+      // This is expected during initial page load before auth is complete
     } else {
-      console.error('Error fetching branding:', error.message);
+      // Only log non-auth errors
+      if (error.message && !error.message.includes('Unauthorized')) {
+        console.debug('Branding fetch info:', error.message);
+      }
     }
     return null;
   }

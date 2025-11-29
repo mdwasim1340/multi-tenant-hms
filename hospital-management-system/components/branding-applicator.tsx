@@ -14,24 +14,29 @@ import { isAuthenticated } from '@/lib/auth';
 export function BrandingApplicator() {
   useEffect(() => {
     async function applyTenantBranding() {
-      // Get tenant context
-      const tenantId = getTenantContext();
+      try {
+        // Get tenant context
+        const tenantId = getTenantContext();
 
-      if (!tenantId) {
-        console.log('ℹ️  No tenant context, skipping branding');
-        return;
+        if (!tenantId) {
+          console.debug('ℹ️  No tenant context, skipping branding');
+          return;
+        }
+
+        // Check if user is authenticated (branding API requires auth)
+        if (!isAuthenticated()) {
+          console.debug('ℹ️  User not authenticated, skipping branding');
+          return;
+        }
+
+        console.log(`🎨 Applying branding for tenant: ${tenantId}`);
+
+        // Fetch and apply branding
+        await fetchAndApplyBranding(tenantId);
+      } catch (error) {
+        // Silently handle errors - branding is optional
+        console.debug('Branding applicator error:', error);
       }
-
-      // Check if user is authenticated (branding API requires auth)
-      if (!isAuthenticated()) {
-        console.log('ℹ️  User not authenticated, skipping branding');
-        return;
-      }
-
-      console.log(`🎨 Applying branding for tenant: ${tenantId}`);
-
-      // Fetch and apply branding
-      await fetchAndApplyBranding(tenantId);
     }
 
     applyTenantBranding();

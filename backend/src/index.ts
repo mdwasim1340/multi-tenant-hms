@@ -34,32 +34,56 @@ const port = process.env.PORT || 5000;
 app.use(cors({
   origin: (origin, callback) => {
     const allowed = [
+      // Development
       'http://localhost:3001', // Hospital Management System
       'http://localhost:3002', // Admin Dashboard
       'http://localhost:3003', // Future apps
       'http://10.66.66.8:3001',
       'http://10.66.66.8:3002',
-      'http://10.66.66.8:3003'
+      'http://10.66.66.8:3003',
+      // Production
+      'https://aajminpolyclinic.com.np',
+      'https://www.aajminpolyclinic.com.np',
+      'https://admin.aajminpolyclinic.com.np'
     ];
 
+    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
+    
+    // Check exact match
     if (allowed.includes(origin)) return callback(null, true);
 
     try {
       const url = new URL(origin);
+      
+      // Allow localhost subdomains for development
       const isLocalhostSubdomain = url.hostname.endsWith('.localhost') && (url.port === '3001' || url.port === '3002' || url.port === '3003');
       if (isLocalhostSubdomain) return callback(null, true);
+      
+      // Allow any subdomain of aajminpolyclinic.com.np for multi-tenant support
+      if (url.hostname.endsWith('.aajminpolyclinic.com.np') || url.hostname === 'aajminpolyclinic.com.np') {
+        return callback(null, true);
+      }
     } catch (e) {}
 
+    console.log(`CORS blocked origin: ${origin}`);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-API-Key', 'X-App-ID']
 }));
 
 // Middleware to parse JSON bodies
 app.use(express.json());
+
+// Request logging middleware - log all incoming requests
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${req.method} ${req.path}`);
+  console.log(`  Headers: X-Tenant-ID=${req.headers['x-tenant-id']}, X-App-ID=${req.headers['x-app-id']}`);
+  next();
+});
 
 // App authentication middleware - protect against direct access
 import { apiAppAuthMiddleware } from './middleware/appAuth';
@@ -108,6 +132,9 @@ import labOrdersRouter from './routes/lab-orders.routes';
 import labResultsRouter from './routes/lab-results.routes';
 import imagingRouter from './routes/imaging.routes';
 import labPanelsRouter from './routes/lab-panels.routes';
+import bedManagementRouter from './routes/bed-management.routes';
+import bedManagementEnhancedRouter from './routes/bed-management-enhanced';
+import departmentsRouter from './routes/departments';
 import staffRouter from './routes/staff';
 import auditRouter from './routes/audit';
 import storageRouter from './routes/storage';
@@ -115,6 +142,7 @@ import lifecycleRouter from './routes/lifecycle';
 import templatesRouter from './routes/templates';
 import staffOnboardingRouter from './routes/staff-onboarding';
 import notificationsRouter from './routes/notifications';
+import n8nRouter from './routes/n8n.routes';
 
 // Apply tenant middleware, authentication, and application access control to hospital routes
 app.use('/files', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), filesRouter);
@@ -149,6 +177,18 @@ app.use('/api/lifecycle', tenantMiddleware, hospitalAuthMiddleware, requireAppli
 app.use('/api/templates', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), templatesRouter);
 app.use('/api/staff-onboarding', staffOnboardingRouter); // Public routes for staff onboarding
 app.use('/api/notifications', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), notificationsRouter);
+
+// Bed Management routes - Team Beta Sprint 1
+app.use('/api/beds', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), bedManagementRouter);
+
+// Enhanced Bed Management routes - Real-time visualization and operations
+app.use('/api/bed-management', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), bedManagementEnhancedRouter);
+
+// Departments routes - Separate to avoid conflicts
+app.use('/api/departments', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), departmentsRouter);
+
+// n8n AI Agent routes - Public access for chatbot (no tenant/auth required for chat widget)
+app.use('/api/n8n', n8nRouter);
 
 app.get('/', async (req: Request, res: Response) => {
   try {

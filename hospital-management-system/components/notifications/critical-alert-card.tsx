@@ -1,7 +1,7 @@
 'use client';
 
 import { Notification } from '@/lib/types/notification';
-import { formatTimeAgo, getPriorityColor, getTypeIcon } from '@/lib/types/notification';
+import { formatTimeAgo, getNotificationPriorityColor, getNotificationTypeIcon } from '@/lib/types/notification';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,8 +20,8 @@ export function CriticalAlertCard({
   onDismiss,
   acknowledged = false,
 }: CriticalAlertCardProps) {
-  const priorityColor = getPriorityColor(notification.priority);
-  const typeIcon = getTypeIcon(notification.type);
+  const priorityColor = getNotificationPriorityColor(notification.priority);
+  const typeIcon = getNotificationTypeIcon(notification.type);
 
   return (
     <Card
