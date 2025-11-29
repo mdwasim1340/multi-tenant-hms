@@ -34,27 +34,43 @@ const port = process.env.PORT || 5000;
 app.use(cors({
   origin: (origin, callback) => {
     const allowed = [
+      // Development
       'http://localhost:3001', // Hospital Management System
       'http://localhost:3002', // Admin Dashboard
       'http://localhost:3003', // Future apps
       'http://10.66.66.8:3001',
       'http://10.66.66.8:3002',
-      'http://10.66.66.8:3003'
+      'http://10.66.66.8:3003',
+      // Production
+      'https://aajminpolyclinic.com.np',
+      'https://www.aajminpolyclinic.com.np',
+      'https://admin.aajminpolyclinic.com.np'
     ];
 
+    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
+    
+    // Check exact match
     if (allowed.includes(origin)) return callback(null, true);
 
     try {
       const url = new URL(origin);
+      
+      // Allow localhost subdomains for development
       const isLocalhostSubdomain = url.hostname.endsWith('.localhost') && (url.port === '3001' || url.port === '3002' || url.port === '3003');
       if (isLocalhostSubdomain) return callback(null, true);
+      
+      // Allow any subdomain of aajminpolyclinic.com.np for multi-tenant support
+      if (url.hostname.endsWith('.aajminpolyclinic.com.np') || url.hostname === 'aajminpolyclinic.com.np') {
+        return callback(null, true);
+      }
     } catch (e) {}
 
+    console.log(`CORS blocked origin: ${origin}`);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-API-Key', 'X-App-ID']
 }));
 
