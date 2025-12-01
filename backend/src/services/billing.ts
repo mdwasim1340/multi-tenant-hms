@@ -442,13 +442,24 @@ export class BillingService {
     }
   }
 
-  // Get invoices for tenant
-  async getInvoices(tenantId: string, limit: number = 50, offset: number = 0): Promise<Invoice[]> {
+  // Get invoices for tenant with total count
+  async getInvoices(tenantId: string, limit: number = 50, offset: number = 0): Promise<{ invoices: Invoice[], total: number }> {
+    // Get invoices
     const result = await pool.query(
       'SELECT * FROM invoices WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
       [tenantId, limit, offset]
     );
-    return result.rows.map(this.mapInvoiceRow);
+    
+    // Get total count for pagination
+    const countResult = await pool.query(
+      'SELECT COUNT(*) as total FROM invoices WHERE tenant_id = $1',
+      [tenantId]
+    );
+    
+    return {
+      invoices: result.rows.map(this.mapInvoiceRow),
+      total: parseInt(countResult.rows[0].total) || 0
+    };
   }
 
   // Get all invoices with tenant information (admin)
@@ -531,11 +542,15 @@ export class BillingService {
     }));
   }
 
-  // Generate billing report
-  async generateBillingReport(): Promise<BillingReport> {
+  // Generate billing report (optionally filtered by tenant)
+  async generateBillingReport(tenantId?: string): Promise<BillingReport> {
     const client = await pool.connect();
     
     try {
+      // Build WHERE clause for tenant filtering
+      const tenantFilter = tenantId ? 'WHERE tenant_id = $1' : '';
+      const tenantParams = tenantId ? [tenantId] : [];
+      
       // Get overall statistics
       const statsResult = await client.query(`
         SELECT 
@@ -548,29 +563,51 @@ export class BillingService {
           SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) as pending_amount,
           SUM(CASE WHEN status = 'overdue' THEN amount ELSE 0 END) as overdue_amount
         FROM invoices
-      `);
+        ${tenantFilter}
+      `, tenantParams);
 
       const stats = statsResult.rows[0];
 
-      // Get monthly revenue (current month)
-      const monthlyResult = await client.query(`
-        SELECT SUM(amount) as monthly_revenue
-        FROM invoices 
-        WHERE status = 'paid' 
-        AND EXTRACT(MONTH FROM paid_at) = EXTRACT(MONTH FROM CURRENT_DATE)
-        AND EXTRACT(YEAR FROM paid_at) = EXTRACT(YEAR FROM CURRENT_DATE)
-      `);
+      // Get period-based revenues (daily, weekly, monthly, yearly)
+      // Use COALESCE to fallback to created_at if paid_at is NULL
+      const periodRevenueQuery = tenantId 
+        ? `SELECT 
+             SUM(CASE WHEN DATE(COALESCE(paid_at, created_at)) = CURRENT_DATE THEN amount ELSE 0 END) as daily_revenue,
+             SUM(CASE WHEN COALESCE(paid_at, created_at) >= DATE_TRUNC('week', CURRENT_DATE) THEN amount ELSE 0 END) as weekly_revenue,
+             SUM(CASE WHEN EXTRACT(MONTH FROM COALESCE(paid_at, created_at)) = EXTRACT(MONTH FROM CURRENT_DATE) 
+                       AND EXTRACT(YEAR FROM COALESCE(paid_at, created_at)) = EXTRACT(YEAR FROM CURRENT_DATE) THEN amount ELSE 0 END) as monthly_revenue,
+             SUM(CASE WHEN EXTRACT(YEAR FROM COALESCE(paid_at, created_at)) = EXTRACT(YEAR FROM CURRENT_DATE) THEN amount ELSE 0 END) as yearly_revenue,
+             SUM(amount) as total_paid_revenue
+           FROM invoices 
+           WHERE status = 'paid' AND tenant_id = $1`
+        : `SELECT 
+             SUM(CASE WHEN DATE(COALESCE(paid_at, created_at)) = CURRENT_DATE THEN amount ELSE 0 END) as daily_revenue,
+             SUM(CASE WHEN COALESCE(paid_at, created_at) >= DATE_TRUNC('week', CURRENT_DATE) THEN amount ELSE 0 END) as weekly_revenue,
+             SUM(CASE WHEN EXTRACT(MONTH FROM COALESCE(paid_at, created_at)) = EXTRACT(MONTH FROM CURRENT_DATE) 
+                       AND EXTRACT(YEAR FROM COALESCE(paid_at, created_at)) = EXTRACT(YEAR FROM CURRENT_DATE) THEN amount ELSE 0 END) as monthly_revenue,
+             SUM(CASE WHEN EXTRACT(YEAR FROM COALESCE(paid_at, created_at)) = EXTRACT(YEAR FROM CURRENT_DATE) THEN amount ELSE 0 END) as yearly_revenue,
+             SUM(amount) as total_paid_revenue
+           FROM invoices 
+           WHERE status = 'paid'`;
+      const periodResult = await client.query(periodRevenueQuery, tenantParams);
 
       // Get payment methods breakdown
-      const paymentMethodsResult = await client.query(`
-        SELECT 
-          payment_method,
-          COUNT(*) as count,
-          SUM(amount) as total_amount
-        FROM payments 
-        WHERE status = 'success'
-        GROUP BY payment_method
-      `);
+      const paymentMethodsQuery = tenantId
+        ? `SELECT 
+             payment_method,
+             COUNT(*) as count,
+             SUM(amount) as total_amount
+           FROM payments 
+           WHERE status = 'success' AND tenant_id = $1
+           GROUP BY payment_method`
+        : `SELECT 
+             payment_method,
+             COUNT(*) as count,
+             SUM(amount) as total_amount
+           FROM payments 
+           WHERE status = 'success'
+           GROUP BY payment_method`;
+      const paymentMethodsResult = await client.query(paymentMethodsQuery, tenantParams);
 
       const paymentMethods = {
         razorpay: 0,
@@ -592,38 +629,69 @@ export class BillingService {
       });
 
       // Get revenue by tier
-      const revenueByTierResult = await client.query(`
-        SELECT 
-          st.id as tier_id,
-          st.name as tier_name,
-          SUM(i.amount) as revenue,
-          COUNT(i.id) as invoice_count
-        FROM invoices i
-        JOIN tenant_subscriptions ts ON i.tenant_id = ts.tenant_id
-        JOIN subscription_tiers st ON ts.tier_id = st.id
-        WHERE i.status = 'paid'
-        GROUP BY st.id, st.name
-        ORDER BY revenue DESC
-      `);
+      const revenueByTierQuery = tenantId
+        ? `SELECT 
+             st.id as tier_id,
+             st.name as tier_name,
+             SUM(i.amount) as revenue,
+             COUNT(i.id) as invoice_count
+           FROM invoices i
+           JOIN tenant_subscriptions ts ON i.tenant_id = ts.tenant_id
+           JOIN subscription_tiers st ON ts.tier_id = st.id
+           WHERE i.status = 'paid' AND i.tenant_id = $1
+           GROUP BY st.id, st.name
+           ORDER BY revenue DESC`
+        : `SELECT 
+             st.id as tier_id,
+             st.name as tier_name,
+             SUM(i.amount) as revenue,
+             COUNT(i.id) as invoice_count
+           FROM invoices i
+           JOIN tenant_subscriptions ts ON i.tenant_id = ts.tenant_id
+           JOIN subscription_tiers st ON ts.tier_id = st.id
+           WHERE i.status = 'paid'
+           GROUP BY st.id, st.name
+           ORDER BY revenue DESC`;
+      const revenueByTierResult = await client.query(revenueByTierQuery, tenantParams);
 
       // Get monthly trends (last 6 months)
-      const trendsResult = await client.query(`
-        SELECT 
-          TO_CHAR(paid_at, 'YYYY-MM') as month,
-          SUM(amount) as revenue,
-          COUNT(*) as invoices
-        FROM invoices 
-        WHERE status = 'paid' 
-        AND paid_at >= CURRENT_DATE - INTERVAL '6 months'
-        GROUP BY TO_CHAR(paid_at, 'YYYY-MM')
-        ORDER BY month DESC
-      `);
+      const trendsQuery = tenantId
+        ? `SELECT 
+             TO_CHAR(paid_at, 'YYYY-MM') as month,
+             SUM(amount) as revenue,
+             COUNT(*) as invoices
+           FROM invoices 
+           WHERE status = 'paid' 
+           AND tenant_id = $1
+           AND paid_at >= CURRENT_DATE - INTERVAL '6 months'
+           GROUP BY TO_CHAR(paid_at, 'YYYY-MM')
+           ORDER BY month DESC`
+        : `SELECT 
+             TO_CHAR(paid_at, 'YYYY-MM') as month,
+             SUM(amount) as revenue,
+             COUNT(*) as invoices
+           FROM invoices 
+           WHERE status = 'paid' 
+           AND paid_at >= CURRENT_DATE - INTERVAL '6 months'
+           GROUP BY TO_CHAR(paid_at, 'YYYY-MM')
+           ORDER BY month DESC`;
+      const trendsResult = await client.query(trendsQuery, tenantParams);
+
+      const periodData = periodResult.rows[0] || {};
+      const pendingAmt = parseFloat(stats.pending_amount) || 0;
+      const overdueAmt = parseFloat(stats.overdue_amount) || 0;
+      const totalAllInvoices = parseFloat(stats.total_revenue) || 0; // Sum of ALL invoices
+      const totalPaidRevenue = parseFloat(periodData.total_paid_revenue) || parseFloat(stats.paid_revenue) || 0;
 
       return {
-        total_revenue: parseFloat(stats.paid_revenue) || 0,
-        monthly_revenue: parseFloat(monthlyResult.rows[0]?.monthly_revenue) || 0,
-        pending_amount: parseFloat(stats.pending_amount) || 0,
-        overdue_amount: parseFloat(stats.overdue_amount) || 0,
+        total_revenue: totalPaidRevenue, // Total paid revenue (all time)
+        total_balance: totalAllInvoices, // Total of ALL invoices (paid + pending + overdue)
+        daily_revenue: parseFloat(periodData.daily_revenue) || 0,
+        weekly_revenue: parseFloat(periodData.weekly_revenue) || 0,
+        monthly_revenue: parseFloat(periodData.monthly_revenue) || 0,
+        yearly_revenue: parseFloat(periodData.yearly_revenue) || 0,
+        pending_amount: pendingAmt,
+        overdue_amount: overdueAmt,
         total_invoices: parseInt(stats.total_invoices) || 0,
         paid_invoices: parseInt(stats.paid_invoices) || 0,
         pending_invoices: parseInt(stats.pending_invoices) || 0,

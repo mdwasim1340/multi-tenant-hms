@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { DollarSign, Loader2, AlertCircle, CheckCircle } from "lucide-react"
+// Loader2 already imported for loading states
 import { Invoice } from "@/types/billing"
 import Cookies from "js-cookie"
 
@@ -17,12 +18,23 @@ interface ManualPaymentModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
+  // Optimistic update callbacks
+  onOptimisticUpdate?: () => void
+  onOptimisticRollback?: () => void
 }
 
-export function ManualPaymentModal({ invoice, open, onOpenChange, onSuccess }: ManualPaymentModalProps) {
+export function ManualPaymentModal({ 
+  invoice, 
+  open, 
+  onOpenChange, 
+  onSuccess,
+  onOptimisticUpdate,
+  onOptimisticRollback
+}: ManualPaymentModalProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false) // For optimistic UI indicator
   
   // Form state
   const [amount, setAmount] = useState("")
@@ -78,6 +90,10 @@ export function ManualPaymentModal({ invoice, open, onOpenChange, onSuccess }: M
     setLoading(true)
     setError(null)
     setSuccess(false)
+    setIsProcessing(true)
+    
+    // OPTIMISTIC UPDATE: Immediately show processing state in UI
+    onOptimisticUpdate?.()
     
     try {
       const tenantId = Cookies.get("tenant_id")
@@ -114,16 +130,20 @@ export function ManualPaymentModal({ invoice, open, onOpenChange, onSuccess }: M
       }
       
       setSuccess(true)
+      setIsProcessing(false)
       
-      // Close modal after 2 seconds
+      // Close modal after 2 seconds - optimistic update confirmed by success
       setTimeout(() => {
         handleOpenChange(false)
-        onSuccess?.()
+        onSuccess?.() // This will confirm the optimistic update and refresh data
       }, 2000)
       
     } catch (err) {
       console.error("Error recording payment:", err)
       setError(err instanceof Error ? err.message : "Failed to record payment. Please try again.")
+      setIsProcessing(false)
+      // ROLLBACK: Revert optimistic update on error
+      onOptimisticRollback?.()
     } finally {
       setLoading(false)
     }
@@ -145,6 +165,18 @@ export function ManualPaymentModal({ invoice, open, onOpenChange, onSuccess }: M
         </DialogHeader>
         
         <div className="space-y-4 py-4">
+          {/* Processing Indicator (Optimistic Update) */}
+          {isProcessing && !success && !error && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 text-blue-700">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Recording payment... Invoice status updating...</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
           {/* Success Message */}
           {success && (
             <Card className="border-green-200 bg-green-50">

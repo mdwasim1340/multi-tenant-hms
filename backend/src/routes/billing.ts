@@ -149,7 +149,7 @@ router.get('/invoices/:tenantId', hospitalAuthMiddleware, requireBillingRead, as
       });
     }
     
-    const invoices = await billingService.getInvoices(
+    const { invoices, total } = await billingService.getInvoices(
       tenantId,
       parseInt(limit as string),
       parseInt(offset as string)
@@ -161,7 +161,7 @@ router.get('/invoices/:tenantId', hospitalAuthMiddleware, requireBillingRead, as
       pagination: {
         limit: parseInt(limit as string),
         offset: parseInt(offset as string),
-        total: invoices.length
+        total
       }
     });
   } catch (error) {
@@ -430,7 +430,11 @@ router.get('/payments', hospitalAuthMiddleware, requireBillingRead, async (req, 
 // Get billing report (requires billing:read permission)
 router.get('/report', hospitalAuthMiddleware, requireBillingRead, async (req, res) => {
   try {
-    const report = await billingService.generateBillingReport();
+    // Get tenant ID from header for tenant-specific report
+    const tenantId = req.headers['x-tenant-id'] as string;
+    
+    // Generate report filtered by tenant (if tenant ID provided)
+    const report = await billingService.generateBillingReport(tenantId);
     
     res.json({ 
       success: true,

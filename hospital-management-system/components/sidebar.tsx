@@ -205,6 +205,11 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
           icon: FileCheck,
         },
         {
+          label: "Automation",
+          href: "/billing/automation",
+          icon: Zap,
+        },
+        {
           label: "Insurance Claims",
           href: "/billing/claims",
           icon: Receipt,

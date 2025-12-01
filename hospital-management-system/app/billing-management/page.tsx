@@ -63,6 +63,8 @@ import { useInvoices, useInvoiceDetails } from "@/hooks/use-billing"
 import { DiagnosticInvoiceModal } from "@/components/billing/diagnostic-invoice-modal"
 import { EditInvoiceModal } from "@/components/billing/edit-invoice-modal"
 import { PaymentModal } from "@/components/billing/payment-modal"
+import { InvoiceListSkeleton } from "@/components/billing/invoice-list-skeleton"
+import { InvoiceDetailSkeleton } from "@/components/billing/invoice-detail-skeleton"
 import { canAccessBilling, canCreateInvoices, canProcessPayments } from "@/lib/permissions"
 import { downloadInvoicePDF } from "@/lib/pdf/invoice-generator"
 
@@ -103,8 +105,20 @@ export default function BillingManagement() {
     }
   }, [router])
   
-  // Fetch invoices from backend
-  const { invoices, loading, error, pagination, refetch } = useInvoices(limit, page * limit)
+  // Fetch invoices from backend with optimistic update support and auto-refresh
+  const { 
+    invoices, 
+    loading, 
+    error, 
+    pagination, 
+    refetch,
+    lastUpdated,
+    isAutoRefreshEnabled,
+    setIsAutoRefreshEnabled,
+    optimisticUpdateInvoiceStatus,
+    rollbackOptimisticUpdate,
+    confirmOptimisticUpdate
+  } = useInvoices(limit, page * limit, 30000) // Auto-refresh every 30 seconds
   
   // Filter invoices based on search query (client-side for now)
   const filteredInvoices = debouncedSearch
@@ -209,6 +223,24 @@ export default function BillingManagement() {
     }).format(amount)
   }
 
+  const formatLastUpdated = (date: Date | null) => {
+    if (!date) return 'Never'
+    
+    const now = new Date()
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+    
+    if (diffInSeconds < 10) return 'Just now'
+    if (diffInSeconds < 60) return `${diffInSeconds} seconds ago`
+    
+    const diffInMinutes = Math.floor(diffInSeconds / 60)
+    if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`
+    
+    const diffInHours = Math.floor(diffInMinutes / 60)
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`
+    
+    return date.toLocaleString()
+  }
+
   const totalPages = Math.ceil((pagination?.total || 0) / limit)
 
   // Show loading while checking permissions
@@ -236,16 +268,32 @@ export default function BillingManagement() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-foreground">Invoice Management</h1>
-                <p className="text-muted-foreground mt-1">View and manage all billing invoices</p>
+                <div className="flex items-center gap-3 mt-1">
+                  <p className="text-muted-foreground">View and manage all billing invoices</p>
+                  {lastUpdated && (
+                    <span className="text-xs text-muted-foreground">
+                      • Updated {formatLastUpdated(lastUpdated)}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setIsAutoRefreshEnabled(!isAutoRefreshEnabled)}
+                  className={isAutoRefreshEnabled ? 'bg-green-50 border-green-200 text-green-700' : ''}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isAutoRefreshEnabled ? 'animate-spin' : ''}`} />
+                  Auto-refresh {isAutoRefreshEnabled ? 'ON' : 'OFF'}
+                </Button>
                 <Button 
                   variant="outline" 
                   onClick={() => refetch()}
                   disabled={loading}
                 >
                   <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                  Refresh
+                  Refresh Now
                 </Button>
                 {canCreateInvoices() && (
                   <Button 
@@ -277,17 +325,11 @@ export default function BillingManagement() {
             </Card>
 
             {/* Invoices Table */}
-            <Card>
-              <CardContent className="pt-6">
-                {loading ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="flex items-center gap-4">
-                        <Skeleton className="h-12 w-full" />
-                      </div>
-                    ))}
-                  </div>
-                ) : error ? (
+            {loading ? (
+              <InvoiceListSkeleton rows={10} />
+            ) : error ? (
+              <Card>
+                <CardContent className="pt-6">
                   <div className="text-center py-12">
                     <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-foreground mb-2">Failed to load invoices</h3>
@@ -297,7 +339,11 @@ export default function BillingManagement() {
                       Try Again
                     </Button>
                   </div>
-                ) : filteredInvoices.length === 0 ? (
+                </CardContent>
+              </Card>
+            ) : filteredInvoices.length === 0 ? (
+              <Card>
+                <CardContent className="pt-6">
                   <div className="text-center py-12">
                     <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-foreground mb-2">
@@ -316,9 +362,12 @@ export default function BillingManagement() {
                       </Button>
                     )}
                   </div>
-                ) : (
-                  <>
-                    <Table>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="pt-6">
+                  <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>Patient/Tenant</TableHead>
@@ -475,10 +524,9 @@ export default function BillingManagement() {
                         </Button>
                       </div>
                     </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </main>
       </div>
@@ -494,11 +542,7 @@ export default function BillingManagement() {
           </DialogHeader>
 
           {detailsLoading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-40 w-full" />
-              <Skeleton className="h-20 w-full" />
-            </div>
+            <InvoiceDetailSkeleton />
           ) : detailsError ? (
             <div className="text-center py-8">
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
@@ -633,16 +677,27 @@ export default function BillingManagement() {
         }}
       />
 
-      {/* Payment Modal */}
+      {/* Payment Modal with Optimistic Updates */}
       <PaymentModal
         open={showPaymentModal}
         onOpenChange={setShowPaymentModal}
         invoice={selectedInvoice}
         onSuccess={() => {
           if (selectedInvoiceId) {
-            // Refetch invoice details to show updated status
+            // Confirm optimistic update and refetch to get actual server data
+            confirmOptimisticUpdate()
             refetch()
           }
+        }}
+        onOptimisticUpdate={() => {
+          // Immediately update invoice status in the list to show "processing"
+          if (selectedInvoiceId) {
+            optimisticUpdateInvoiceStatus(selectedInvoiceId, 'pending')
+          }
+        }}
+        onOptimisticRollback={() => {
+          // Revert the optimistic update if payment fails
+          rollbackOptimisticUpdate()
         }}
       />
       

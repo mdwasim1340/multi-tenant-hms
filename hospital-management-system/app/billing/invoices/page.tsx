@@ -218,9 +218,19 @@ export default function InvoicesPage() {
             
             {/* Header */}
             <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">Invoices</h1>
-                <p className="text-muted-foreground mt-1">Manage and track all invoices</p>
+              <div className="flex items-center gap-4">
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => router.back()}
+                  className="h-9 w-9"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div>
+                  <h1 className="text-3xl font-bold text-foreground">Invoices</h1>
+                  <p className="text-muted-foreground mt-1">Manage and track all invoices</p>
+                </div>
               </div>
               
               {canCreate && (

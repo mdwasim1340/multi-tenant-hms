@@ -1,10 +1,14 @@
 # Implementation Plan
 
-- [ ] 1. Set up frontend API infrastructure
+- [x] 1. Set up frontend API infrastructure
+
+
   - Create billing API client with axios configuration
   - Implement request/response interceptors for auth headers
   - Add error handling and retry logic
   - _Requirements: 1.1, 1.2, 1.3, 8.1, 8.2_
+
+
 
 - [ ] 1.1 Create billing API client module
   - Create `hospital-management-system/lib/api/billing.ts`
@@ -12,18 +16,21 @@
   - Add X-App-ID and X-API-Key headers
   - Implement request interceptor to inject JWT token and X-Tenant-ID
   - Implement response interceptor to handle 401 errors
+
   - _Requirements: 1.1, 1.2_
 
 - [ ] 1.2 Implement invoice API methods
   - Add `getInvoices(limit, offset)` method
   - Add `getInvoiceById(invoiceId)` method
   - Add `generateInvoice(data)` method
+
   - Add proper TypeScript types for request/response
   - _Requirements: 2.1, 2.2, 6.2_
 
 - [ ] 1.3 Implement payment API methods
   - Add `createPaymentOrder(invoiceId)` method
   - Add `verifyPayment(paymentData)` method
+
   - Add `recordManualPayment(data)` method
   - Add `getPayments(limit, offset)` method
   - _Requirements: 3.1, 3.2, 3.3_
@@ -32,11 +39,14 @@
   - Add `getBillingReport()` method
   - Add `getRazorpayConfig()` method
   - Add error handling for all methods
+
+
   - _Requirements: 4.1, 4.2_
 
 - [ ] 2. Create TypeScript type definitions
   - Define Invoice, Payment, BillingReport interfaces
   - Define request/response data types
+
   - Ensure types match backend data models
   - _Requirements: 2.2, 2.3, 2.4_
 
@@ -44,13 +54,17 @@
   - Create `hospital-management-system/types/billing.ts`
   - Define Invoice interface with all fields
   - Define LineItem interface
+
   - Define Payment interface
+
+
   - Define BillingReport interface
   - _Requirements: 2.2, 2.3, 2.4_
 
 - [ ] 2.2 Create request/response types
   - Define InvoiceGenerationData interface
   - Define PaymentVerificationData interface
+
   - Define ManualPaymentData interface
   - Define API response wrapper types
   - _Requirements: 6.2, 3.2, 3.3_
@@ -58,84 +72,106 @@
 - [ ] 3. Create custom React hooks for data fetching
   - Implement useInvoices hook with loading/error states
   - Implement useInvoiceDetails hook
+
   - Implement useBillingReport hook
   - Add refetch functionality
   - _Requirements: 2.1, 2.3, 4.1, 9.1_
 
 - [ ] 3.1 Create useInvoices hook
   - Create `hospital-management-system/hooks/use-billing.ts`
+
   - Implement useInvoices with useState and useEffect
   - Handle loading, error, and success states
   - Support pagination with limit and offset
   - Add refetch function for manual refresh
   - _Requirements: 2.1, 9.1_
 
+
+
+
 - [ ] 3.2 Create useInvoiceDetails hook
   - Implement useInvoiceDetails hook
   - Fetch invoice and payment data together
   - Handle loading and error states
   - Support null invoiceId (no fetch)
+
   - _Requirements: 2.3, 2.4_
 
 - [ ] 3.3 Create useBillingReport hook
   - Implement useBillingReport hook
   - Fetch billing metrics and trends
   - Handle loading and error states
+
   - Add refetch function
   - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
 - [ ] 4. Update billing dashboard page (/billing)
   - Replace mock data with useBillingReport hook
+
   - Display real metrics from backend
   - Show loading states and error messages
   - Update charts with real trend data
+
+
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 8.4_
 
 - [ ] 4.1 Integrate billing report data
   - Update `hospital-management-system/app/billing/page.tsx`
   - Import and use useBillingReport hook
   - Replace hardcoded metrics with report.total_revenue, report.monthly_revenue, etc.
+
+
   - Update status cards with real data
   - _Requirements: 4.1, 4.2_
 
 - [ ] 4.2 Add loading and error states
   - Show skeleton loaders while fetching data
+
   - Display error message if fetch fails
   - Add retry button for failed requests
   - _Requirements: 8.4, 8.5_
 
 - [ ] 4.3 Update charts and trends
   - Replace mock trend data with report.monthly_trends
+
   - Update payment methods breakdown with report.payment_methods
   - Display revenue by tier if available
   - _Requirements: 4.3, 4.4, 4.5_
 
-- [ ] 5. Update billing management page (/billing-management)
+- [x] 5. Update billing management page (/billing-management)
+
   - Replace mock invoices with useInvoices hook
   - Implement invoice detail modal with real data
   - Add search and filter functionality
   - Implement pagination controls
+
+
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 8.4_
 
 - [ ] 5.1 Integrate invoice list data
   - Update `hospital-management-system/app/billing-management/page.tsx`
   - Import and use useInvoices hook
   - Replace hardcoded invoices array with hook data
+
   - Display invoice_number, amount, status, due_date
   - _Requirements: 2.1, 2.2_
 
 - [ ] 5.2 Implement invoice detail modal
   - Use useInvoiceDetails hook when invoice is selected
   - Display complete invoice information
+
   - Show line_items breakdown
   - Display payment history
   - _Requirements: 2.3, 2.4_
 
 - [ ] 5.3 Add pagination controls
   - Implement next/previous page buttons
+
   - Show current page and total pages
   - Update useInvoices hook with new limit/offset
   - _Requirements: 2.5_
+
+
 
 - [ ] 5.4 Add loading and error handling
   - Show loading spinner while fetching invoices
@@ -143,11 +179,13 @@
   - Show empty state when no invoices exist
   - _Requirements: 8.4, 8.5_
 
+
 - [ ] 6. Implement invoice generation feature
   - Create invoice generation form
   - Validate form inputs
   - Call generateInvoice API
   - Refresh invoice list after creation
+
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
 - [ ] 6.1 Create invoice generation modal
@@ -155,20 +193,25 @@
   - Create modal component with form fields
   - Add fields for billing period, line items, notes
   - Implement form validation with react-hook-form
+
   - _Requirements: 6.1, 6.2_
 
 - [ ] 6.2 Implement invoice generation logic
   - Call billingAPI.generateInvoice on form submit
   - Show loading state during API call
   - Display success message on completion
+
   - Handle errors and show error messages
   - _Requirements: 6.2, 6.3, 8.1_
 
-- [ ] 6.3 Refresh invoice list after creation
+- [x] 6.3 Refresh invoice list after creation
+
+
   - Call refetch() from useInvoices hook
   - Close modal on success
   - Scroll to newly created invoice
   - _Requirements: 6.3, 9.1_
+
 
 - [ ] 7. Implement payment processing
   - Integrate Razorpay payment gateway
@@ -177,59 +220,76 @@
   - Update invoice status after payment
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
+
 - [ ] 7.1 Integrate Razorpay SDK
   - Add Razorpay script to app layout
   - Fetch Razorpay configuration from backend
   - Initialize Razorpay with key_id
   - _Requirements: 3.1_
 
+
 - [ ] 7.2 Implement online payment flow
   - Add "Pay Now" button to invoice details
   - Call createPaymentOrder API
   - Open Razorpay checkout with order details
+
+
   - Handle payment success callback
   - Call verifyPayment API with payment details
   - _Requirements: 3.1, 3.2, 3.4_
 
-- [ ] 7.3 Implement manual payment recording
+- [x] 7.3 Implement manual payment recording
+
   - Add "Record Payment" button to invoice details
   - Create manual payment form modal
   - Add fields for amount, payment method, notes
   - Call recordManualPayment API
   - _Requirements: 3.3, 3.4_
 
+
 - [ ] 7.4 Update UI after payment
   - Refresh invoice details after payment
   - Update invoice status badge
   - Show payment success message
+
   - _Requirements: 3.4, 9.1_
 
 - [ ] 8. Add backend permission middleware
   - Create billing-specific permission checks
+
+
+
   - Apply middleware to billing routes
   - Test permission enforcement
   - _Requirements: 10.1, 10.2, 10.3, 10.4_
 
 - [ ] 8.1 Create billing permission middleware
   - Create `backend/src/middleware/billing-auth.ts`
+
   - Implement requireBillingRead middleware
   - Implement requireBillingWrite middleware
   - Implement requireBillingAdmin middleware
   - _Requirements: 10.1, 10.2, 10.3_
+
 
 - [ ] 8.2 Apply middleware to billing routes
   - Update `backend/src/routes/billing.ts`
   - Add requireBillingRead to GET endpoints
   - Add requireBillingWrite to POST /generate-invoice
   - Add requireBillingAdmin to POST /manual-payment
+
   - _Requirements: 10.1, 10.2, 10.3_
 
-- [ ] 8.3 Add billing permissions to database
+- [-] 8.3 Add billing permissions to database
+
   - Add billing:read permission
   - Add billing:write permission
   - Add billing:admin permission
   - Assign permissions to appropriate roles
   - _Requirements: 10.1, 10.2, 10.3_
+
+
+
 
 - [ ] 9. Implement frontend permission guards
   - Check user permissions on page load
@@ -243,24 +303,42 @@
   - Read permissions from cookies or auth context
   - _Requirements: 10.1, 10.5_
 
+
+
+
+
+
 - [ ] 9.2 Add permission guards to billing pages
   - Check billing:read permission on page load
   - Redirect to /unauthorized if permission missing
   - Show loading state during permission check
   - _Requirements: 10.1, 10.4_
 
+
 - [ ] 9.3 Conditionally render UI elements
   - Hide "Create Invoice" button if no billing:write permission
   - Hide "Record Payment" button if no billing:admin permission
   - Disable payment processing if no billing:write permission
+
   - _Requirements: 10.2, 10.3, 10.5_
 
 - [ ] 10. Add comprehensive error handling
   - Implement centralized error handler
+
   - Display user-friendly error messages
+
+
+
   - Add retry functionality for failed requests
   - Log errors for debugging
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
+
+
+
+
+
+
+
 
 - [ ] 10.1 Create error handling utility
   - Create `hospital-management-system/lib/error-handler.ts`

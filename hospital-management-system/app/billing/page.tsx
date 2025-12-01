@@ -9,8 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CreditCard, FileText, TrendingUp, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw, ShieldAlert, BarChart3, PieChart, MoreVertical, Eye, Download, Printer, Send, Edit, Trash2 } from "lucide-react"
+import { CreditCard, FileText, TrendingUp, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw, ShieldAlert, BarChart3, PieChart, MoreVertical, Eye, Download, Printer, Send, Edit, Trash2, ChevronDown } from "lucide-react"
 import { useBillingReport, useInvoices } from "@/hooks/use-billing"
+import { useBillingJobs } from "@/hooks/use-billing-jobs"
+import { AutomationAlerts } from "@/components/billing/automation-alerts"
 import { canAccessBilling } from "@/lib/permissions"
 import { LineChart, Line, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { DiagnosticInvoiceModal } from "@/components/billing/diagnostic-invoice-modal"
@@ -47,6 +49,7 @@ export default function Billing() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>("all") // Add status filter
   const [monthlyFilter, setMonthlyFilter] = useState<boolean>(false) // Add monthly filter
+  const [revenuePeriod, setRevenuePeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly' | 'all'>('all') // Revenue period filter - default to all time
   const router = useRouter()
   const { toast } = useToast()
   
@@ -63,6 +66,7 @@ export default function Billing() {
   // Fetch real billing data from backend
   const { report, loading: reportLoading, error: reportError, refetch: refetchReport } = useBillingReport()
   const { invoices, loading: invoicesLoading, error: invoicesError, refetch: refetchInvoices } = useInvoices(5, 0) // Get latest 5 invoices
+  const { dailySummary } = useBillingJobs()
   
   // Handle edit invoice
   const handleEditInvoice = (invoice: any) => {
@@ -206,6 +210,9 @@ export default function Billing() {
               </Button>
             </div>
 
+            {/* Automation Alerts */}
+            <AutomationAlerts />
+
             {/* Metrics Cards */}
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -243,29 +250,30 @@ export default function Billing() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Total Revenue - Clickable */}
+                {/* Total Balance (All Invoices) - Clickable */}
                 <Card 
-                  className={`border-border/50 cursor-pointer transition-all hover:shadow-md hover:border-green-500/50 ${
-                    statusFilter === 'paid' ? 'ring-2 ring-green-500 border-green-500' : ''
+                  className={`border-border/50 cursor-pointer transition-all hover:shadow-md hover:border-blue-500/50 ${
+                    statusFilter === 'all' && !monthlyFilter ? 'ring-2 ring-blue-500 border-blue-500' : ''
                   }`}
                   onClick={() => {
-                    setStatusFilter(statusFilter === 'paid' ? 'all' : 'paid')
-                    setActiveTab('invoices') // Switch to invoices tab
+                    setStatusFilter('all')
+                    setMonthlyFilter(false)
+                    setActiveTab('invoices')
                   }}
                 >
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">Total Revenue</p>
-                        <p className="text-2xl font-bold text-foreground">
-                          ${report?.total_revenue?.toLocaleString() || '0'}
+                        <p className="text-xs text-muted-foreground mb-1">Total Balance</p>
+                        <p className="text-2xl font-bold text-blue-600">
+                          ₹{(report?.total_balance || 0).toLocaleString()}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {report?.paid_invoices || 0} paid invoices
+                          {report?.total_invoices || 0} total invoices
                         </p>
                       </div>
-                      <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
-                        <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center">
+                        <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                       </div>
                     </div>
                   </CardContent>
@@ -286,7 +294,7 @@ export default function Billing() {
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Pending Amount</p>
                         <p className="text-2xl font-bold text-yellow-600">
-                          ${report?.pending_amount?.toLocaleString() || '0'}
+                          ₹{report?.pending_amount?.toLocaleString() || '0'}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           {report?.pending_invoices || 0} pending invoices
@@ -314,7 +322,7 @@ export default function Billing() {
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Overdue Amount</p>
                         <p className="text-2xl font-bold text-red-600">
-                          ${report?.overdue_amount?.toLocaleString() || '0'}
+                          ₹{report?.overdue_amount?.toLocaleString() || '0'}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           {report?.overdue_invoices || 0} overdue invoices
@@ -327,26 +335,55 @@ export default function Billing() {
                   </CardContent>
                 </Card>
 
-                {/* Monthly Revenue - Clickable */}
-                <Card 
-                  className={`border-border/50 cursor-pointer transition-all hover:shadow-md hover:border-primary/50 ${
-                    monthlyFilter ? 'ring-2 ring-primary border-primary' : ''
-                  }`}
-                  onClick={() => {
-                    setMonthlyFilter(!monthlyFilter)
-                    setStatusFilter('all') // Clear status filter when monthly filter is active
-                    setActiveTab('invoices') // Switch to invoices tab
-                  }}
-                >
+                {/* Revenue with Period Filter */}
+                <Card className="border-border/50">
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Monthly Revenue</p>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-xs text-muted-foreground">Paid Revenue</p>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-5 px-2 text-xs">
+                                {revenuePeriod === 'daily' ? 'Today' : 
+                                 revenuePeriod === 'weekly' ? 'This Week' : 
+                                 revenuePeriod === 'monthly' ? 'This Month' : 
+                                 revenuePeriod === 'yearly' ? 'This Year' : 'All Time'}
+                                <ChevronDown className="w-3 h-3 ml-1" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              <DropdownMenuItem onClick={() => setRevenuePeriod('all')}>
+                                All Time
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setRevenuePeriod('yearly')}>
+                                This Year
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setRevenuePeriod('monthly')}>
+                                This Month
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setRevenuePeriod('weekly')}>
+                                This Week
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setRevenuePeriod('daily')}>
+                                Today
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                         <p className="text-2xl font-bold text-green-600">
-                          ${report?.monthly_revenue?.toLocaleString() || '0'}
+                          ₹{(revenuePeriod === 'daily' ? report?.daily_revenue :
+                             revenuePeriod === 'weekly' ? report?.weekly_revenue :
+                             revenuePeriod === 'monthly' ? report?.monthly_revenue :
+                             revenuePeriod === 'yearly' ? report?.yearly_revenue :
+                             report?.total_revenue)?.toLocaleString() || '0'}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          This month
+                          {revenuePeriod === 'daily' ? 'Today\'s paid invoices' : 
+                           revenuePeriod === 'weekly' ? 'This week\'s paid invoices' : 
+                           revenuePeriod === 'monthly' ? 'This month\'s paid invoices' : 
+                           revenuePeriod === 'yearly' ? 'This year\'s paid invoices' : 
+                           `${report?.paid_invoices || 0} paid invoices`}
                         </p>
                       </div>
                       <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">

@@ -128,7 +128,11 @@ export interface RazorpayWebhookEvent {
 
 export interface BillingReport {
   total_revenue: number;
+  total_balance: number; // pending + overdue amounts
   monthly_revenue: number;
+  weekly_revenue: number;
+  daily_revenue: number;
+  yearly_revenue: number;
   pending_amount: number;
   overdue_amount: number;
   total_invoices: number;
@@ -174,4 +178,107 @@ export interface InvoiceGenerationOptions {
   custom_line_items?: LineItem[];
   notes?: string;
   due_days?: number;
+}
+
+// New types for enhanced billing system
+
+export interface InsuranceClaim {
+  id: number;
+  tenant_id: string;
+  patient_id: number;
+  invoice_id?: number;
+  claim_number: string;
+  insurance_provider: string;
+  policy_number: string;
+  claim_amount: number;
+  approved_amount?: number;
+  status: 'submitted' | 'under_review' | 'approved' | 'rejected' | 'paid' | 'cancelled';
+  submission_date: Date;
+  approval_date?: Date;
+  payment_date?: Date;
+  rejection_reason?: string;
+  documents: string[];
+  notes?: string;
+  created_by?: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface PaymentPlan {
+  id: number;
+  tenant_id: string;
+  patient_id: number;
+  invoice_id?: number;
+  plan_name: string;
+  total_amount: number;
+  paid_amount: number;
+  remaining_amount: number;
+  installments: number;
+  installment_amount: number;
+  frequency: 'weekly' | 'biweekly' | 'monthly' | 'quarterly';
+  start_date: Date;
+  next_due_date: Date;
+  end_date?: Date;
+  status: 'active' | 'completed' | 'defaulted' | 'cancelled';
+  notes?: string;
+  created_by?: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface BillingAdjustment {
+  id: number;
+  tenant_id: string;
+  invoice_id?: number;
+  adjustment_type: 'discount' | 'refund' | 'write_off' | 'late_fee' | 'credit_note';
+  amount: number;
+  reason: string;
+  approved_by?: number;
+  approval_date?: Date;
+  status: 'pending' | 'approved' | 'rejected' | 'applied';
+  created_by: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface TaxConfiguration {
+  id: number;
+  tenant_id: string;
+  tax_name: string;
+  tax_rate: number;
+  tax_type: 'percentage' | 'fixed';
+  applicable_services: string[];
+  is_active: boolean;
+  effective_from: Date;
+  effective_to?: Date;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface EnhancedInvoice extends Invoice {
+  department?: string;
+  service_type?: 'consultation' | 'lab' | 'pharmacy' | 'imaging' | 'surgery' | 'bed' | 'emergency';
+  discount_amount: number;
+  tax_amount: number;
+  subtotal?: number;
+  insurance_claim_id?: number;
+  payment_plan_id?: number;
+  is_recurring: boolean;
+  parent_invoice_id?: number;
+  cancelled_at?: Date;
+  cancelled_by?: number;
+  cancellation_reason?: string;
+  appointment_id?: number;
+  lab_order_id?: number;
+  prescription_id?: number;
+  bed_assignment_id?: number;
+}
+
+export interface PaymentPlanInstallment {
+  installment_number: number;
+  due_date: Date;
+  amount: number;
+  status: 'pending' | 'paid' | 'overdue';
+  paid_date?: Date;
+  payment_id?: number;
 }

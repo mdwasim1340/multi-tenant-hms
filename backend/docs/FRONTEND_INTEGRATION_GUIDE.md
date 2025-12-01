@@ -1,732 +1,422 @@
-# Frontend Integration Guide - Appointment Management
+# Frontend Integration Guide
 
-**Team:** Alpha  
-**Target:** Week 3 Frontend Development  
-**Status:** Ready for Integration
+## 🌐 Production Backend URL
 
----
-
-## Overview
-
-This guide provides everything the frontend team needs to integrate the Appointment Management API into the Hospital Management System frontend.
-
-**Prerequisites:**
-- ✅ Backend API running on port 3000
-- ✅ Patient Management API integrated
-- ✅ Authentication system working
-- ✅ Multi-tenant context established
-
----
-
-## Table of Contents
-
-1. [Quick Start](#quick-start)
-2. [API Client Setup](#api-client-setup)
-3. [Calendar Integration](#calendar-integration)
-4. [Time Slot Picker](#time-slot-picker)
-5. [Appointment Forms](#appointment-forms)
-6. [Status Management](#status-management)
-7. [Error Handling](#error-handling)
-8. [Testing](#testing)
-
----
-
-## Quick Start
-
-### 1. Install Dependencies
-
-```bash
-cd hospital-management-system
-npm install @fullcalendar/react @fullcalendar/daygrid @fullcalendar/timegrid @fullcalendar/interaction
-npm install date-fns  # For date formatting
+```
+https://backend.aajminpolyclinic.com.np
 ```
 
-### 2. Create API Client
+## ✅ Backend Status: ONLINE
+
+Health check confirmed: `{"status":"ok"}`
+
+---
+
+## 📝 Step 1: Update Environment Variables
+
+### Hospital Management System
+
+Update `hospital-management-system/.env.local`:
+
+```bash
+# Production Backend
+NEXT_PUBLIC_API_URL=https://backend.aajminpolyclinic.com.np
+NEXT_PUBLIC_API_BASE_URL=https://backend.aajminpolyclinic.com.np
+
+# AWS Cognito (same as backend)
+NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-east-1_tvpXwEgfS
+NEXT_PUBLIC_COGNITO_CLIENT_ID=6n1faa8b43nd4isarns87rubia
+NEXT_PUBLIC_AWS_REGION=us-east-1
+
+# Application Identification
+NEXT_PUBLIC_APP_ID=hospital-management
+NEXT_PUBLIC_API_KEY=your-hospital-app-api-key
+```
+
+### Admin Dashboard
+
+Update `admin-dashboard/.env.local`:
+
+```bash
+# Production Backend
+NEXT_PUBLIC_API_URL=https://backend.aajminpolyclinic.com.np
+NEXT_PUBLIC_API_BASE_URL=https://backend.aajminpolyclinic.com.np
+
+# AWS Cognito (same as backend)
+NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-east-1_tvpXwEgfS
+NEXT_PUBLIC_COGNITO_CLIENT_ID=6n1faa8b43nd4isarns87rubia
+NEXT_PUBLIC_AWS_REGION=us-east-1
+
+# Application Identification
+NEXT_PUBLIC_APP_ID=admin-dashboard
+NEXT_PUBLIC_API_KEY=your-admin-app-api-key
+```
+
+---
+
+## 📡 Step 2: Update API Client Configuration
+
+### Example API Client (lib/api.ts)
 
 ```typescript
-// lib/api/appointments.ts
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend.aajminpolyclinic.com.np';
+
+// Create axios instance
 const api = axios.create({
-  baseURL: 'http://localhost:3000',
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-// Add auth headers to all requests
-api.interceptors.request.use((config) => {
-  const token = Cookies.get('auth_token');
-  const tenantId = Cookies.get('tenant_id');
-  
-  config.headers['Authorization'] = `Bearer ${token}`;
-  config.headers['X-Tenant-ID'] = tenantId;
-  config.headers['X-App-ID'] = 'hospital_system';
-  config.headers['X-API-Key'] = process.env.NEXT_PUBLIC_API_KEY;
-  
-  return config;
-});
+// Request interceptor - add authentication headers
+api.interceptors.request.use(
+  (config) => {
+    // Get JWT token from cookies
+    const token = Cookies.get('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // Get tenant ID from cookies
+    const tenantId = Cookies.get('tenant_id');
+    if (tenantId) {
+      config.headers['X-Tenant-ID'] = tenantId;
+    }
+
+    // Add application identification
+    config.headers['X-App-ID'] = process.env.NEXT_PUBLIC_APP_ID || 'hospital-management';
+    config.headers['X-API-Key'] = process.env.NEXT_PUBLIC_API_KEY || '';
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor - handle errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Unauthorized - redirect to login
+      Cookies.remove('token');
+      Cookies.remove('tenant_id');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;
 ```
 
-### 3. Create Custom Hook
+---
+
+## 🔐 Step 3: Authentication Flow
+
+### Login Example
 
 ```typescript
-// hooks/useAppointments.ts
-import { useState, useEffect } from 'react';
-import api from '@/lib/api/appointments';
+import api from '@/lib/api';
+import Cookies from 'js-cookie';
 
-export function useAppointments(filters = {}) {
-  const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export async function signIn(email: string, password: string) {
+  try {
+    const response = await api.post('/auth/signin', {
+      email,
+      password,
+    });
 
-  useEffect(() => {
-    fetchAppointments();
-  }, [filters]);
+    const { token, user, tenant } = response.data;
 
-  const fetchAppointments = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/api/appointments', { params: filters });
-      setAppointments(response.data.data.appointments);
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Store authentication data
+    Cookies.set('token', token, { expires: 7 }); // 7 days
+    Cookies.set('tenant_id', tenant.id, { expires: 7 });
+    Cookies.set('user', JSON.stringify(user), { expires: 7 });
 
-  return { appointments, loading, error, refetch: fetchAppointments };
+    return { success: true, user, tenant };
+  } catch (error) {
+    console.error('Sign in error:', error);
+    return { success: false, error: error.response?.data?.message || 'Login failed' };
+  }
 }
 ```
 
 ---
 
-## API Client Setup
+## 📊 Step 4: API Endpoints Reference
 
-### Complete API Client
+### Public Endpoints (No Auth Required)
 
 ```typescript
-// lib/api/appointments.ts
-import api from './client';
+// Health check
+GET /health
+Response: {"status":"ok"}
 
-export interface Appointment {
-  id: number;
-  appointment_number: string;
-  patient_id: number;
-  doctor_id: number;
-  appointment_date: string;
-  appointment_end_time: string;
-  duration_minutes: number;
-  appointment_type: string;
-  chief_complaint?: string;
-  notes?: string;
-  status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
-  patient: {
-    id: number;
-    first_name: string;
-    last_name: string;
-    patient_number: string;
-    phone?: string;
-    email?: string;
-  };
-  doctor: {
-    id: number;
-    name: string;
-    email: string;
-  };
+// Authentication
+POST /auth/signin
+Body: { email, password }
+
+POST /auth/signup
+Body: { email, password, name, ... }
+
+POST /auth/forgot-password
+Body: { email }
+```
+
+### Protected Endpoints (Auth Required)
+
+All protected endpoints require these headers:
+```typescript
+{
+  'Authorization': 'Bearer <JWT_TOKEN>',
+  'X-Tenant-ID': '<tenant_id>',
+  'X-App-ID': 'hospital-management',
+  'X-API-Key': '<api_key>'
 }
+```
 
-export interface TimeSlot {
-  start_time: string;
-  end_time: string;
-  available: boolean;
-  duration_minutes: number;
-}
+**Patient Management:**
+```typescript
+GET    /api/patients              // List patients
+GET    /api/patients/:id          // Get patient details
+POST   /api/patients              // Create patient
+PUT    /api/patients/:id          // Update patient
+DELETE /api/patients/:id          // Delete patient
+GET    /api/patients/export       // Export to CSV
+```
 
-export const appointmentsApi = {
-  // List appointments
-  list: async (params?: any) => {
-    const response = await api.get('/api/appointments', { params });
-    return response.data.data;
-  },
+**Appointment Management:**
+```typescript
+GET    /api/appointments          // List appointments
+GET    /api/appointments/:id      // Get appointment details
+POST   /api/appointments          // Create appointment
+PUT    /api/appointments/:id      // Update appointment
+DELETE /api/appointments/:id      // Cancel appointment
+GET    /api/appointments/available-slots  // Get available time slots
+```
 
-  // Get available slots
-  getAvailableSlots: async (doctorId: number, date: string, duration = 30) => {
-    const response = await api.get('/api/appointments/available-slots', {
-      params: { doctor_id: doctorId, date, duration_minutes: duration }
-    });
-    return response.data.data.slots as TimeSlot[];
-  },
+**Medical Records:**
+```typescript
+GET    /api/medical-records       // List records
+GET    /api/medical-records/:id   // Get record details
+POST   /api/medical-records       // Create record
+PUT    /api/medical-records/:id   // Update record
+```
 
-  // Create appointment
-  create: async (data: any) => {
-    const response = await api.post('/api/appointments', data);
-    return response.data.data.appointment;
-  },
+**Tenant Management (Admin Only):**
+```typescript
+GET    /api/tenants               // List tenants
+GET    /api/tenants/:id           // Get tenant details
+POST   /api/tenants               // Create tenant
+PUT    /api/tenants/:id           // Update tenant
+```
 
-  // Get appointment details
-  get: async (id: number) => {
-    const response = await api.get(`/api/appointments/${id}`);
-    return response.data.data.appointment;
-  },
+---
 
-  // Update appointment
-  update: async (id: number, data: any) => {
-    const response = await api.put(`/api/appointments/${id}`, data);
-    return response.data.data.appointment;
-  },
+## 🧪 Step 5: Testing the Integration
 
-  // Confirm appointment
-  confirm: async (id: number) => {
-    const response = await api.post(`/api/appointments/${id}/confirm`);
-    return response.data.data.appointment;
-  },
+### Test Health Endpoint
 
-  // Complete appointment
-  complete: async (id: number) => {
-    const response = await api.post(`/api/appointments/${id}/complete`);
-    return response.data.data.appointment;
-  },
+```typescript
+// Test from browser console or component
+fetch('https://backend.aajminpolyclinic.com.np/health')
+  .then(res => res.json())
+  .then(data => console.log('Health:', data));
 
-  // Mark no-show
-  markNoShow: async (id: number) => {
-    const response = await api.post(`/api/appointments/${id}/no-show`);
-    return response.data.data.appointment;
-  },
+// Expected: {status: "ok"}
+```
 
-  // Cancel appointment
-  cancel: async (id: number, reason: string) => {
-    const response = await api.delete(`/api/appointments/${id}`, {
-      data: { reason }
-    });
-    return response.data.data.appointment;
-  },
+### Test Authentication
+
+```typescript
+// Test login
+const testLogin = async () => {
+  const response = await fetch('https://backend.aajminpolyclinic.com.np/auth/signin', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email: 'test@example.com',
+      password: 'password123',
+    }),
+  });
+  
+  const data = await response.json();
+  console.log('Login response:', data);
+};
+```
+
+### Test Protected Endpoint
+
+```typescript
+// Test with authentication
+const testProtectedEndpoint = async () => {
+  const token = 'your-jwt-token';
+  const tenantId = 'your-tenant-id';
+  
+  const response = await fetch('https://backend.aajminpolyclinic.com.np/api/patients', {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'X-Tenant-ID': tenantId,
+      'X-App-ID': 'hospital-management',
+      'X-API-Key': 'your-api-key',
+    },
+  });
+  
+  const data = await response.json();
+  console.log('Patients:', data);
 };
 ```
 
 ---
 
-## Calendar Integration
+## 🔍 Step 6: Verify CORS Configuration
 
-### FullCalendar Setup
+The backend is configured to accept requests from:
+- `http://localhost:3001` (Hospital System - Development)
+- `http://localhost:3002` (Admin Dashboard - Development)
+- Production frontend URLs (to be added)
 
-```typescript
-// components/appointments/AppointmentCalendar.tsx
-'use client';
+**If deploying frontend to production**, update backend CORS:
 
-import { useState, useEffect } from 'react';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import { appointmentsApi } from '@/lib/api/appointments';
-import { toast } from 'sonner';
+```bash
+# SSH into server
+ssh -i n8n\LightsailDefaultKey-ap-south-1.pem bitnami@65.0.78.75
 
-export function AppointmentCalendar() {
-  const [events, setEvents] = useState([]);
+# Edit environment
+cd /home/bitnami/multi-tenant-backend
+nano .env
 
-  const fetchAppointments = async (start: Date, end: Date) => {
-    try {
-      const data = await appointmentsApi.list({
-        date_from: start.toISOString().split('T')[0],
-        date_to: end.toISOString().split('T')[0],
-        limit: 1000
-      });
+# Update ALLOWED_ORIGINS
+ALLOWED_ORIGINS=https://hospital.aajminpolyclinic.com.np,https://admin.aajminpolyclinic.com.np
 
-      const calendarEvents = data.appointments.map((apt: any) => ({
-        id: apt.id,
-        title: `${apt.patient.first_name} ${apt.patient.last_name}`,
-        start: apt.appointment_date,
-        end: apt.appointment_end_time,
-        backgroundColor: getStatusColor(apt.status),
-        extendedProps: {
-          patientNumber: apt.patient.patient_number,
-          doctorName: apt.doctor.name,
-          type: apt.appointment_type,
-          status: apt.status
-        }
-      }));
-
-      setEvents(calendarEvents);
-    } catch (error) {
-      toast.error('Failed to load appointments');
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    const colors = {
-      scheduled: '#3b82f6',    // blue
-      confirmed: '#10b981',    // green
-      completed: '#6b7280',    // gray
-      cancelled: '#ef4444',    // red
-      no_show: '#f59e0b'       // amber
-    };
-    return colors[status] || '#3b82f6';
-  };
-
-  const handleEventClick = (info: any) => {
-    // Open appointment details modal
-    console.log('Appointment clicked:', info.event.id);
-  };
-
-  const handleDateSelect = (selectInfo: any) => {
-    // Open create appointment modal with selected date/time
-    console.log('Date selected:', selectInfo.start);
-  };
-
-  return (
-    <FullCalendar
-      plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-      initialView="timeGridWeek"
-      headerToolbar={{
-        left: 'prev,next today',
-        center: 'title',
-        right: 'dayGridMonth,timeGridWeek,timeGridDay'
-      }}
-      editable={true}
-      selectable={true}
-      selectMirror={true}
-      dayMaxEvents={true}
-      weekends={true}
-      events={events}
-      eventClick={handleEventClick}
-      select={handleDateSelect}
-      datesSet={(dateInfo) => {
-        fetchAppointments(dateInfo.start, dateInfo.end);
-      }}
-      slotMinTime="08:00:00"
-      slotMaxTime="18:00:00"
-      height="auto"
-    />
-  );
-}
+# Restart
+pm2 restart multi-tenant-backend
 ```
 
 ---
 
-## Time Slot Picker
+## 🚨 Common Issues & Solutions
 
-### Available Slots Component
-
-```typescript
-// components/appointments/TimeSlotPicker.tsx
-'use client';
-
-import { useState, useEffect } from 'react';
-import { appointmentsApi, TimeSlot } from '@/lib/api/appointments';
-import { format } from 'date-fns';
-import { toast } from 'sonner';
-
-interface TimeSlotPickerProps {
-  doctorId: number;
-  date: string;
-  duration?: number;
-  onSelect: (slot: TimeSlot) => void;
-  selectedSlot?: TimeSlot;
-}
-
-export function TimeSlotPicker({
-  doctorId,
-  date,
-  duration = 30,
-  onSelect,
-  selectedSlot
-}: TimeSlotPickerProps) {
-  const [slots, setSlots] = useState<TimeSlot[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchSlots();
-  }, [doctorId, date, duration]);
-
-  const fetchSlots = async () => {
-    try {
-      setLoading(true);
-      const data = await appointmentsApi.getAvailableSlots(doctorId, date, duration);
-      setSlots(data);
-    } catch (error) {
-      toast.error('Failed to load available slots');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const availableSlots = slots.filter(slot => slot.available);
-
-  if (loading) {
-    return <div>Loading available slots...</div>;
-  }
-
-  if (availableSlots.length === 0) {
-    return (
-      <div className="text-center py-8 text-gray-500">
-        No available slots for this date. Please select another date.
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-3 gap-2">
-      {availableSlots.map((slot, index) => {
-        const startTime = new Date(slot.start_time);
-        const isSelected = selectedSlot?.start_time === slot.start_time;
-
-        return (
-          <button
-            key={index}
-            onClick={() => onSelect(slot)}
-            className={`
-              px-4 py-2 rounded-lg border transition-colors
-              ${isSelected
-                ? 'bg-blue-500 text-white border-blue-500'
-                : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-              }
-            `}
-          >
-            {format(startTime, 'h:mm a')}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+### Issue 1: CORS Error
 ```
+Access to fetch at 'https://backend.aajminpolyclinic.com.np' from origin 'http://localhost:3001' 
+has been blocked by CORS policy
+```
+
+**Solution**: Ensure your origin is in the backend's ALLOWED_ORIGINS list.
+
+### Issue 2: 401 Unauthorized
+```
+{"error": "Unauthorized"}
+```
+
+**Solution**: Check that JWT token is valid and included in Authorization header.
+
+### Issue 3: 403 Forbidden
+```
+{"error": "Invalid or inactive tenant"}
+```
+
+**Solution**: Verify X-Tenant-ID header is correct and tenant is active.
+
+### Issue 4: 404 Not Found
+```
+{"error": "Not found"}
+```
+
+**Solution**: Check the endpoint URL is correct. Remember routes are case-sensitive.
 
 ---
 
-## Appointment Forms
+## 📊 Step 7: Monitor API Calls
 
-### Create Appointment Form
+### Add Request Logging
 
 ```typescript
-// components/appointments/CreateAppointmentForm.tsx
-'use client';
-
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { appointmentsApi } from '@/lib/api/appointments';
-import { TimeSlotPicker } from './TimeSlotPicker';
-import { toast } from 'sonner';
-
-const appointmentSchema = z.object({
-  patient_id: z.number(),
-  doctor_id: z.number(),
-  appointment_date: z.string(),
-  duration_minutes: z.number().default(30),
-  appointment_type: z.string(),
-  chief_complaint: z.string().optional(),
-  notes: z.string().optional(),
+// Add to your API client
+api.interceptors.request.use((config) => {
+  console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
+  return config;
 });
 
-export function CreateAppointmentForm({ onSuccess }: { onSuccess?: () => void }) {
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedSlot, setSelectedSlot] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const { register, handleSubmit, watch, formState: { errors } } = useForm({
-    resolver: zodResolver(appointmentSchema)
-  });
-
-  const doctorId = watch('doctor_id');
-
-  const onSubmit = async (data: any) => {
-    if (!selectedSlot) {
-      toast.error('Please select a time slot');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      await appointmentsApi.create({
-        ...data,
-        appointment_date: selectedSlot.start_time
-      });
-      toast.success('Appointment created successfully');
-      onSuccess?.();
-    } catch (error: any) {
-      if (error.response?.data?.error?.includes('conflict')) {
-        toast.error('Time slot no longer available. Please select another slot.');
-      } else {
-        toast.error('Failed to create appointment');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* Patient Selection */}
-      <div>
-        <label className="block text-sm font-medium mb-2">Patient</label>
-        <select {...register('patient_id', { valueAsNumber: true })} className="w-full">
-          <option value="">Select patient...</option>
-          {/* Load patients from API */}
-        </select>
-        {errors.patient_id && (
-          <p className="text-red-500 text-sm mt-1">{errors.patient_id.message}</p>
-        )}
-      </div>
-
-      {/* Doctor Selection */}
-      <div>
-        <label className="block text-sm font-medium mb-2">Doctor</label>
-        <select {...register('doctor_id', { valueAsNumber: true })} className="w-full">
-          <option value="">Select doctor...</option>
-          {/* Load doctors from API */}
-        </select>
-      </div>
-
-      {/* Date Selection */}
-      <div>
-        <label className="block text-sm font-medium mb-2">Date</label>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          min={new Date().toISOString().split('T')[0]}
-          className="w-full"
-        />
-      </div>
-
-      {/* Time Slot Picker */}
-      {doctorId && selectedDate && (
-        <div>
-          <label className="block text-sm font-medium mb-2">Available Time Slots</label>
-          <TimeSlotPicker
-            doctorId={doctorId}
-            date={selectedDate}
-            onSelect={setSelectedSlot}
-            selectedSlot={selectedSlot}
-          />
-        </div>
-      )}
-
-      {/* Appointment Type */}
-      <div>
-        <label className="block text-sm font-medium mb-2">Appointment Type</label>
-        <select {...register('appointment_type')} className="w-full">
-          <option value="consultation">Consultation</option>
-          <option value="follow_up">Follow-up</option>
-          <option value="procedure">Procedure</option>
-          <option value="emergency">Emergency</option>
-        </select>
-      </div>
-
-      {/* Chief Complaint */}
-      <div>
-        <label className="block text-sm font-medium mb-2">Chief Complaint</label>
-        <textarea {...register('chief_complaint')} rows={3} className="w-full" />
-      </div>
-
-      {/* Notes */}
-      <div>
-        <label className="block text-sm font-medium mb-2">Notes</label>
-        <textarea {...register('notes')} rows={3} className="w-full" />
-      </div>
-
-      {/* Submit Button */}
-      <button
-        type="submit"
-        disabled={loading || !selectedSlot}
-        className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-      >
-        {loading ? 'Creating...' : 'Create Appointment'}
-      </button>
-    </form>
-  );
-}
-```
-
----
-
-## Status Management
-
-### Status Management Component
-
-```typescript
-// components/appointments/AppointmentActions.tsx
-'use client';
-
-import { appointmentsApi } from '@/lib/api/appointments';
-import { toast } from 'sonner';
-
-interface AppointmentActionsProps {
-  appointmentId: number;
-  currentStatus: string;
-  onUpdate: () => void;
-}
-
-export function AppointmentActions({
-  appointmentId,
-  currentStatus,
-  onUpdate
-}: AppointmentActionsProps) {
-  const handleConfirm = async () => {
-    try {
-      await appointmentsApi.confirm(appointmentId);
-      toast.success('Appointment confirmed');
-      onUpdate();
-    } catch (error) {
-      toast.error('Failed to confirm appointment');
-    }
-  };
-
-  const handleComplete = async () => {
-    try {
-      await appointmentsApi.complete(appointmentId);
-      toast.success('Appointment marked as complete');
-      onUpdate();
-    } catch (error) {
-      toast.error('Failed to complete appointment');
-    }
-  };
-
-  const handleNoShow = async () => {
-    try {
-      await appointmentsApi.markNoShow(appointmentId);
-      toast.warning('Appointment marked as no-show');
-      onUpdate();
-    } catch (error) {
-      toast.error('Failed to mark as no-show');
-    }
-  };
-
-  const handleCancel = async () => {
-    const reason = prompt('Please enter cancellation reason:');
-    if (!reason) return;
-
-    try {
-      await appointmentsApi.cancel(appointmentId, reason);
-      toast.success('Appointment cancelled');
-      onUpdate();
-    } catch (error) {
-      toast.error('Failed to cancel appointment');
-    }
-  };
-
-  return (
-    <div className="flex gap-2">
-      {currentStatus === 'scheduled' && (
-        <button onClick={handleConfirm} className="btn-primary">
-          Confirm
-        </button>
-      )}
-      
-      {(currentStatus === 'scheduled' || currentStatus === 'confirmed') && (
-        <>
-          <button onClick={handleComplete} className="btn-success">
-            Complete
-          </button>
-          <button onClick={handleNoShow} className="btn-warning">
-            No-Show
-          </button>
-          <button onClick={handleCancel} className="btn-danger">
-            Cancel
-          </button>
-        </>
-      )}
-    </div>
-  );
-}
-```
-
----
-
-## Error Handling
-
-### Global Error Handler
-
-```typescript
-// lib/api/errorHandler.ts
-import { toast } from 'sonner';
-
-export function handleApiError(error: any) {
-  if (error.response) {
-    // Server responded with error
-    const { status, data } = error.response;
-
-    switch (status) {
-      case 400:
-        toast.error(data.error || 'Invalid request');
-        break;
-      case 401:
-        toast.error('Please sign in again');
-        // Redirect to login
-        break;
-      case 403:
-        toast.error('You don\'t have permission to perform this action');
-        break;
-      case 404:
-        toast.error('Resource not found');
-        break;
-      case 409:
-        toast.error(data.error || 'Conflict detected');
-        break;
-      default:
-        toast.error('An error occurred. Please try again.');
-    }
-  } else if (error.request) {
-    // Request made but no response
-    toast.error('Network error. Please check your connection.');
-  } else {
-    // Something else happened
-    toast.error('An unexpected error occurred');
+api.interceptors.response.use(
+  (response) => {
+    console.log(`[API] Response ${response.status}:`, response.data);
+    return response;
+  },
+  (error) => {
+    console.error(`[API] Error ${error.response?.status}:`, error.response?.data);
+    return Promise.reject(error);
   }
-}
+);
 ```
 
 ---
 
-## Testing
+## ✅ Integration Checklist
 
-### Component Testing
-
-```typescript
-// __tests__/appointments/TimeSlotPicker.test.tsx
-import { render, screen, waitFor } from '@testing-library/react';
-import { TimeSlotPicker } from '@/components/appointments/TimeSlotPicker';
-import { appointmentsApi } from '@/lib/api/appointments';
-
-jest.mock('@/lib/api/appointments');
-
-describe('TimeSlotPicker', () => {
-  it('displays available slots', async () => {
-    const mockSlots = [
-      { start_time: '2025-11-18T09:00:00Z', end_time: '2025-11-18T09:30:00Z', available: true, duration_minutes: 30 },
-      { start_time: '2025-11-18T09:30:00Z', end_time: '2025-11-18T10:00:00Z', available: false, duration_minutes: 30 },
-    ];
-
-    (appointmentsApi.getAvailableSlots as jest.Mock).mockResolvedValue(mockSlots);
-
-    render(
-      <TimeSlotPicker
-        doctorId={1}
-        date="2025-11-18"
-        onSelect={jest.fn()}
-      />
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('9:00 AM')).toBeInTheDocument();
-    });
-  });
-});
-```
+- [ ] Environment variables updated
+- [ ] API client configured with base URL
+- [ ] Authentication headers added to requests
+- [ ] JWT token stored in cookies
+- [ ] Tenant ID stored in cookies
+- [ ] X-App-ID header included
+- [ ] X-API-Key header included
+- [ ] Error handling implemented
+- [ ] CORS configured (if needed)
+- [ ] Health endpoint tested
+- [ ] Authentication flow tested
+- [ ] Protected endpoints tested
+- [ ] Request/response logging added
 
 ---
 
-## Next Steps
+## 🎯 Next Steps After Integration
 
-1. **Week 3, Day 1-2**: Implement calendar component
-2. **Week 3, Day 3-4**: Implement appointment forms
-3. **Week 3, Day 5**: Implement status management
-4. **Week 4**: Testing and polish
+1. **Test all critical flows**:
+   - User login/logout
+   - Patient CRUD operations
+   - Appointment scheduling
+   - Medical records access
+
+2. **Monitor for errors**:
+   - Check browser console
+   - Check network tab
+   - Monitor backend logs: `pm2 logs multi-tenant-backend`
+
+3. **Performance optimization**:
+   - Implement request caching
+   - Add loading states
+   - Handle slow connections
+
+4. **Security review**:
+   - Ensure tokens are stored securely
+   - Implement token refresh
+   - Add request rate limiting
 
 ---
 
-**Team Alpha** - Ready for frontend integration! 🚀
+## 📞 Support
+
+If you encounter issues:
+
+1. Check backend logs: `pm2 logs multi-tenant-backend`
+2. Test endpoint with curl/Postman
+3. Verify all required headers are present
+4. Check CORS configuration
+5. Refer to `DEPLOYMENT_COMPLETE.md` for backend status
+
+---
+
+**Backend URL**: https://backend.aajminpolyclinic.com.np  
+**Status**: ✅ ONLINE  
+**Last Updated**: November 28, 2025

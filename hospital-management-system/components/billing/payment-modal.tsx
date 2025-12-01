@@ -41,6 +41,9 @@ interface PaymentModalProps {
   onOpenChange: (open: boolean) => void
   invoice: Invoice | null
   onSuccess: () => void
+  // Optimistic update callbacks
+  onOptimisticUpdate?: () => void
+  onOptimisticRollback?: () => void
 }
 
 declare global {
@@ -54,10 +57,13 @@ export function PaymentModal({
   onOpenChange,
   invoice,
   onSuccess,
+  onOptimisticUpdate,
+  onOptimisticRollback,
 }: PaymentModalProps) {
   const [isProcessing, setIsProcessing] = useState(false)
   const [razorpayLoaded, setRazorpayLoaded] = useState(false)
   const [activeTab, setActiveTab] = useState<"online" | "manual">("online")
+  const [isOptimisticPending, setIsOptimisticPending] = useState(false) // Track optimistic state
   const { toast } = useToast()
 
   const form = useForm<ManualPaymentFormData>({
@@ -94,6 +100,10 @@ export function PaymentModal({
 
     try {
       setIsProcessing(true)
+      setIsOptimisticPending(true)
+      
+      // OPTIMISTIC UPDATE: Immediately show processing state in UI
+      onOptimisticUpdate?.()
 
       // Get Razorpay configuration
       const config = await billingAPI.getRazorpayConfig()
@@ -124,8 +134,9 @@ export function PaymentModal({
               description: "Payment processed successfully",
             })
 
+            setIsOptimisticPending(false)
             onOpenChange(false)
-            onSuccess()
+            onSuccess() // This confirms the optimistic update and refreshes data
           } catch (error: any) {
             console.error("Payment verification error:", error)
             toast({
@@ -133,6 +144,9 @@ export function PaymentModal({
               description: error.response?.data?.error || "Payment verification failed",
               variant: "destructive",
             })
+            // ROLLBACK: Revert optimistic update on verification failure
+            setIsOptimisticPending(false)
+            onOptimisticRollback?.()
           }
         },
         prefill: {
@@ -145,6 +159,9 @@ export function PaymentModal({
         modal: {
           ondismiss: function () {
             setIsProcessing(false)
+            setIsOptimisticPending(false)
+            // ROLLBACK: Revert optimistic update on user cancel
+            onOptimisticRollback?.()
           },
         },
       }
@@ -159,6 +176,9 @@ export function PaymentModal({
         variant: "destructive",
       })
       setIsProcessing(false)
+      setIsOptimisticPending(false)
+      // ROLLBACK: Revert optimistic update on error
+      onOptimisticRollback?.()
     }
   }
 
@@ -167,6 +187,10 @@ export function PaymentModal({
 
     try {
       setIsProcessing(true)
+      setIsOptimisticPending(true)
+      
+      // OPTIMISTIC UPDATE: Immediately show processing state in UI
+      onOptimisticUpdate?.()
 
       await billingAPI.recordManualPayment({
         invoice_id: invoice.id,
@@ -180,9 +204,10 @@ export function PaymentModal({
         description: "Manual payment recorded successfully",
       })
 
+      setIsOptimisticPending(false)
       form.reset()
       onOpenChange(false)
-      onSuccess()
+      onSuccess() // This confirms the optimistic update and refreshes data
     } catch (error: any) {
       console.error("Manual payment error:", error)
       toast({
@@ -190,6 +215,9 @@ export function PaymentModal({
         description: error.response?.data?.error || "Failed to record payment",
         variant: "destructive",
       })
+      // ROLLBACK: Revert optimistic update on error
+      setIsOptimisticPending(false)
+      onOptimisticRollback?.()
     } finally {
       setIsProcessing(false)
     }
@@ -214,13 +242,23 @@ export function PaymentModal({
           </DialogDescription>
         </DialogHeader>
 
+        {/* Optimistic Update Processing Indicator */}
+        {isOptimisticPending && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+            <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Processing payment... Invoice status updating...</span>
+            </div>
+          </div>
+        )}
+
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "online" | "manual")}>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="online">
+            <TabsTrigger value="online" disabled={isOptimisticPending}>
               <CreditCard className="w-4 h-4 mr-2" />
               Online Payment
             </TabsTrigger>
-            <TabsTrigger value="manual">
+            <TabsTrigger value="manual" disabled={isOptimisticPending}>
               <Wallet className="w-4 h-4 mr-2" />
               Manual Payment
             </TabsTrigger>

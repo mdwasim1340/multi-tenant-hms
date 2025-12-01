@@ -21,14 +21,25 @@ interface RazorpayPaymentModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
+  // Optimistic update callbacks
+  onOptimisticUpdate?: () => void
+  onOptimisticRollback?: () => void
 }
 
-export function RazorpayPaymentModal({ invoice, open, onOpenChange, onSuccess }: RazorpayPaymentModalProps) {
+export function RazorpayPaymentModal({ 
+  invoice, 
+  open, 
+  onOpenChange, 
+  onSuccess,
+  onOptimisticUpdate,
+  onOptimisticRollback
+}: RazorpayPaymentModalProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [razorpayLoaded, setRazorpayLoaded] = useState(false)
   const [razorpayConfig, setRazorpayConfig] = useState<any>(null)
+  const [isProcessing, setIsProcessing] = useState(false) // For optimistic UI indicator
   
   // Load Razorpay SDK
   useEffect(() => {
@@ -92,6 +103,10 @@ export function RazorpayPaymentModal({ invoice, open, onOpenChange, onSuccess }:
     
     setLoading(true)
     setError(null)
+    setIsProcessing(true)
+    
+    // OPTIMISTIC UPDATE: Immediately show processing state in UI
+    onOptimisticUpdate?.()
     
     try {
       const tenantId = Cookies.get("tenant_id")
@@ -151,7 +166,10 @@ export function RazorpayPaymentModal({ invoice, open, onOpenChange, onSuccess }:
         modal: {
           ondismiss: function() {
             setLoading(false)
+            setIsProcessing(false)
             setError("Payment cancelled by user")
+            // ROLLBACK: Revert optimistic update on cancel
+            onOptimisticRollback?.()
           }
         }
       }
@@ -163,6 +181,9 @@ export function RazorpayPaymentModal({ invoice, open, onOpenChange, onSuccess }:
       console.error("Error processing payment:", err)
       setError(err instanceof Error ? err.message : "Failed to process payment. Please try again.")
       setLoading(false)
+      setIsProcessing(false)
+      // ROLLBACK: Revert optimistic update on error
+      onOptimisticRollback?.()
     }
   }
   
@@ -173,15 +194,19 @@ export function RazorpayPaymentModal({ invoice, open, onOpenChange, onSuccess }:
       
       setSuccess(true)
       setLoading(false)
+      setIsProcessing(false)
       
-      // Close modal after 2 seconds
+      // Close modal after 2 seconds - optimistic update confirmed by success
       setTimeout(() => {
         handleOpenChange(false)
-        onSuccess?.()
+        onSuccess?.() // This will confirm the optimistic update and refresh data
       }, 2000)
     } catch (err) {
       setError("Demo payment simulation failed")
       setLoading(false)
+      setIsProcessing(false)
+      // ROLLBACK: Revert optimistic update on demo failure
+      onOptimisticRollback?.()
     }
   }
   
@@ -215,17 +240,21 @@ export function RazorpayPaymentModal({ invoice, open, onOpenChange, onSuccess }:
       
       setSuccess(true)
       setLoading(false)
+      setIsProcessing(false)
       
-      // Close modal after 2 seconds
+      // Close modal after 2 seconds - optimistic update confirmed by success
       setTimeout(() => {
         handleOpenChange(false)
-        onSuccess?.()
+        onSuccess?.() // This will confirm the optimistic update and refresh data
       }, 2000)
       
     } catch (err) {
       console.error("Error verifying payment:", err)
       setError(err instanceof Error ? err.message : "Payment verification failed")
       setLoading(false)
+      setIsProcessing(false)
+      // ROLLBACK: Revert optimistic update on verification failure
+      onOptimisticRollback?.()
     }
   }
   
@@ -245,6 +274,18 @@ export function RazorpayPaymentModal({ invoice, open, onOpenChange, onSuccess }:
         </DialogHeader>
         
         <div className="space-y-4 py-4">
+          {/* Processing Indicator (Optimistic Update) */}
+          {isProcessing && !success && !error && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 text-blue-700">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Processing payment... Invoice status updating...</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
           {/* Success Message */}
           {success && (
             <Card className="border-green-200 bg-green-50">

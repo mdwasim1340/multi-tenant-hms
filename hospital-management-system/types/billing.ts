@@ -64,7 +64,11 @@ export interface Payment {
 
 export interface BillingReport {
   total_revenue: number;
+  total_balance: number; // pending + overdue amounts
+  daily_revenue: number;
+  weekly_revenue: number;
   monthly_revenue: number;
+  yearly_revenue: number;
   pending_amount: number;
   overdue_amount: number;
   total_invoices: number;
