@@ -64,8 +64,12 @@ export function MedicalRecordsList({ patientId, onSelectRecord, onCreateNew }: M
     if (!searchTerm) return true;
     
     const search = searchTerm.toLowerCase();
+    const patientName = record.patient_first_name && record.patient_last_name 
+      ? `${record.patient_first_name} ${record.patient_last_name}`.toLowerCase()
+      : record.patient_name?.toLowerCase() || '';
+    
     return (
-      record.patient_name?.toLowerCase().includes(search) ||
+      patientName.includes(search) ||
       record.patient_number?.toLowerCase().includes(search) ||
       record.diagnosis?.toLowerCase().includes(search) ||
       record.chief_complaint?.toLowerCase().includes(search)
@@ -181,7 +185,9 @@ export function MedicalRecordsList({ patientId, onSelectRecord, onCreateNew }: M
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="font-semibold text-lg">
-                        {record.patient_name || 'Unknown Patient'}
+                        {record.patient_first_name && record.patient_last_name
+                          ? `${record.patient_first_name} ${record.patient_last_name}`
+                          : record.patient_name || 'Unknown Patient'}
                       </h3>
                       <Badge className={getStatusColor(record.status)}>
                         {record.status}

@@ -68,6 +68,7 @@ export interface CreateAppointmentData {
 
 export interface UpdateAppointmentData {
   appointment_date?: string;
+  appointment_end_time?: string;
   duration_minutes?: number;
   appointment_type?: 'consultation' | 'follow_up' | 'emergency' | 'procedure';
   status?:
@@ -86,6 +87,7 @@ export interface UpdateAppointmentData {
   actual_cost?: number;
   payment_status?: 'pending' | 'paid' | 'cancelled' | 'refunded';
   cancellation_reason?: string;
+  wait_time_adjustment?: number;
 }
 
 export interface AppointmentSearchQuery {

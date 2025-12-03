@@ -19,6 +19,8 @@ export function AppointmentList() {
   const [filters, setFilters] = useState<AppointmentFilters>({
     page: 1,
     limit: 10,
+    sort_by: 'appointment_date',
+    sort_order: 'desc',
   });
   const [pagination, setPagination] = useState({
     page: 1,
@@ -100,7 +102,7 @@ export function AppointmentList() {
       <Filters
         filters={filters}
         onFilterChange={handleFilterChange}
-        onReset={() => setFilters({ page: 1, limit: 10 })}
+        onReset={() => setFilters({ page: 1, limit: 10, sort_by: 'appointment_date', sort_order: 'desc' })}
       />
 
       {/* Results Summary */}

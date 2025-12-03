@@ -95,11 +95,7 @@ export function AppointmentCard({ appointment, onUpdate }: AppointmentCardProps)
     setShowDetails(true);
   };
 
-  const handleReschedule = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Navigate to new appointment page with pre-filled data
-    router.push(`/appointments/new?reschedule=${appointment.id}`);
-  };
+
 
   const handleMarkComplete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -198,14 +194,9 @@ export function AppointmentCard({ appointment, onUpdate }: AppointmentCardProps)
                 View Details
               </DropdownMenuItem>
               {appointment.status === 'scheduled' && (
-                <>
-                  <DropdownMenuItem onClick={handleConfirm}>
-                    Confirm
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleReschedule}>
-                    Reschedule
-                  </DropdownMenuItem>
-                </>
+                <DropdownMenuItem onClick={handleConfirm}>
+                  Confirm
+                </DropdownMenuItem>
               )}
               {appointment.status === 'confirmed' && (
                 <DropdownMenuItem onClick={handleMarkComplete}>

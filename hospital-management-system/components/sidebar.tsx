@@ -159,6 +159,11 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       icon: FileText,
       submenu: [
         {
+          label: "All Records",
+          href: "/patient-records",
+          icon: FileText,
+        },
+        {
           label: "Electronic Medical Records",
           href: "/emr",
           icon: FileText,

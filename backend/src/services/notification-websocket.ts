@@ -6,7 +6,9 @@
 
 import { Server as WebSocketServer, WebSocket } from 'ws';
 import { IncomingMessage } from 'http';
-// import { verifyToken } from './auth'; // TODO: Implement verifyToken in auth service
+import jwt from 'jsonwebtoken';
+import jwkToPem from 'jwk-to-pem';
+import fetch from 'node-fetch';
 
 interface AuthenticatedWebSocket extends WebSocket {
   userId?: number;
@@ -27,6 +29,59 @@ class NotificationWebSocketService {
   private clients: Map<number, Set<AuthenticatedWebSocket>> = new Map();
   private connectionInfo: Map<string, ConnectionInfo> = new Map();
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private pems: { [key: string]: string } = {};
+
+  constructor() {
+    this.initializeJWKS();
+  }
+
+  /**
+   * Initialize JWKS for token verification
+   */
+  private async initializeJWKS() {
+    try {
+      const url = `https://cognito-idp.${process.env.AWS_REGION}.amazonaws.com/${process.env.COGNITO_USER_POOL_ID}/.well-known/jwks.json`;
+      const response = await fetch(url);
+      const jwks = await response.json() as any;
+      if (jwks && jwks.keys) {
+        this.pems = jwks.keys.reduce((acc: { [key: string]: string }, key: any) => {
+          if (key.kty === 'RSA') {
+            acc[key.kid] = jwkToPem({ kty: key.kty, n: key.n, e: key.e });
+          }
+          return acc;
+        }, {});
+      }
+    } catch (error) {
+      console.error('Error initializing JWKS:', error);
+    }
+  }
+
+  /**
+   * Verify JWT token
+   */
+  private async verifyToken(token: string): Promise<any> {
+    try {
+      const decodedToken = jwt.decode(token, { complete: true }) as jwt.Jwt | null;
+      if (!decodedToken || !decodedToken.header.kid) {
+        return null;
+      }
+
+      const pem = this.pems[decodedToken.header.kid];
+      if (!pem) {
+        return null;
+      }
+
+      const decoded = jwt.verify(token, pem) as any;
+      return {
+        userId: decoded.sub ? parseInt(decoded.sub) : undefined,
+        tenantId: decoded['custom:tenant_id'] || decoded.tenant_id,
+        email: decoded.email,
+      };
+    } catch (error) {
+      console.error('Token verification error:', error);
+      return null;
+    }
+  }
 
   /**
    * Initialize WebSocket server
@@ -51,21 +106,20 @@ class NotificationWebSocketService {
         }
 
         // Verify JWT token
-        // TODO: Implement verifyToken function in auth service
-        const decoded: any = { userId: 1, tenantId: 'default' }; // Temporary stub
+        const decoded = await this.verifyToken(token);
         if (!decoded || !decoded.userId || !decoded.tenantId) {
           ws.close(1008, 'Invalid token');
           return;
         }
 
         // Setup authenticated connection
-        ws.userId = decoded.userId;
-        ws.tenantId = decoded.tenantId;
+        ws.userId = decoded.userId || 0;
+        ws.tenantId = decoded.tenantId || '';
         ws.isAlive = true;
         ws.connectionId = this.generateConnectionId();
 
         // Store connection info
-        if (ws.userId && ws.tenantId) {
+        if (ws.connectionId && ws.userId && ws.tenantId) {
           this.connectionInfo.set(ws.connectionId, {
             userId: ws.userId,
             tenantId: ws.tenantId,

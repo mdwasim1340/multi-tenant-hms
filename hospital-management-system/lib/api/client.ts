@@ -33,8 +33,8 @@ api.interceptors.request.use(
     if (tenantId) {
       config.headers['X-Tenant-ID'] = tenantId;
     } else if (process.env.NODE_ENV === 'development') {
-      // Add development fallback tenant ID
-      config.headers['X-Tenant-ID'] = process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID || 'tenant_aajmin_polyclinic';
+      // Add development fallback tenant ID (without tenant_ prefix)
+      config.headers['X-Tenant-ID'] = process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID || 'aajmin_polyclinic';
     }
 
     return config;
@@ -72,9 +72,10 @@ api.interceptors.response.use(
       console.error('Resource not found:', error.response.data);
     }
 
-    // Handle 500 Server Error
+    // Handle 500 Server Error - use warn instead of error to reduce noise
+    // Some 500 errors are expected when features are not yet configured
     if (error.response?.status === 500) {
-      console.error('Server error:', error.response.data);
+      console.warn('Server error:', error.response.data);
     }
 
     return Promise.reject(error);

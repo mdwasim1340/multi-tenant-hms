@@ -14,6 +14,13 @@ import {
 } from '../types/labTest';
 
 /**
+ * Helper to get schema name with tenant_ prefix
+ */
+function getSchemaName(tenantId: string): string {
+  return tenantId.startsWith('tenant_') ? tenantId : `tenant_${tenantId}`;
+}
+
+/**
  * Get lab results with optional filtering
  */
 export async function getLabResults(
@@ -77,7 +84,7 @@ export async function getLabResults(
   }
 
   // Set schema context
-  await pool.query(`SET search_path TO "${tenantId}"`);
+  await pool.query(`SET search_path TO "${getSchemaName(tenantId)}"`);
 
   // Get results with full details
   const query = `
@@ -130,7 +137,7 @@ export async function getLabResultById(
   tenantId: string,
   resultId: number
 ): Promise<LabResultWithDetails | null> {
-  await pool.query(`SET search_path TO "${tenantId}"`);
+  await pool.query(`SET search_path TO "${getSchemaName(tenantId)}"`);
 
   const result = await pool.query(`
     SELECT 
@@ -158,7 +165,7 @@ export async function getResultsByOrder(
   tenantId: string,
   orderId: number
 ): Promise<LabResultWithDetails[]> {
-  await pool.query(`SET search_path TO "${tenantId}"`);
+  await pool.query(`SET search_path TO "${getSchemaName(tenantId)}"`);
 
   const result = await pool.query(`
     SELECT 
@@ -183,7 +190,7 @@ export async function getResultByOrderItem(
   tenantId: string,
   orderItemId: number
 ): Promise<LabResult | null> {
-  await pool.query(`SET search_path TO "${tenantId}"`);
+  await pool.query(`SET search_path TO "${getSchemaName(tenantId)}"`);
 
   const result = await pool.query(
     'SELECT * FROM lab_results WHERE order_item_id = $1',
@@ -211,7 +218,7 @@ export async function addLabResult(
     attachments?: any;
   }
 ): Promise<LabResult> {
-  await pool.query(`SET search_path TO "${tenantId}"`);
+  await pool.query(`SET search_path TO "${getSchemaName(tenantId)}"`);
 
   const result = await pool.query(`
     INSERT INTO lab_results (
@@ -250,7 +257,7 @@ export async function updateLabResult(
   resultId: number,
   resultData: Partial<LabResult>
 ): Promise<LabResult | null> {
-  await pool.query(`SET search_path TO "${tenantId}"`);
+  await pool.query(`SET search_path TO "${getSchemaName(tenantId)}"`);
 
   const updates: string[] = [];
   const params: any[] = [];
@@ -300,7 +307,7 @@ export async function verifyLabResult(
   resultId: number,
   verifiedBy: number
 ): Promise<LabResult | null> {
-  await pool.query(`SET search_path TO "${tenantId}"`);
+  await pool.query(`SET search_path TO "${getSchemaName(tenantId)}"`);
 
   const result = await pool.query(`
     UPDATE lab_results
@@ -338,7 +345,7 @@ export async function getAbnormalResults(
 export async function getCriticalResults(
   tenantId: string
 ): Promise<LabResultWithDetails[]> {
-  await pool.query(`SET search_path TO "${tenantId}"`);
+  await pool.query(`SET search_path TO "${getSchemaName(tenantId)}"`);
 
   const result = await pool.query(`
     SELECT 
@@ -369,7 +376,7 @@ export async function getResultHistory(
   patientId: number,
   testCode?: string
 ): Promise<LabResultWithDetails[]> {
-  await pool.query(`SET search_path TO "${tenantId}"`);
+  await pool.query(`SET search_path TO "${getSchemaName(tenantId)}"`);
 
   let query = `
     SELECT 
@@ -406,7 +413,7 @@ export async function addResultAttachment(
   resultId: number,
   attachment: { filename: string; s3_key: string; file_type: string; file_size: number }
 ): Promise<LabResult | null> {
-  await pool.query(`SET search_path TO "${tenantId}"`);
+  await pool.query(`SET search_path TO "${getSchemaName(tenantId)}"`);
 
   // Get current attachments
   const currentResult = await pool.query(
@@ -435,7 +442,7 @@ export async function addResultAttachment(
 export async function getLabResultStatistics(
   tenantId: string
 ): Promise<LabResultStatistics> {
-  await pool.query(`SET search_path TO "${tenantId}"`);
+  await pool.query(`SET search_path TO "${getSchemaName(tenantId)}"`);
 
   const result = await pool.query(`
     SELECT

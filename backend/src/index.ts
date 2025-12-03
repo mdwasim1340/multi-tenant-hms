@@ -152,9 +152,19 @@ import bedManagementRouter from './routes/bed-management.routes';
 import bedManagementEnhancedRouter from './routes/bed-management-enhanced';
 import departmentsRouter from './routes/departments';
 import staffRouter from './routes/staff';
+import auditRouter from './routes/audit';
+import storageRouter from './routes/storage';
+import lifecycleRouter from './routes/lifecycle';
+import templatesRouter from './routes/templates';
 import staffOnboardingRouter from './routes/staff-onboarding';
 import notificationsRouter from './routes/notifications';
 import n8nRouter from './routes/n8n.routes';
+import { createClinicalNotesRouter } from './routes/clinicalNotes';
+import { createNoteTemplatesRouter } from './routes/noteTemplates';
+import { createImagingReportsRouter } from './routes/imagingReports';
+import { createPrescriptionsRouter } from './routes/prescriptions';
+import { createMedicalHistoryRouter } from './routes/medicalHistory';
+import pool from './database';
 
 // Apply tenant middleware, authentication, and application access control to hospital routes
 app.use('/files', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), filesRouter);
@@ -183,8 +193,17 @@ app.use('/api/lab-results', tenantMiddleware, hospitalAuthMiddleware, requireApp
 app.use('/api/imaging', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), imagingRouter);
 app.use('/api/lab-panels', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labPanelsRouter);
 app.use('/api/staff', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), staffRouter);
+app.use('/api/audit-logs', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), auditRouter);
+app.use('/api/storage', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), storageRouter);
+app.use('/api/lifecycle', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), lifecycleRouter);
+app.use('/api/templates', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), templatesRouter);
 app.use('/api/staff-onboarding', staffOnboardingRouter); // Public routes for staff onboarding
 app.use('/api/notifications', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), notificationsRouter);
+app.use('/api/clinical-notes', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), createClinicalNotesRouter(pool));
+app.use('/api/note-templates', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), createNoteTemplatesRouter(pool));
+app.use('/api/imaging-reports', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), createImagingReportsRouter());
+app.use('/api/emr-prescriptions', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), createPrescriptionsRouter());
+app.use('/api/medical-history', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), createMedicalHistoryRouter());
 
 // Bed Management routes - Team Beta Sprint 1
 app.use('/api/beds', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), bedManagementRouter);

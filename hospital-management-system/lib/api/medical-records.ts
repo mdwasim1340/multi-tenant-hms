@@ -19,6 +19,7 @@ export interface VitalSigns {
 export interface MedicalRecord {
   id: number;
   patient_id: number;
+  doctor_id: number;
   appointment_id?: number;
   visit_date: string;
   chief_complaint?: string;
@@ -31,11 +32,15 @@ export interface MedicalRecord {
   follow_up_required?: boolean;
   follow_up_date?: string;
   status: 'draft' | 'finalized';
+  finalized_at?: string;
+  finalized_by?: number;
   created_at: string;
   updated_at: string;
-  // Joined data
-  patient_name?: string;
+  // Joined data from backend
+  patient_first_name?: string;
+  patient_last_name?: string;
   patient_number?: string;
+  patient_name?: string; // Computed field for display
 }
 
 export interface RecordAttachment {
@@ -51,6 +56,7 @@ export interface RecordAttachment {
 
 export interface CreateRecordData {
   patient_id: number;
+  doctor_id: number;
   appointment_id?: number;
   visit_date: string;
   chief_complaint?: string;
