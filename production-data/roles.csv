@@ -1,0 +1,9 @@
+id,name,description,created_at
+1,Admin,System administrator with full access,2025-11-02 13:10:26.975579
+2,Doctor,Medical practitioner with patient care access,2025-11-02 13:10:26.975579
+3,Nurse,Nursing staff with patient care access,2025-11-02 13:10:26.975579
+4,Receptionist,Front desk staff with appointment management,2025-11-02 13:10:26.975579
+5,Manager,Department manager with reporting access,2025-11-02 13:10:26.975579
+6,Lab Technician,Laboratory staff with test management,2025-11-02 13:10:26.975579
+7,Pharmacist,Pharmacy staff with medication management,2025-11-02 13:10:26.975579
+8,Hospital Admin,Administrative role for hospital tenant management,2025-11-13 06:01:03.252401

@@ -10,6 +10,10 @@ const ALLOWED_ORIGINS = [
   'http://10.66.66.8:3003', // Future apps (network)
   'https://aajminpolyclinic.healthsync.live', // Production Hospital System
   'http://aajminpolyclinic.healthsync.live', // Production Hospital System (HTTP)
+  'https://aajminpolyclinic.com.np', // Production Main Domain
+  'http://aajminpolyclinic.com.np', // Production Main Domain (HTTP)
+  'https://www.aajminpolyclinic.com.np', // Production WWW
+  'http://www.aajminpolyclinic.com.np', // Production WWW (HTTP)
 ];
 
 // Check if origin is a valid subdomain
@@ -25,6 +29,14 @@ const isValidSubdomainOrigin = (origin: string): boolean => {
     if (url.hostname.endsWith('.healthsync.live')) {
       return true;
     }
+    // Allow *.aajminpolyclinic.com.np (production subdomains)
+    if (url.hostname.endsWith('.aajminpolyclinic.com.np')) {
+      return true;
+    }
+    // Allow aajminpolyclinic.com.np (main domain)
+    if (url.hostname === 'aajminpolyclinic.com.np' || url.hostname === 'www.aajminpolyclinic.com.np') {
+      return true;
+    }
     return false;
   } catch {
     return false;
@@ -36,6 +48,7 @@ const APP_API_KEYS: Record<string, string> = {
   'hospital-management': process.env.HOSPITAL_APP_API_KEY || 'hospital-dev-key-123',
   'admin-dashboard': process.env.ADMIN_APP_API_KEY || 'admin-dev-key-456',
   'mobile-app': process.env.MOBILE_APP_API_KEY || 'mobile-dev-key-789',
+  'medchat-mobile': process.env.MEDCHAT_APP_API_KEY || 'medchat-dev-key-789',
 };
 
 /**

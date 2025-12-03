@@ -53,7 +53,14 @@ export default function LoginPage() {
       router.push("/dashboard")
     } else {
       setIsLoading(false)
-      setError(result.error || 'Failed to sign in. Please try again.')
+      
+      // Handle tenant mismatch error specifically
+      if (result.error?.includes('correct subdomain') || result.error?.includes('Access denied')) {
+        setError('You are trying to access the wrong hospital. Please use the correct subdomain for your hospital.')
+      } else {
+        setError(result.error || 'Failed to sign in. Please try again.')
+      }
+      
       console.error('Login error:', result.error)
     }
   }

@@ -11,8 +11,9 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
   const client = await pool.connect();
 
   try {
-    // Ensure schema name has tenant_ prefix
-    const schemaName = tenantId.startsWith('tenant_') ? tenantId : `tenant_${tenantId}`;
+    // Use tenant ID directly as schema name (schemas are named like 'sunrise_medical_center', 'aajmin_polyclinic')
+    // Only add tenant_ prefix if the schema doesn't exist with the direct name
+    const schemaName = tenantId;
     await client.query(`SET search_path TO "${schemaName}", public`);
     req.dbClient = client;
 

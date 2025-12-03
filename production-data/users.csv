@@ -1,0 +1,40 @@
+id,name,email,password,status,phone_number,last_login_date,profile_picture_url,tenant_id,created_at
+2,Admin User,admin@testcomplete2.com,\\\,active,,,,test_complete_1762083064426,2025-11-02 13:10:40.410042
+3,Admin User,admin@autoid.com,\\\,active,,,,tenant_1762083064503,2025-11-02 13:10:40.410042
+4,Admin User,admin@complexform.com,\\\,active,,,,tenant_1762083064515,2025-11-02 13:10:40.410042
+5,Admin User,admin@mdwasim.com,\\\,active,,,,tenant_1762083586064,2025-11-02 13:10:40.410042
+8,Aajmin Admin,mdwasimkrm13@gmail.com,$2b$10$3OfYKJfQ/l/fSV/1B95Bc.4xS.Qgu48H0lt0Pr6ocw4jT.4TsakJS,active,,,,aajmin_polyclinic,2025-11-13 06:02:17.639438
+13,Integration Test User,test.integration@hospital.com,$2b$10$HZKpatPdRdqg/meTV98LcOgjrSdK.PU0ZiVejisn6aM6cT0VSgAEC,active,,,,tenant_1762083064503,2025-11-15 12:45:00.06844
+19,Michel,mrsonu1569@gmail.com,$2b$10$vNlBMvYOI4qSczbqKgpFr.8zR6lq5d/TRfUQPh84lquxHhxYBDar6,active,,,,aajmin_polyclinic,2025-11-17 05:30:24.082037
+28,General,boxihi4400@hh7f.com,"",pending_verification,,,,aajmin_polyclinic,2025-11-18 11:34:17.535367
+29,Mithilesh Chaurasia,mithilescharasia97@gmail.com,"",pending_verification,,,,aajmin_polyclinic,2025-11-29 05:34:07.615418
+31,Dr. Aajmin Administrator,admin@aajmin.hospital,$2b$10$eihURb0sCxNRYOCqihv/x.LJAO7175ttSyvHSaFbmJ9FgiumNHaPS,active,,,,aajmin_polyclinic,2025-12-02 06:19:33.39692
+32,Dr. Aajmin Physician,doctor@aajmin.hospital,$2b$10$ex0c4UNr.MLB.LRIYOe8MemM966c/Ub4PB5XMW31AGeSupSQsrcWu,active,,,,aajmin_polyclinic,2025-12-02 06:19:33.39692
+33,Aajmin Head Nurse,nurse@aajmin.hospital,$2b$10$b/rJqAIARfrksxVmptxyI.4fodR3jrxB8uUBTTgMel1G5yyZhuFVG,active,,,,aajmin_polyclinic,2025-12-02 06:19:33.39692
+34,Dr. City Administrator,admin@citygeneral.hospital,$2b$10$pb8t2o8N/0Z5QHrYnZKu.uLYdcRpY8i/g2PCov9YJhnCBh13aDPnG,active,,,,city_general_hospital,2025-12-02 06:19:33.598737
+35,Dr. City Physician,doctor@citygeneral.hospital,$2b$10$rkbvANMADRvYXIQGhC6MM./KXefBswd9oTe3OJxW4G1RXKV/v2E8C,active,,,,city_general_hospital,2025-12-02 06:19:33.598737
+36,City Head Nurse,nurse@citygeneral.hospital,$2b$10$KiSdlKr1k31FF1H6mmvBFOVxi0OvGy4wBwpDMw9RrLdjlG1tYzCkK,active,,,,city_general_hospital,2025-12-02 06:19:33.598737
+37,Dr. Sunrise Administrator,admin@sunrise.hospital,$2b$10$p7WwdTaZPb2lCWWhY4qK1.p9IWYA7zhjzR9bthjWTOQl.rhpjuuxq,active,,,,sunrise_medical_center,2025-12-02 06:19:33.848602
+38,Dr. Sunrise Physician,doctor@sunrise.hospital,$2b$10$uYXeiE9x6uCdc7CV7r1PxeRJ6G713zD6qhnUCGdmpVkKCbigJkJCi,active,,,,sunrise_medical_center,2025-12-02 06:19:33.848602
+39,Sunrise Head Nurse,nurse@sunrise.hospital,$2b$10$zTA.wg0qeicVHJSon1KFg.sIeyySBR5Cxjuv/6MT1S/YPd9WJ3uEq,active,,,,sunrise_medical_center,2025-12-02 06:19:33.848602
+40,Dr. Valley Administrator,admin@valley.hospital,$2b$10$bu/rVd1EeVEuo0y9G0cvjOqtJqeVJxKIfpdLJWeG.3tqEwUqugYF2,active,,,,valley_health_clinic,2025-12-02 06:19:34.0754
+41,Dr. Valley Physician,doctor@valley.hospital,$2b$10$H92/IDp/0l1.3W5ov3TZ0.ccf8KerO3gQaZ4id27Mi2G1LcnDji9y,active,,,,valley_health_clinic,2025-12-02 06:19:34.0754
+42,Valley Head Nurse,nurse@valley.hospital,$2b$10$GlexnwhL5Df7vl50j6XZReN/R.oqg18gCRNlR8.NfedE9X89ObqqO,active,,,,valley_health_clinic,2025-12-02 06:19:34.0754
+43,Dr. Metro Administrator,admin@metro.hospital,$2b$10$GqFSOem/uUyoLAWCuMTbEecKD6HEniBbBZ8QHbNIGabjHWulAkU5G,active,,,,metro_specialty_hospital,2025-12-02 06:19:34.287192
+44,Dr. Metro Physician,doctor@metro.hospital,$2b$10$TS7TGE8jg9zCgbNRDs83XeXYwagH1920.LEMa0W7vgGBH6u5v0XE6,active,,,,metro_specialty_hospital,2025-12-02 06:19:34.287192
+45,Metro Head Nurse,nurse@metro.hospital,$2b$10$xe/5r9OE8R6Ely83DP8R1.mRgdhfCQXja7pmIJARLXoGihCQ7a1XK,active,,,,metro_specialty_hospital,2025-12-02 06:19:34.287192
+46,Dr. Riverside Administrator,admin@riverside.hospital,$2b$10$h2uLz691ng8uh9anSAMxseKLaJ9Ld8W9V/Qp6OYr7FP95F/5dIhXe,active,,,,riverside_community_hospital,2025-12-02 06:19:34.496399
+47,Dr. Riverside Physician,doctor@riverside.hospital,$2b$10$4oDjqnkmPSeCPcxflCaJFOTp0LJ05uzEeamWDWmbSF/AEQYijzBRK,active,,,,riverside_community_hospital,2025-12-02 06:19:34.496399
+48,Riverside Head Nurse,nurse@riverside.hospital,$2b$10$iCnv9Uim2Z9Ni8/glbsGbu.I8oz./DAuC7g0nyDAHfWt14ZslkVB2,active,,,,riverside_community_hospital,2025-12-02 06:19:34.496399
+49,Aajmin Chief Pharmacist,pharmacist@aajmin.hospital,$2b$10$dLIchj4PhGvoMofJiBMG2ONxcp3M7UNdZmQ9iqhqQQn8Q7HblZkiC,active,,,,aajmin_polyclinic,2025-12-02 06:32:34.553859
+50,Aajmin Front Desk,reception@aajmin.hospital,$2b$10$os8lYI.aEkTo4t6/EaOA/OE/8QdEIC1iwlRrQgv3VtqqqZ5IlTCD2,active,,,,aajmin_polyclinic,2025-12-02 06:32:34.622084
+51,City Chief Pharmacist,pharmacist@citygeneral.hospital,$2b$10$XgwTQldqiaN4lQ3knCIGpuRDsoBBjcuKzxode2fLAH/e9qhLTnWNW,active,,,,city_general_hospital,2025-12-02 06:32:34.889402
+52,City Front Desk,reception@citygeneral.hospital,$2b$10$MDP5bmujAHBiAi2W7bvzHejgAQOIz1T7D2v9uhOwsEYS/Naz3295W,active,,,,city_general_hospital,2025-12-02 06:32:34.956993
+53,Sunrise Chief Pharmacist,pharmacist@sunrise.hospital,$2b$10$S2nwJBkW5DegzGDxTm5PeOzyjo0NiK8ZX09Ru98W6fYX1ccnCntfS,active,,,,sunrise_medical_center,2025-12-02 06:32:35.229418
+54,Sunrise Front Desk,reception@sunrise.hospital,$2b$10$wie09Vy.mGwS44Gb4shVJ.PEuKW6b3CrnNjhQZh69t7UnDwy2Uj4G,active,,,,sunrise_medical_center,2025-12-02 06:32:35.29777
+55,Valley Chief Pharmacist,pharmacist@valley.hospital,$2b$10$6b0d5eA8oaJMyahuPJwENu/FmGq9FWm3bjRt.hBMLZItJU3Qf/p8u,active,,,,valley_health_clinic,2025-12-02 06:32:35.562668
+56,Valley Front Desk,reception@valley.hospital,$2b$10$4HdhDsbLHjCxK06ssJE4YOQ4Xp5CSVxsRNVuCwUlL9mP1lyJoF82u,active,,,,valley_health_clinic,2025-12-02 06:32:35.63059
+57,Metro Chief Pharmacist,pharmacist@metro.hospital,$2b$10$VJUSIn2XXyAM4DE2UKvofuH.6PQ6hP48mIdbwRKcCkuKkmxU0kvLW,active,,,,metro_specialty_hospital,2025-12-02 06:32:35.901624
+58,Metro Front Desk,reception@metro.hospital,$2b$10$Q/ILlCeH5gtpsBYGzdMa2uloiXLa94mpMGbP1FJylKCV/Viq8k87m,active,,,,metro_specialty_hospital,2025-12-02 06:32:35.969545
+59,Riverside Chief Pharmacist,pharmacist@riverside.hospital,$2b$10$jTsBAETsHw5ZkQbOyWmm6.aNSTnYbAeuAaip0GHMZwU3du67QAIY2,active,,,,riverside_community_hospital,2025-12-02 06:32:36.246873
+60,Riverside Front Desk,reception@riverside.hospital,$2b$10$YRPnKuPTo/Ui3rrOF1Wn5OsYM/DsdZMcqsdZj6Gpz58zOhIAHeLj6,active,,,,riverside_community_hospital,2025-12-02 06:32:36.317216

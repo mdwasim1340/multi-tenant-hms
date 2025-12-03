@@ -36,6 +36,8 @@ import {
   AllRecordsList,
   RecordDetailPanel,
   UploadDocumentModal,
+  AddImagingReportModal,
+  AddClinicalNoteModal,
 } from '@/components/patient-records';
 import type { MedicalRecordType } from '@/types/medical-records';
 
@@ -52,21 +54,18 @@ export default function PatientRecordsPage() {
   const [activeCategory, setActiveCategory] = useState<RecordCategory>('all');
   const [selectedRecord, setSelectedRecord] = useState<SelectedRecord | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showImagingModal, setShowImagingModal] = useState(false);
+  const [showClinicalNoteModal, setShowClinicalNoteModal] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
-  const [showPatientSelector, setShowPatientSelector] = useState(!selectedPatient);
+  const [showPatientSelector, setShowPatientSelector] = useState(false);
+  const [imagingRefreshKey, setImagingRefreshKey] = useState(0);
+  const [clinicalNotesRefreshKey, setClinicalNotesRefreshKey] = useState(0);
 
   // Reset selection when patient changes
   useEffect(() => {
     setSelectedRecord(null);
     setShowDetailPanel(false);
   }, [selectedPatient?.id]);
-
-  // Show patient selector when no patient is selected
-  useEffect(() => {
-    if (!selectedPatient) {
-      setShowPatientSelector(true);
-    }
-  }, [selectedPatient]);
 
   const handleSelectRecord = (id: number, type: MedicalRecordType) => {
     setSelectedRecord({ id, type });
@@ -161,9 +160,13 @@ export default function PatientRecordsPage() {
                   <div className="text-center">
                     <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-lg font-semibold mb-2">No Patient Selected</h3>
-                    <p className="text-muted-foreground">
+                    <p className="text-muted-foreground mb-4">
                       Please select a patient to view their medical records
                     </p>
+                    <Button onClick={() => setShowPatientSelector(true)}>
+                      <User className="h-4 w-4 mr-2" />
+                      Select Patient
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -209,16 +212,20 @@ export default function PatientRecordsPage() {
                     {/* Imaging Reports */}
                     <TabsContent value="imaging" className="mt-0">
                       <ImagingReportsList
+                        key={imagingRefreshKey}
                         patientId={selectedPatient.id}
                         onSelectRecord={(id) => handleSelectRecord(id, 'imaging_report')}
+                        onAddReport={() => setShowImagingModal(true)}
                       />
                     </TabsContent>
 
                     {/* Clinical Notes */}
                     <TabsContent value="notes" className="mt-0">
                       <ClinicalNotesList
+                        key={clinicalNotesRefreshKey}
                         patientId={selectedPatient.id}
                         onSelectRecord={(id) => handleSelectRecord(id, 'clinical_note')}
+                        onAddNote={() => setShowClinicalNoteModal(true)}
                       />
                     </TabsContent>
 
@@ -253,6 +260,34 @@ export default function PatientRecordsPage() {
               onSuccess={handleUploadSuccess}
               patientId={selectedPatient?.id}
             />
+
+            {/* Add Imaging Report Modal */}
+            {selectedPatient && (
+              <AddImagingReportModal
+                open={showImagingModal}
+                onClose={() => setShowImagingModal(false)}
+                onSuccess={() => {
+                  setShowImagingModal(false);
+                  // Force refresh the imaging reports list
+                  setImagingRefreshKey((prev) => prev + 1);
+                }}
+                patientId={selectedPatient.id}
+              />
+            )}
+
+            {/* Add Clinical Note Modal */}
+            {selectedPatient && (
+              <AddClinicalNoteModal
+                open={showClinicalNoteModal}
+                onClose={() => setShowClinicalNoteModal(false)}
+                onSuccess={() => {
+                  setShowClinicalNoteModal(false);
+                  // Force refresh the clinical notes list
+                  setClinicalNotesRefreshKey((prev) => prev + 1);
+                }}
+                patientId={selectedPatient.id}
+              />
+            )}
           </div>
         </main>
       </div>

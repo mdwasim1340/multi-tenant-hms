@@ -1,0 +1,27 @@
+id,resource,action,description,created_at
+1,admin_dashboard,access,Access to admin dashboard application,2025-11-13 15:47:06.34092
+2,admin_dashboard,read,Read access to admin dashboard data,2025-11-13 15:47:06.34092
+3,admin_dashboard,write,Write access to admin dashboard data,2025-11-13 15:47:06.34092
+4,admin_dashboard,admin,Full administrative access to admin dashboard,2025-11-13 15:47:06.34092
+5,hospital_system,access,Access to hospital management system,2025-11-13 15:47:06.34092
+6,hospital_system,read,Read access to hospital system data,2025-11-13 15:47:06.34092
+7,hospital_system,write,Write access to hospital system data,2025-11-13 15:47:06.34092
+8,hospital_system,admin,Administrative access to hospital system,2025-11-13 15:47:06.34092
+9,patients,read,View patient information,2025-11-13 15:47:06.34092
+10,patients,write,Create and edit patient information,2025-11-13 15:47:06.34092
+11,patients,admin,Full patient management including deletion,2025-11-13 15:47:06.34092
+12,appointments,read,View appointments,2025-11-13 15:47:06.34092
+13,appointments,write,Create and edit appointments,2025-11-13 15:47:06.34092
+14,appointments,admin,Full appointment management,2025-11-13 15:47:06.34092
+15,analytics,read,View analytics and reports,2025-11-13 15:47:06.34092
+16,analytics,write,Create custom reports,2025-11-13 15:47:06.34092
+17,analytics,admin,Full analytics administration,2025-11-13 15:47:06.34092
+18,system,read,View system information,2025-11-13 15:47:06.34092
+19,system,write,Modify system settings,2025-11-13 15:47:06.34092
+20,system,admin,Full system administration,2025-11-13 15:47:06.34092
+21,billing,read,View billing information and reports,2025-11-15 13:41:17.576325
+22,billing,write,Create and edit invoices,2025-11-15 13:41:17.583387
+23,billing,admin,Process payments and manage billing settings,2025-11-15 13:41:17.585573
+24,beds,read,View bed information and status,2025-11-25 13:16:32.02087
+25,beds,write,"Create, update, and delete beds",2025-11-25 13:16:32.02087
+26,beds,admin,Full administrative access to bed management,2025-11-25 13:16:32.02087

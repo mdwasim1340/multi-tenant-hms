@@ -38,12 +38,13 @@ import type { ClinicalNote, MedicalRecordsFilters } from '@/types/medical-record
 interface ClinicalNotesListProps {
   patientId: number;
   onSelectRecord: (id: number) => void;
+  onAddNote?: () => void;
 }
 
 type SortField = 'created_at' | 'note_type' | 'status';
 type SortOrder = 'asc' | 'desc';
 
-export function ClinicalNotesList({ patientId, onSelectRecord }: ClinicalNotesListProps) {
+export function ClinicalNotesList({ patientId, onSelectRecord, onAddNote }: ClinicalNotesListProps) {
   const [filters, setFilters] = useState<MedicalRecordsFilters>({});
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -165,11 +166,17 @@ export function ClinicalNotesList({ patientId, onSelectRecord }: ClinicalNotesLi
         showNoteTypeFilter
       />
 
-      {/* Results Count */}
+      {/* Results Count and Add Button */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {pagination.total} clinical note{pagination.total !== 1 ? 's' : ''} found
         </p>
+        {onAddNote && (
+          <Button onClick={onAddNote} size="sm">
+            <FileText className="h-4 w-4 mr-2" />
+            Add Clinical Note
+          </Button>
+        )}
       </div>
 
       {/* Empty State */}

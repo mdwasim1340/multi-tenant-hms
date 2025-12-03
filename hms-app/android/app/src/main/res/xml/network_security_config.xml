@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Network Security Configuration for MedChat Mobile App -->
+<!-- Allows cleartext traffic to local development servers -->
+<network-security-config>
+    <!-- Development: Allow cleartext for local testing -->
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Android emulator localhost -->
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <!-- Physical device localhost -->
+        <domain includeSubdomains="true">localhost</domain>
+        <!-- Local network IP (update as needed) -->
+        <domain includeSubdomains="true">192.168.1.1</domain>
+        <domain includeSubdomains="true">10.66.66.8</domain>
+    </domain-config>
+    
+    <!-- Production: Only HTTPS -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">healthsync.live</domain>
+        <domain includeSubdomains="true">aajminpolyclinic.com.np</domain>
+    </domain-config>
+</network-security-config>

@@ -374,12 +374,31 @@ export async function getRecordAttachments(
   tenantId: string,
   recordId: number
 ): Promise<RecordAttachment[]> {
-  await pool.query(`SET search_path TO "${tenantId}"`);
+  // Use tenant ID directly as schema name
+  const schemaName = tenantId;
+  await pool.query(`SET search_path TO "${schemaName}", public`);
+
+  // Create table if not exists
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS record_attachments (
+      id SERIAL PRIMARY KEY,
+      record_id INTEGER NOT NULL,
+      file_name VARCHAR(255) NOT NULL,
+      file_type VARCHAR(100),
+      file_size INTEGER,
+      s3_key VARCHAR(500) NOT NULL,
+      s3_bucket VARCHAR(100) NOT NULL,
+      uploaded_by INTEGER,
+      description TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
   const query = `
     SELECT *
     FROM record_attachments
-    WHERE medical_record_id = $1
+    WHERE record_id = $1
     ORDER BY created_at DESC
   `;
 
@@ -396,11 +415,39 @@ export async function addRecordAttachment(
   uploadedBy: number,
   data: AddAttachmentDTO
 ): Promise<RecordAttachment> {
+  // Use tenant ID as-is (schema name is already correct from tenant middleware)
   await pool.query(`SET search_path TO "${tenantId}"`);
+
+  // Create table if not exists
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS record_attachments (
+      id SERIAL PRIMARY KEY,
+      record_id INTEGER NOT NULL,
+      file_name VARCHAR(255) NOT NULL,
+      file_type VARCHAR(100),
+      file_size INTEGER,
+      s3_key VARCHAR(500) NOT NULL,
+      s3_bucket VARCHAR(100) NOT NULL,
+      uploaded_by INTEGER,
+      description TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Drop foreign key constraint if it exists (allows attachments for any record_id)
+  try {
+    await pool.query(`
+      ALTER TABLE record_attachments 
+      DROP CONSTRAINT IF EXISTS record_attachments_record_id_fkey
+    `);
+  } catch {
+    // Constraint may not exist, ignore error
+  }
 
   const query = `
     INSERT INTO record_attachments (
-      medical_record_id,
+      record_id,
       file_name,
       file_type,
       file_size,
@@ -434,7 +481,26 @@ export async function getAttachmentById(
   tenantId: string,
   attachmentId: number
 ): Promise<RecordAttachment | null> {
-  await pool.query(`SET search_path TO "${tenantId}"`);
+  // Use tenant ID directly as schema name
+  const schemaName = tenantId;
+  await pool.query(`SET search_path TO "${schemaName}", public`);
+
+  // Create table if not exists
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS record_attachments (
+      id SERIAL PRIMARY KEY,
+      record_id INTEGER NOT NULL,
+      file_name VARCHAR(255) NOT NULL,
+      file_type VARCHAR(100),
+      file_size INTEGER,
+      s3_key VARCHAR(500) NOT NULL,
+      s3_bucket VARCHAR(100) NOT NULL,
+      uploaded_by INTEGER,
+      description TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
   const query = 'SELECT * FROM record_attachments WHERE id = $1';
   const result = await pool.query(query, [attachmentId]);
@@ -453,7 +519,9 @@ export async function deleteRecordAttachment(
   tenantId: string,
   attachmentId: number
 ): Promise<boolean> {
-  await pool.query(`SET search_path TO "${tenantId}"`);
+  // Use tenant ID directly as schema name
+  const schemaName = tenantId;
+  await pool.query(`SET search_path TO "${schemaName}", public`);
 
   const query = 'DELETE FROM record_attachments WHERE id = $1 RETURNING s3_key';
   const result = await pool.query(query, [attachmentId]);

@@ -97,7 +97,10 @@ export function DocumentsList({ patientId, onSelectRecord, onAddDocument }: Docu
     return labels[type] || type;
   };
 
-  const getFileIcon = (fileType: string) => {
+  const getFileIcon = (fileType?: string) => {
+    if (!fileType) {
+      return <File className="h-4 w-4 text-gray-500" />;
+    }
     if (fileType.includes('pdf')) {
       return <FileType className="h-4 w-4 text-red-500" />;
     }

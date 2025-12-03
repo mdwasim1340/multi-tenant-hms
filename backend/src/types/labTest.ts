@@ -197,17 +197,28 @@ export interface LabResultWithDetails extends LabResult {
 }
 
 export const CreateLabResultSchema = z.object({
-  order_item_id: z.number().int().positive(),
+  // Either order_item_id OR (patient_id + test_id) is required
+  order_item_id: z.number().int().positive().optional(),
+  patient_id: z.number().int().positive().optional(),
+  test_id: z.number().int().positive().optional(),
   result_value: z.string().max(500).optional().nullable(),
   result_numeric: z.number().optional().nullable(),
   result_text: z.string().optional().nullable(),
   result_unit: z.string().max(50).optional().nullable(),
   reference_range: z.string().max(255).optional().nullable(),
-  result_date: z.string().datetime().optional(),
+  result_date: z.string().optional(),
   performed_by: z.number().int().positive().optional().nullable(),
   interpretation: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
-  attachments: z.any().optional().nullable()
+  attachments: z.any().optional().nullable(),
+  is_abnormal: z.boolean().optional(),
+  abnormal_flag: z.string().optional().nullable(),
+  value: z.string().optional(), // Alias for result_value
+  unit: z.string().optional().nullable(), // Alias for result_unit
+  // New fields for enhanced lab result entry
+  sample_type: z.string().max(50).optional().nullable(), // blood, urine, stool, CSF, etc.
+  ordering_doctor: z.string().max(100).optional().nullable(), // doctor who ordered the test
+  result_status: z.enum(['final', 'preliminary', 'corrected', 'amended']).optional().default('final'),
 });
 
 export const UpdateLabResultSchema = z.object({

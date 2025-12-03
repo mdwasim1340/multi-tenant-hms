@@ -45,8 +45,11 @@ export class ClinicalNoteController {
    */
   createClinicalNote = async (req: Request, res: Response): Promise<void> => {
     try {
+      console.log('Creating clinical note with body:', JSON.stringify(req.body, null, 2));
+      
       // Validate request body
       const validatedData = CreateClinicalNoteSchema.parse(req.body);
+      console.log('Validated data:', JSON.stringify(validatedData, null, 2));
 
       // Create clinical note
       const note = await this.clinicalNoteService.createClinicalNote(
@@ -60,10 +63,11 @@ export class ClinicalNoteController {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error('Zod validation error:', JSON.stringify(error.issues, null, 2));
         res.status(400).json({
           success: false,
           error: 'Validation error',
-          details: error.errors
+          details: error.issues
         });
         return;
       }
@@ -71,7 +75,8 @@ export class ClinicalNoteController {
       console.error('Error creating clinical note:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to create clinical note'
+        error: 'Failed to create clinical note',
+        details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   };
@@ -205,7 +210,7 @@ export class ClinicalNoteController {
         res.status(400).json({
           success: false,
           error: 'Validation error',
-          details: error.errors
+          details: error.issues
         });
         return;
       }
@@ -261,7 +266,7 @@ export class ClinicalNoteController {
         res.status(400).json({
           success: false,
           error: 'Validation error',
-          details: error.errors
+          details: error.issues
         });
         return;
       }

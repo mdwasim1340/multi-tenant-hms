@@ -125,23 +125,52 @@ import { getUserPermissions, getUserRoles, getUserAccessibleApplications } from 
 
 router.post('/signin', async (req, res) => {
   try {
+    // Get tenant context from subdomain/header (optional for backward compatibility)
+    const requestedTenantId = req.headers['x-tenant-id'] as string;
+    
+    // Authenticate with Cognito first
     const result = await signIn(req.body);
 
-    // Get user details to publish the event
+    // Get user details from database
     const user = await getUserByEmail(req.body.email);
 
-    if (user) {
-      await eventService.publishEvent({
-        type: 'user.login',
-        tenantId: user.tenant_id,
-        userId: user.id,
-        data: {
-          email: user.email,
-          name: user.name
-        },
-        timestamp: new Date()
+    if (!user) {
+      return res.status(404).json({ 
+        error: 'User not found',
+        message: 'No account found with this email address in our system'
       });
     }
+
+    // SECURITY CHECK: Validate tenant isolation (only if tenant context provided)
+    // This allows backward compatibility while still enforcing security when subdomain is used
+    if (requestedTenantId && user.tenant_id !== requestedTenantId) {
+      console.error(`🚨 TENANT ISOLATION BREACH ATTEMPT: User ${user.email} (tenant: ${user.tenant_id}) tried to access tenant: ${requestedTenantId}`);
+      
+      return res.status(403).json({ 
+        error: 'Access denied',
+        message: 'You do not have permission to access this hospital. Please use the correct subdomain for your hospital.',
+        code: 'TENANT_MISMATCH',
+        userTenant: user.tenant_id,
+        requestedTenant: requestedTenantId
+      });
+    }
+    
+    // If no tenant context provided, log warning but allow login (backward compatibility)
+    if (!requestedTenantId) {
+      console.warn(`⚠️ Login without tenant context: ${user.email} (tenant: ${user.tenant_id})`);
+    }
+
+    // Publish login event
+    await eventService.publishEvent({
+      type: 'user.login',
+      tenantId: user.tenant_id,
+      userId: user.id,
+      data: {
+        email: user.email,
+        name: user.name
+      },
+      timestamp: new Date()
+    });
 
     // Handle MFA challenge
     if ((result as any).ChallengeName) {
@@ -156,16 +185,16 @@ router.post('/signin', async (req, res) => {
     let roles: any[] = [];
     let accessibleApplications: any[] = [];
     
-    if (user) {
-      try {
-        permissions = await getUserPermissions(user.id);
-        roles = await getUserRoles(user.id);
-        accessibleApplications = await getUserAccessibleApplications(user.id);
-      } catch (authError) {
-        console.error('Error fetching user authorization data:', authError);
-        // Continue without permissions if there's an error
-      }
+    try {
+      permissions = await getUserPermissions(user.id);
+      roles = await getUserRoles(user.id);
+      accessibleApplications = await getUserAccessibleApplications(user.id);
+    } catch (authError) {
+      console.error('Error fetching user authorization data:', authError);
+      // Continue without permissions if there's an error
     }
+
+    console.log(`✅ User ${user.email} successfully signed in to tenant ${user.tenant_id}`);
 
     // Return token and user info in expected format
     const authResult = (result as any).AuthenticationResult;
@@ -173,14 +202,11 @@ router.post('/signin', async (req, res) => {
       token: authResult.IdToken || authResult.AccessToken,
       refreshToken: authResult.RefreshToken,
       expiresIn: authResult.ExpiresIn,
-      user: user ? {
+      user: {
         id: user.id,
         email: user.email,
         name: user.name,
         tenant_id: user.tenant_id
-      } : {
-        email: req.body.email,
-        name: req.body.email
       },
       roles: roles,
       permissions: permissions,

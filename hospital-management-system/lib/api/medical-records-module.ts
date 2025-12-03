@@ -38,7 +38,7 @@ export async function fetchLabReports(
   const results = data.results || data || [];
   const paginationData = data.pagination || { page: 1, limit: 20, total: results.length, pages: 1 };
   
-  // Transform lab results to LabReport format
+  // Transform lab results to LabReport format with all new fields
   const reports: LabReport[] = (Array.isArray(results) ? results : []).map((result: any) => ({
     id: result.id,
     patient_id: result.patient_id || patientId,
@@ -46,23 +46,29 @@ export async function fetchLabReports(
     test_code: result.test_code || result.test?.code || '',
     panel_name: result.panel_name || result.panel?.name,
     panel_code: result.panel_code || result.panel?.code,
-    report_date: result.result_date || result.created_at || new Date().toISOString(),
+    report_date: result.result_date || result.report_date || result.created_at || new Date().toISOString(),
     collection_date: result.collection_date,
     ordering_doctor_id: result.ordering_doctor_id || result.ordered_by,
-    ordering_doctor_name: result.ordering_doctor_name || result.doctor_name || 'N/A',
+    ordering_doctor_name: result.ordering_doctor_name || result.ordering_doctor || result.doctor_name || 'N/A',
     performing_lab: result.performing_lab || result.lab_name || 'Hospital Lab',
-    status: result.status || 'final',
+    status: result.result_status || result.status || 'final',
     has_abnormal: result.is_abnormal || result.has_abnormal || false,
     results: result.results || [{
       test_name: result.test_name || 'Test',
-      value: result.value,
-      unit: result.unit,
+      value: result.result_value || result.value,
+      unit: result.result_unit || result.unit,
       reference_range: result.reference_range,
       is_abnormal: result.is_abnormal || false,
-      flag: result.flag,
+      flag: result.abnormal_flag || result.flag,
     }],
     notes: result.notes || result.comments,
     visit_type: result.visit_type,
+    // Include new fields
+    sample_type: result.sample_type,
+    ordering_doctor: result.ordering_doctor,
+    result_status: result.result_status || result.status || 'final',
+    attachment_file_id: result.attachment_file_id,
+    attachment_filename: result.attachment_filename,
     created_at: result.created_at || new Date().toISOString(),
     updated_at: result.updated_at || new Date().toISOString(),
   }));
@@ -77,7 +83,7 @@ export async function fetchLabReportDetails(reportId: number): Promise<LabReport
   const response = await api.get(`/api/lab-results/${reportId}`);
   const result = response.data.data || response.data;
   
-  // Transform to LabReport format
+  // Transform to LabReport format with all new fields
   return {
     id: result.id,
     patient_id: result.patient_id,
@@ -85,26 +91,32 @@ export async function fetchLabReportDetails(reportId: number): Promise<LabReport
     test_code: result.test_code || result.test?.code || '',
     panel_name: result.panel_name || result.panel?.name,
     panel_code: result.panel_code || result.panel?.code,
-    report_date: result.result_date || result.created_at || new Date().toISOString(),
+    report_date: result.result_date || result.report_date || result.created_at || new Date().toISOString(),
     collection_date: result.collection_date,
     ordering_doctor_id: result.ordering_doctor_id || result.ordered_by,
-    ordering_doctor_name: result.ordering_doctor_name || result.doctor_name || 'N/A',
+    ordering_doctor_name: result.ordering_doctor_name || result.ordering_doctor || result.doctor_name || 'N/A',
     performing_lab: result.performing_lab || result.lab_name || 'Hospital Lab',
-    status: result.status || 'final',
+    status: result.result_status || result.status || 'final',
     has_abnormal: result.is_abnormal || result.has_abnormal || false,
     results: result.results || [{
       test_name: result.test_name || 'Test',
-      value: result.value,
-      unit: result.unit,
+      value: result.result_value || result.value,
+      unit: result.result_unit || result.unit,
       reference_range: result.reference_range,
       is_abnormal: result.is_abnormal || false,
-      flag: result.flag,
+      flag: result.abnormal_flag || result.flag,
     }],
     notes: result.notes || result.comments,
     visit_type: result.visit_type,
+    // Include new fields
+    sample_type: result.sample_type,
+    ordering_doctor: result.ordering_doctor,
+    result_status: result.result_status || result.status || 'final',
+    attachment_file_id: result.attachment_file_id,
+    attachment_filename: result.attachment_filename,
     created_at: result.created_at || new Date().toISOString(),
     updated_at: result.updated_at || new Date().toISOString(),
-  };
+  } as LabReport & { sample_type?: string; ordering_doctor?: string; result_status?: string };
 }
 
 export async function fetchLabReportHistory(
@@ -142,10 +154,28 @@ export async function createLabReport(data: {
   flag?: string;
   notes?: string;
   result_date?: string;
+  sample_type?: string;
+  ordering_doctor?: string;
+  result_status?: string;
+  attachment_file_id?: string;
+  attachment_filename?: string;
 }): Promise<LabReport> {
   const response = await api.post('/api/lab-results', {
-    ...data,
+    patient_id: data.patient_id,
+    order_id: data.order_id,
+    test_id: data.test_id,
+    value: data.value,
+    unit: data.unit,
+    reference_range: data.reference_range,
+    is_abnormal: data.is_abnormal,
+    flag: data.flag,
+    notes: data.notes,
     result_date: data.result_date || new Date().toISOString(),
+    sample_type: data.sample_type,
+    ordering_doctor: data.ordering_doctor,
+    result_status: data.result_status || 'final',
+    attachment_file_id: data.attachment_file_id,
+    attachment_filename: data.attachment_filename,
   });
   const result = response.data.data || response.data;
   
@@ -166,6 +196,8 @@ export async function createLabReport(data: {
       flag: result.flag,
     }],
     notes: result.notes,
+    attachment_file_id: result.attachment_file_id,
+    attachment_filename: result.attachment_filename,
     created_at: result.created_at,
     updated_at: result.updated_at,
   };
@@ -186,12 +218,80 @@ export async function fetchImagingReports(
     ...pagination,
   };
   const response = await api.get('/api/imaging-reports', { params });
-  return response.data;
+  
+  // Transform backend response format { reports: [], pagination: {} }
+  // to expected format { data: [], pagination: {} }
+  const backendData = response.data;
+  return {
+    data: backendData.reports || [],
+    pagination: backendData.pagination || { page: 1, limit: 20, total: 0, pages: 0 },
+  };
 }
 
 export async function fetchImagingReportDetails(reportId: number): Promise<ImagingReport> {
   const response = await api.get(`/api/imaging-reports/${reportId}`);
-  return response.data.data;
+  // Backend may return data directly or wrapped in { data: ... }
+  const report = response.data.data || response.data;
+  
+  // Transform to expected ImagingReport format
+  return {
+    id: report.id,
+    patient_id: report.patient_id,
+    modality: report.modality || report.imaging_type || 'Unknown',
+    body_part: report.body_part || 'N/A',
+    study_description: report.study_description || report.imaging_type || 'Imaging Study',
+    ordering_doctor_id: report.ordering_doctor_id,
+    ordering_doctor_name: report.ordering_doctor_name || report.radiologist_name || 'N/A',
+    radiologist_id: report.radiologist_id,
+    radiologist_name: report.radiologist_name || 'N/A',
+    facility: report.facility,
+    study_date: report.study_date || report.created_at || new Date().toISOString(),
+    report_date: report.report_date || report.created_at,
+    status: report.status || 'final',
+    findings: report.findings || '',
+    impression: report.impression,
+    recommendations: report.recommendations,
+    images: report.images || [],
+    attachment_url: report.attachment_url,
+    created_at: report.created_at || new Date().toISOString(),
+    updated_at: report.updated_at || new Date().toISOString(),
+  } as ImagingReport;
+}
+
+// Create a new imaging report
+export async function createImagingReport(data: {
+  patient_id: number;
+  imaging_type: string;
+  modality?: string;
+  body_part: string;
+  study_description?: string;
+  radiologist_id?: number;
+  radiologist_name?: string;
+  study_date?: string;
+  report_date?: string;
+  findings: string;
+  impression?: string;
+  recommendations?: string;
+  contrast_used?: boolean;
+  status?: string;
+  attachment_file_ids?: string[];
+}): Promise<ImagingReport> {
+  const response = await api.post('/api/imaging-reports', {
+    patient_id: data.patient_id,
+    imaging_type: data.imaging_type,
+    modality: data.modality || data.imaging_type,
+    body_part: data.body_part,
+    study_description: data.study_description,
+    radiologist_id: data.radiologist_id || 1,
+    findings: data.findings,
+    impression: data.impression,
+    recommendations: data.recommendations,
+    report_date: data.report_date || new Date().toISOString().split('T')[0],
+    study_date: data.study_date || new Date().toISOString().split('T')[0],
+    contrast_used: data.contrast_used || false,
+    status: data.status || 'final',
+  });
+  return response.data;
 }
 
 export async function downloadImagingReport(reportId: number): Promise<string> {
@@ -215,7 +315,85 @@ export async function fetchClinicalNotes(
     ...pagination,
   };
   const response = await api.get('/api/clinical-notes', { params });
-  return response.data;
+  // Transform response format
+  const backendData = response.data;
+  return {
+    data: backendData.notes || backendData.data || [],
+    pagination: backendData.pagination || { page: 1, limit: 20, total: 0, pages: 0 },
+  };
+}
+
+// Create a new clinical note
+export async function createClinicalNote(data: {
+  patient_id: number;
+  note_type: string;
+  title: string;
+  visit_type?: string;
+  department?: string;
+  author_id?: number;
+  author_name?: string;
+  content: string;
+  chief_complaint?: string;
+  history_of_present_illness?: string;
+  physical_examination?: string;
+  assessment?: string;
+  plan?: string;
+  diagnoses?: string[];
+  status?: string;
+}): Promise<ClinicalNote> {
+  // Map frontend note types to backend expected values
+  const noteTypeMap: Record<string, string> = {
+    progress: 'progress_note',
+    admission: 'admission_note',
+    discharge: 'discharge_summary',
+    consultation: 'consultation',
+    procedure: 'procedure_note',
+    operative: 'operative_note',
+    follow_up: 'follow_up',
+    other: 'other',
+  };
+
+  // Build full content with all sections including metadata
+  let fullContent = '';
+  
+  // Add metadata header
+  if (data.visit_type) {
+    fullContent += `Visit Type: ${data.visit_type}\n`;
+  }
+  if (data.department) {
+    fullContent += `Department: ${data.department}\n`;
+  }
+  if (data.author_name) {
+    fullContent += `Author: ${data.author_name}\n`;
+  }
+  if (fullContent) {
+    fullContent += '\n---\n\n';
+  }
+  
+  if (data.chief_complaint) {
+    fullContent += `Chief Complaint: ${data.chief_complaint}\n\n`;
+  }
+  
+  fullContent += data.content;
+  
+  if (data.assessment) {
+    fullContent += `\n\nAssessment: ${data.assessment}`;
+  }
+  if (data.plan) {
+    fullContent += `\n\nPlan: ${data.plan}`;
+  }
+  if (data.diagnoses && data.diagnoses.length > 0) {
+    fullContent += `\n\nDiagnoses: ${data.diagnoses.join(', ')}`;
+  }
+
+  const response = await api.post('/api/clinical-notes', {
+    patient_id: data.patient_id,
+    provider_id: data.author_id || 1, // Backend requires provider_id as number
+    note_type: noteTypeMap[data.note_type] || 'progress_note',
+    content: fullContent,
+    summary: data.title, // Use title as summary
+  });
+  return response.data.data || response.data;
 }
 
 export async function fetchClinicalNoteDetails(noteId: number): Promise<ClinicalNote> {
@@ -346,44 +524,32 @@ export async function uploadClinicalDocument(
     throw new Error('Failed to create medical record - no ID returned');
   }
 
-  // Step 2: Get presigned upload URL
-  const urlResponse = await api.post('/api/medical-records/upload-url', {
-    record_id: recordId,
-    filename: data.file.name,
-    content_type: data.file.type,
-  });
-
-  // Backend returns { success, data: { uploadUrl, s3Key } }
-  const uploadUrl = urlResponse.data.data?.uploadUrl || urlResponse.data.uploadUrl;
-  const s3Key = urlResponse.data.data?.s3Key || urlResponse.data.s3Key;
-
-  if (!uploadUrl || !s3Key) {
-    throw new Error('Failed to get upload URL from server');
-  }
-
-  // Step 3: Upload file to S3
-  const uploadResponse = await fetch(uploadUrl, {
-    method: 'PUT',
-    body: data.file,
-    headers: { 'Content-Type': data.file.type },
-  });
-
-  if (!uploadResponse.ok) {
-    throw new Error(`Failed to upload file to S3: ${uploadResponse.statusText}`);
-  }
-
-  // Step 4: Add attachment record
-  // Use the same bucket name as backend S3 service
-  const s3Bucket = process.env.NEXT_PUBLIC_S3_BUCKET || 'hospital-medical-records';
+  // Step 2: Upload file through backend (avoids CORS issues)
+  console.log('Uploading file through backend for record:', recordId, 'file:', data.file.name);
   
-  await api.post(`/api/medical-records/${recordId}/attachments`, {
-    file_name: data.file.name,
-    file_type: data.file.type,
-    file_size: data.file.size,
-    s3_key: s3Key,
-    s3_bucket: s3Bucket,
-    description: data.description,
-  });
+  const formData = new FormData();
+  formData.append('file', data.file);
+  formData.append('record_id', String(recordId));
+  formData.append('description', data.description || '');
+  
+  console.log('Uploading to:', `/api/medical-records/${recordId}/upload`);
+  console.log('File size:', data.file.size, 'bytes');
+  console.log('File type:', data.file.type);
+  
+  try {
+    const uploadResponse = await api.post(`/api/medical-records/${recordId}/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    console.log('File uploaded successfully through backend:', uploadResponse.data);
+  } catch (error: any) {
+    console.error('Backend upload error - Full error:', error);
+    console.error('Error response:', error.response);
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
+    throw new Error(`Failed to upload file: ${error.response?.data?.error || error.response?.data?.message || error.message || 'Unknown error'}`);
+  }
 
   // Return the created record
   const finalRecord = await api.get(`/api/medical-records/${recordId}`);
@@ -392,12 +558,25 @@ export async function uploadClinicalDocument(
 
 export async function downloadDocument(documentId: number): Promise<string> {
   // Get attachments for the record first
+  console.log('Fetching attachments for document:', documentId);
   const attachmentsResponse = await api.get(`/api/medical-records/${documentId}/attachments`);
-  const attachments = attachmentsResponse.data.data || attachmentsResponse.data || [];
+  console.log('Attachments response:', attachmentsResponse.data);
   
-  if (attachments.length > 0) {
-    const response = await api.get(`/api/medical-records/download-url/${attachments[0].id}`);
-    return response.data.download_url;
+  // Handle different response structures
+  const attachments = attachmentsResponse.data.data?.attachments 
+    || attachmentsResponse.data.attachments 
+    || attachmentsResponse.data.data 
+    || attachmentsResponse.data 
+    || [];
+  
+  console.log('Parsed attachments:', attachments);
+  
+  if (Array.isArray(attachments) && attachments.length > 0) {
+    const attachmentId = attachments[0].id;
+    console.log('Getting download URL for attachment:', attachmentId);
+    const response = await api.get(`/api/medical-records/download-url/${attachmentId}`);
+    console.log('Download URL response:', response.data);
+    return response.data.data?.downloadUrl || response.data.downloadUrl || response.data.download_url;
   }
   throw new Error('No attachments found for this document');
 }
@@ -411,36 +590,101 @@ export async function fetchAllMedicalRecords(
   filters?: MedicalRecordsFilters,
   pagination?: PaginationParams
 ): Promise<PaginatedResponse<MedicalRecordListItem>> {
-  const params = {
-    patient_id: patientId,
-    ...filters,
-    page: pagination?.page || 1,
-    limit: pagination?.limit || 20,
-  };
-  // Use the main medical-records endpoint (no /all suffix)
-  const response = await api.get('/api/medical-records', { params });
+  const allRecords: MedicalRecordListItem[] = [];
   
-  // Transform backend response to match expected format
-  const data = response.data.data || response.data;
-  const rawRecords = data.records || [];
-  const paginationData = data.pagination || { page: 1, limit: 20, total: 0, pages: 0 };
+  // Fetch from all sources in parallel
+  const [labResults, imagingReports, clinicalNotes, documents] = await Promise.allSettled([
+    // Lab Results
+    api.get('/api/lab-results', { params: { patient_id: patientId } }).catch(() => ({ data: { data: [] } })),
+    // Imaging Reports
+    api.get('/api/imaging-reports', { params: { patient_id: patientId } }).catch(() => ({ data: { data: [] } })),
+    // Clinical Notes
+    api.get('/api/clinical-notes', { params: { patient_id: patientId } }).catch(() => ({ data: { data: [] } })),
+    // Documents (medical records with attachments)
+    api.get('/api/medical-records', { params: { patient_id: patientId } }).catch(() => ({ data: { data: { records: [] } } })),
+  ]);
   
-  // Transform backend records to MedicalRecordListItem format
-  const records: MedicalRecordListItem[] = rawRecords.map((record: any) => ({
-    id: record.id,
-    type: 'document' as const, // Default type for medical records
-    date: record.visit_date || record.created_at || new Date().toISOString(),
-    title: record.chief_complaint || record.diagnosis || `Medical Record #${record.id}`,
-    visit_type: record.visit_type,
-    department: record.department,
-    status: record.status || 'draft',
-    has_attachment: false, // Will be updated when attachments are loaded
-    is_abnormal: false,
-  }));
+  // Process Lab Results
+  if (labResults.status === 'fulfilled') {
+    const labs = labResults.value.data?.data || labResults.value.data?.results || [];
+    (Array.isArray(labs) ? labs : []).forEach((lab: any) => {
+      allRecords.push({
+        id: lab.id,
+        type: 'lab_report',
+        date: lab.result_date || lab.created_at || new Date().toISOString(),
+        title: lab.test_name || `Lab Result #${lab.id}`,
+        status: lab.result_status || 'final',
+        has_attachment: !!lab.attachment_file_id,
+        is_abnormal: lab.is_abnormal || false,
+      });
+    });
+  }
+  
+  // Process Imaging Reports
+  if (imagingReports.status === 'fulfilled') {
+    const imaging = imagingReports.value.data?.data || imagingReports.value.data?.reports || [];
+    (Array.isArray(imaging) ? imaging : []).forEach((report: any) => {
+      allRecords.push({
+        id: report.id,
+        type: 'imaging_report',
+        date: report.study_date || report.created_at || new Date().toISOString(),
+        title: report.study_description || report.modality || `Imaging Report #${report.id}`,
+        status: report.status || 'final',
+        has_attachment: !!report.attachment_ids?.length,
+        is_abnormal: false,
+      });
+    });
+  }
+  
+  // Process Clinical Notes
+  if (clinicalNotes.status === 'fulfilled') {
+    const notes = clinicalNotes.value.data?.data || clinicalNotes.value.data?.notes || [];
+    (Array.isArray(notes) ? notes : []).forEach((note: any) => {
+      allRecords.push({
+        id: note.id,
+        type: 'clinical_note',
+        date: note.created_at || new Date().toISOString(),
+        title: note.summary || note.note_type || `Clinical Note #${note.id}`,
+        status: note.status || 'draft',
+        has_attachment: false,
+        is_abnormal: false,
+      });
+    });
+  }
+  
+  // Process Documents
+  if (documents.status === 'fulfilled') {
+    const docs = documents.value.data?.data?.records || documents.value.data?.records || [];
+    (Array.isArray(docs) ? docs : []).forEach((doc: any) => {
+      allRecords.push({
+        id: doc.id,
+        type: 'document',
+        date: doc.visit_date || doc.created_at || new Date().toISOString(),
+        title: doc.chief_complaint || doc.diagnosis || `Document #${doc.id}`,
+        status: doc.status || 'draft',
+        has_attachment: true,
+        is_abnormal: false,
+      });
+    });
+  }
+  
+  // Sort by date descending
+  allRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  
+  // Apply pagination
+  const page = pagination?.page || 1;
+  const limit = pagination?.limit || 20;
+  const startIndex = (page - 1) * limit;
+  const paginatedRecords = allRecords.slice(startIndex, startIndex + limit);
   
   return {
-    data: records,
-    pagination: paginationData,
+    data: paginatedRecords,
+    pagination: {
+      page,
+      limit,
+      total: allRecords.length,
+      pages: Math.ceil(allRecords.length / limit),
+    },
   };
 }
 

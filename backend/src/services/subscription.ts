@@ -11,11 +11,19 @@ import {
 } from '../types/subscription';
 
 export class SubscriptionService {
-  // Get all available tiers
-  async getAllTiers(): Promise<SubscriptionTier[]> {
-    const result = await pool.query(
-      'SELECT * FROM subscription_tiers WHERE is_active = true ORDER BY display_order'
-    );
+  // Get all available tiers (optionally filtered by application)
+  async getAllTiers(applicationId?: string): Promise<SubscriptionTier[]> {
+    let query = 'SELECT * FROM subscription_tiers WHERE is_active = true';
+    const params: any[] = [];
+    
+    if (applicationId) {
+      query += ' AND application_id = $1';
+      params.push(applicationId);
+    }
+    
+    query += ' ORDER BY display_order';
+    
+    const result = await pool.query(query, params);
     return result.rows.map(this.mapTierRow);
   }
 

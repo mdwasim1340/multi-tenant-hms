@@ -250,23 +250,29 @@ export function FileViewer({ documentId, onClose }: FileViewerProps) {
       </div>
 
       {/* File Preview */}
-      <div className="border rounded-lg overflow-hidden bg-muted/20 min-h-[400px] flex items-center justify-center">
+      <div className="border rounded-lg overflow-auto bg-muted/20" style={{ height: '350px' }}>
         {viewUrl ? (
           isPdf ? (
             <iframe
               src={`${viewUrl}#zoom=${zoom}`}
-              className="w-full h-[500px]"
+              className="w-full h-full"
               title={document.title}
             />
           ) : isImage ? (
-            <div
-              className="overflow-auto max-h-[500px] w-full flex items-center justify-center p-4"
-              style={{ transform: `scale(${zoom / 100}) rotate(${rotation}deg)` }}
-            >
+            <div className="w-full h-full flex items-center justify-center p-4 bg-gray-100">
               <img
                 src={viewUrl}
                 alt={document.title}
-                className="max-w-full h-auto"
+                className="cursor-pointer"
+                style={{ 
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                  transform: `rotate(${rotation}deg)`,
+                  width: zoom !== 100 ? `${zoom}%` : 'auto',
+                }}
+                onClick={handleFullscreen}
+                title="Click to view full image"
               />
             </div>
           ) : (

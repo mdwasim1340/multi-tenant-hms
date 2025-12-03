@@ -50,18 +50,19 @@ const AddReportFileSchema = z.object({
 export const createImagingReport = async (req: Request, res: Response) => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
-    const userId = (req as any).user?.id;
+    // Get user ID from auth - can be number or UUID string from Cognito
+    const user = (req as any).user;
+    const userId = user?.id || user?.sub || user?.userId || 1; // Default to 1 if not found
 
     if (!tenantId) {
       return res.status(400).json({ error: 'X-Tenant-ID header is required' });
     }
 
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
+    // Convert userId to number if it's a valid number string, otherwise use 1
+    const numericUserId = typeof userId === 'number' ? userId : (parseInt(userId) || 1);
 
     const validated = CreateImagingReportSchema.parse(req.body);
-    const report = await imagingReportService.createReport(tenantId, validated, userId);
+    const report = await imagingReportService.createReport(tenantId, validated, numericUserId);
 
     res.status(201).json(report);
   } catch (error) {

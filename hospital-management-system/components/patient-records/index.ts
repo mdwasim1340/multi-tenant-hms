@@ -18,6 +18,8 @@ export { FileViewer, ImageViewer } from './FileViewer';
 // Form Components
 export { UploadDocumentModal } from './UploadDocumentModal';
 export { AddLabReportModal } from './AddLabReportModal';
+export { AddImagingReportModal } from './AddImagingReportModal';
+export { AddClinicalNoteModal } from './AddClinicalNoteModal';
 
 // Filter Components
 export { RecordFilters } from './RecordFilters';

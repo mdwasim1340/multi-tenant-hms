@@ -51,12 +51,15 @@ router.get('/current', authMiddleware, async (req, res) => {
 });
 
 // Get all available subscription tiers (public endpoint)
+// Supports filtering by application: ?application_id=medchat-mobile
 router.get('/tiers', async (req, res) => {
   try {
-    const tiers = await subscriptionService.getAllTiers();
+    const applicationId = req.query.application_id as string | undefined;
+    const tiers = await subscriptionService.getAllTiers(applicationId);
     res.json({ 
       success: true,
-      tiers 
+      tiers,
+      application_id: applicationId || 'all'
     });
   } catch (error) {
     console.error('Error fetching subscription tiers:', error);

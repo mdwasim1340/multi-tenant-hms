@@ -36,12 +36,13 @@ import type { ImagingReport, MedicalRecordsFilters } from '@/types/medical-recor
 interface ImagingReportsListProps {
   patientId: number;
   onSelectRecord: (id: number) => void;
+  onAddReport?: () => void;
 }
 
 type SortField = 'study_date' | 'modality' | 'status';
 type SortOrder = 'asc' | 'desc';
 
-export function ImagingReportsList({ patientId, onSelectRecord }: ImagingReportsListProps) {
+export function ImagingReportsList({ patientId, onSelectRecord, onAddReport }: ImagingReportsListProps) {
   const [filters, setFilters] = useState<MedicalRecordsFilters>({});
   const [sortField, setSortField] = useState<SortField>('study_date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -149,11 +150,17 @@ export function ImagingReportsList({ patientId, onSelectRecord }: ImagingReports
         bodyPartOptions={['Chest', 'Abdomen', 'Head', 'Spine', 'Extremities', 'Pelvis']}
       />
 
-      {/* Results Count */}
+      {/* Results Count and Add Button */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {pagination.total} imaging report{pagination.total !== 1 ? 's' : ''} found
         </p>
+        {onAddReport && (
+          <Button onClick={onAddReport} size="sm">
+            <FileImage className="h-4 w-4 mr-2" />
+            Add Imaging Report
+          </Button>
+        )}
       </div>
 
       {/* Empty State */}

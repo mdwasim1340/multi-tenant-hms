@@ -1,0 +1,2 @@
+id,tenant_id,tier_id,status,billing_cycle,next_billing_date,trial_ends_at,usage_limits,current_usage,created_at,updated_at
+20,aajmin_polyclinic,basic,active,monthly,,,"{""max_users"": 5, ""storage_gb"": 10, ""max_patients"": 500, ""api_calls_per_day"": 1000}",{},2025-11-13 05:58:27.664993,2025-11-13 05:58:27.664993

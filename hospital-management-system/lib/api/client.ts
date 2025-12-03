@@ -11,7 +11,7 @@ export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
   headers: {
     'Content-Type': 'application/json',
-    'X-App-ID': 'hospital_system',
+    'X-App-ID': 'hospital-management',
     'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'hospital-dev-key-123',
   },
 });

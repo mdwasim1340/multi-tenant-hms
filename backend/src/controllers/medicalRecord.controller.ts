@@ -590,3 +590,118 @@ export async function deleteRecordAttachment(req: Request, res: Response) {
     });
   }
 }
+
+
+/**
+ * POST /api/medical-records/:id/upload
+ * Upload file directly through backend (avoids CORS issues)
+ */
+export async function uploadFile(req: Request, res: Response) {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const recordId = parseInt(req.params.id);
+    const file = req.file;
+
+    console.log('Upload request received:', {
+      tenantId,
+      recordId,
+      hasFile: !!file,
+      fileName: file?.originalname,
+      fileSize: file?.size,
+    });
+
+    if (!tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'X-Tenant-ID header is required',
+      });
+    }
+
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No file uploaded',
+      });
+    }
+
+    if (isNaN(recordId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid record ID',
+      });
+    }
+
+    // Generate S3 key using timestamp and filename
+    const timestamp = Date.now();
+    const sanitizedFilename = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const s3Key = `${tenantId}/medical-records/${recordId}/${timestamp}-${sanitizedFilename}`;
+    
+    console.log('Generated S3 key:', s3Key);
+
+    // Upload to S3 using AWS SDK
+    const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+    const s3Client = new S3Client({
+      region: process.env.AWS_REGION || 'us-east-1',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
+
+    const bucketName = process.env.S3_BUCKET_NAME || 'multi-tenant-12';
+    console.log('Uploading to S3 bucket:', bucketName);
+
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: s3Key,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+      ServerSideEncryption: 'AES256',
+      StorageClass: 'INTELLIGENT_TIERING',
+      Metadata: {
+        'tenant-id': tenantId,
+        'record-id': String(recordId),
+        'uploaded-at': new Date().toISOString(),
+      },
+    });
+
+    await s3Client.send(command);
+    console.log('File uploaded to S3 successfully');
+
+    // Add attachment record to database
+    const description = req.body.description || '';
+    const uploadedBy = 1; // TODO: Get from auth context
+    
+    console.log('Adding attachment record to database...');
+    const attachment = await medicalRecordService.addRecordAttachment(
+      tenantId,
+      recordId,
+      uploadedBy,
+      {
+        file_name: file.originalname,
+        file_type: file.mimetype,
+        file_size: file.size,
+        s3_key: s3Key,
+        s3_bucket: bucketName,
+        description,
+      }
+    );
+
+    console.log('Attachment record created:', attachment.id);
+
+    return res.status(201).json({
+      success: true,
+      data: attachment,
+      message: 'File uploaded successfully',
+    });
+  } catch (error: any) {
+    console.error('Error uploading file - Full error:', error);
+    console.error('Error stack:', error.stack);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to upload file',
+      message: error.message,
+      details: error.toString(),
+    });
+  }
+}

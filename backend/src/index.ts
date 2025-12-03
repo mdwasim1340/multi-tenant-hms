@@ -72,6 +72,13 @@ app.use(cors({
       if (url.hostname.endsWith('.aajminpolyclinic.com.np') || url.hostname === 'aajminpolyclinic.com.np') {
         return callback(null, true);
       }
+      
+      // Allow Flutter web development (runs on random high ports on localhost)
+      // Also allow 127.0.0.1 for local development
+      if ((url.hostname === 'localhost' || url.hostname === '127.0.0.1') && parseInt(url.port) > 3003) {
+        console.log(`✅ Allowing Flutter web dev origin: ${origin}`);
+        return callback(null, true);
+      }
     } catch (e) {}
 
     console.log(`CORS blocked origin: ${origin}`);
@@ -186,7 +193,7 @@ if (process.env.NODE_ENV === 'development') {
 }
 app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), medicalRecordsRouter);
 app.use('/api/prescriptions', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), prescriptionsRouter);
-app.use('/api/medical-records', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), diagnosisTreatmentRouter);
+app.use('/api/diagnoses', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), diagnosisTreatmentRouter);
 app.use('/api/lab-tests', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labTestsRouter);
 app.use('/api/lab-orders', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labOrdersRouter);
 app.use('/api/lab-results', tenantMiddleware, hospitalAuthMiddleware, requireApplicationAccess('hospital_system'), labResultsRouter);

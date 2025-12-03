@@ -46,7 +46,7 @@ export interface MedicalRecord {
 
 export interface RecordAttachment {
   id: number;
-  medical_record_id: number;
+  record_id: number;
   file_name: string;
   file_type: string;
   file_size: number;

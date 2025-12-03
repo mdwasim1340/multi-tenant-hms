@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import { 
   getMedicalRecords, 
   createMedicalRecord, 
@@ -12,6 +13,14 @@ import { auditMedicalRecordOperation } from '../middleware/audit.middleware';
 
 const router = express.Router();
 
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+});
+
 // GET /api/medical-records - List medical records (requires read permission)
 router.get('/', requirePermission('patients', 'read'), getMedicalRecords);
 
@@ -21,6 +30,9 @@ router.post('/', requirePermission('patients', 'write'), createMedicalRecord);
 // S3 Upload/Download URL endpoints (must be before :id routes)
 router.post('/upload-url', requirePermission('patients', 'write'), medicalRecordController.getUploadUrl);
 router.get('/download-url/:attachmentId', requirePermission('patients', 'read'), medicalRecordController.getDownloadUrl);
+
+// Direct file upload through backend (avoids CORS issues)
+router.post('/:id/upload', requirePermission('patients', 'write'), upload.single('file'), medicalRecordController.uploadFile);
 
 // GET /api/medical-records/:id - Get medical record by ID (requires read permission)
 router.get('/:id', requirePermission('patients', 'read'), getMedicalRecordById);

@@ -1,5 +1,7 @@
 # Multi-Tenant Security & Database Management
 
+**Last Updated**: December 3, 2025  
+**Production Status**: Live with 14 Active Tenants  
 **Consolidates**: multi-tenant-development.md, backend-security-patterns.md, application-authorization.md, database-schema-management.md
 
 ## 🚨 CRITICAL Security Principles
@@ -16,9 +18,16 @@
 
 ## Multi-Tenant Architecture
 
+### Production Environment
+- **Server**: 65.0.78.75 (AWS Lightsail)
+- **Database**: hospital_management (PostgreSQL)
+- **Backend Path**: /home/bitnami/multi-tenant-backend
+- **PM2 Process**: multi-tenant-backend
+- **Active Tenants**: 14 (6 hospitals + 8 test/legacy)
+
 ### Schema Distribution
 
-**Global Tables (Public Schema)** - 6 Active Tenants ✅
+**Global Tables (Public Schema)** - 14 Active Tenants ✅
 ```sql
 tenants                  -- Tenant information
 tenant_subscriptions     -- Subscription management
@@ -56,6 +65,9 @@ headers: {
 ```
 
 ### Tenant Context Management
+
+**CRITICAL**: Schema names are used DIRECTLY without `tenant_` prefix
+
 ```typescript
 // ALWAYS validate tenant
 const tenantId = req.headers['x-tenant-id'] as string;
@@ -73,9 +85,21 @@ if (!tenant.rows.length || tenant.rows[0].status !== 'active') {
   return res.status(403).json({ error: 'Invalid or inactive tenant' });
 }
 
-// Set schema context
-await pool.query(`SET search_path TO "${tenantId}"`);
+// Set schema context - USE TENANT ID DIRECTLY
+// ✅ CORRECT: sunrise_medical_center
+// ❌ WRONG: tenant_sunrise_medical_center
+await pool.query(`SET search_path TO "${tenantId}", public`);
 ```
+
+**Production Tenant Schemas**:
+- `aajmin_polyclinic`
+- `sunrise_medical_center`
+- `city_general_hospital`
+- `metro_specialty_hospital`
+- `riverside_community_hospital`
+- `valley_health_clinic`
+- `demo_hospital_001`
+- Plus 7 legacy tenant schemas
 
 ## Application-Level Authorization
 
@@ -309,6 +333,104 @@ SET search_path TO "tenant_1762083064503";
 SELECT COUNT(*) FROM "tenant_1762083064515".patients; 
 -- Should fail with permission error
 ```
+
+## S3 File Storage Isolation
+
+### Tenant-Isolated S3 Keys
+All S3 uploads MUST use tenant-prefixed keys to ensure complete isolation:
+
+```typescript
+// ✅ CORRECT: Tenant-prefixed S3 key
+const s3Key = `${tenantId}/medical-records/${recordId}/${timestamp}-${sanitizedFilename}`;
+// Example: sunrise_medical_center/medical-records/123/1733248800-report.pdf
+
+// ❌ WRONG: No tenant prefix
+const s3Key = `medical-records/${recordId}/${filename}`;
+```
+
+### S3 Upload Pattern (Production-Tested)
+```typescript
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+
+// Initialize S3 client
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
+});
+
+// Upload file with tenant isolation
+async function uploadFile(tenantId: string, recordId: number, file: Buffer, filename: string) {
+  const timestamp = Date.now();
+  const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const s3Key = `${tenantId}/medical-records/${recordId}/${timestamp}-${sanitizedFilename}`;
+  
+  await s3Client.send(new PutObjectCommand({
+    Bucket: 'multi-tenant-12',
+    Key: s3Key,
+    Body: file,
+    ContentType: getMimeType(filename),
+    ServerSideEncryption: 'AES256'
+  }));
+  
+  // Store in tenant schema
+  await pool.query(`SET search_path TO "${tenantId}", public`);
+  await pool.query(`
+    INSERT INTO record_attachments 
+    (record_id, file_name, s3_key, s3_bucket, file_size, file_type)
+    VALUES ($1, $2, $3, $4, $5, $6)
+  `, [recordId, filename, s3Key, 'multi-tenant-12', file.length, getMimeType(filename)]);
+  
+  return s3Key;
+}
+```
+
+### S3 Download Pattern (Presigned URLs)
+```typescript
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
+async function getDownloadUrl(tenantId: string, attachmentId: number) {
+  // Get attachment from tenant schema
+  await pool.query(`SET search_path TO "${tenantId}", public`);
+  const result = await pool.query(
+    'SELECT s3_key, s3_bucket FROM record_attachments WHERE id = $1',
+    [attachmentId]
+  );
+  
+  if (!result.rows.length) {
+    throw new Error('Attachment not found');
+  }
+  
+  const { s3_key, s3_bucket } = result.rows[0];
+  
+  // Verify tenant isolation (s3_key should start with tenantId)
+  if (!s3_key.startsWith(tenantId + '/')) {
+    throw new Error('Tenant isolation violation');
+  }
+  
+  // Generate presigned URL (1 hour expiration)
+  const command = new GetObjectCommand({
+    Bucket: s3_bucket,
+    Key: s3_key
+  });
+  
+  const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+  return url;
+}
+```
+
+### S3 Security Checklist
+- [ ] All uploads use tenant-prefixed keys
+- [ ] Presigned URLs expire after 1 hour
+- [ ] Server-side encryption enabled (AES256)
+- [ ] Tenant isolation verified before generating URLs
+- [ ] File metadata stored in tenant schema
+- [ ] No direct S3 access from frontend
+- [ ] File size limits enforced (10MB default)
+- [ ] File type validation implemented
 
 ## Security Incident Response
 

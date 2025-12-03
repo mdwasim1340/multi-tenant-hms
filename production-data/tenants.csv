@@ -1,0 +1,15 @@
+id,name,email,plan,status,joindate,subdomain
+aajmin_polyclinic,Aajmin Polyclinic,mdwasimkrm13@gmail.com,standard,active,2025-11-13 05:58:27.664993,aajmin
+city_general_hospital,City General Hospital,admin@citygeneral.hospital,premium,active,2025-12-02 06:19:33.598737,citygeneral
+demo_hospital_001,City Hospital,admin@democityhospital.com,enterprise,active,2025-11-02 11:13:47.128817,testsubdomain
+metro_specialty_hospital,Metro Specialty Hospital,admin@metro.hospital,premium,active,2025-12-02 06:19:34.287192,metro
+riverside_community_hospital,Riverside Community Hospital,admin@riverside.hospital,premium,active,2025-12-02 06:19:34.496399,riverside
+sunrise_medical_center,Sunrise Medical Center,admin@sunrise.hospital,premium,active,2025-12-02 06:19:33.848602,sunrise
+tenant_1762083064503,Auto ID Hospital,autoid@test.com,basic,active,2025-11-02 11:31:04.505772,autoid
+tenant_1762083064515,Complex Form Hospital,complex@test.com,enterprise,active,2025-11-02 11:31:04.517916,inactivetest
+tenant_1762083586064,Md Wasim Akram,mdwasimkrm13@gmail.com,basic,active,2025-11-02 11:39:46.076035,
+tenant_1762276589673,Test Hospital API,test-api@example.com,basic,active,2025-11-04 17:16:29.683142,testhospitalapi
+tenant_1762276735123,Md Wasim Akram,mdwasimkrm13@gmail.com,basic,active,2025-11-04 17:18:55.147367,mdwasimakram
+test_complete_1762083043709,Complete Test Hospital,complete@test.com,premium,active,2025-11-02 11:30:43.744769,completetesthospital
+test_complete_1762083064426,Complete Test Hospital,complete@test.com,premium,active,2025-11-02 11:31:04.46111,
+valley_health_clinic,Valley Health Clinic,admin@valley.hospital,premium,active,2025-12-02 06:19:34.0754,valley

@@ -125,10 +125,45 @@ export async function addLabResult(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    const data = validationResult.data;
+
+    // Support direct lab result creation without order
+    if (!data.order_item_id && data.patient_id && data.test_id) {
+      // Direct result creation - create a simple result record
+      const directResult = await labResultService.addDirectLabResult(tenantId, {
+        patient_id: data.patient_id,
+        test_id: data.test_id,
+        result_value: data.value || data.result_value || '',
+        result_unit: data.unit || data.result_unit,
+        reference_range: data.reference_range,
+        is_abnormal: data.is_abnormal || false,
+        abnormal_flag: data.abnormal_flag,
+        result_date: data.result_date || new Date().toISOString(),
+        notes: data.notes,
+        sample_type: data.sample_type,
+        ordering_doctor: data.ordering_doctor,
+        result_status: data.result_status || 'final',
+      });
+
+      res.status(201).json({
+        message: 'Lab result added successfully',
+        result: directResult
+      });
+      return;
+    }
+
+    // Traditional flow with order_item_id
+    if (!data.order_item_id) {
+      res.status(400).json({ 
+        error: 'Either order_item_id or (patient_id + test_id) is required' 
+      });
+      return;
+    }
+
     // Check if result already exists for this order item
     const existingResult = await labResultService.getResultByOrderItem(
       tenantId, 
-      validationResult.data.order_item_id
+      data.order_item_id
     );
 
     if (existingResult) {
@@ -136,7 +171,7 @@ export async function addLabResult(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const result = await labResultService.addLabResult(tenantId, validationResult.data as any);
+    const result = await labResultService.addLabResult(tenantId, data as any);
 
     res.status(201).json({
       message: 'Lab result added successfully',

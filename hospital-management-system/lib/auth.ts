@@ -76,6 +76,26 @@ export const signIn = async (
   rememberMe: boolean = false
 ): Promise<{ success: boolean; error?: string; user?: User; hasAccess?: boolean }> => {
   try {
+    // OPTIONAL: Try to resolve subdomain to tenant_id BEFORE signin
+    // This provides additional security but is not required for backward compatibility
+    const { getSubdomain, resolveTenant, setTenantContext } = await import('./subdomain');
+    
+    const subdomain = getSubdomain();
+    if (subdomain) {
+      try {
+        const tenant = await resolveTenant(subdomain);
+        if (tenant) {
+          // Set tenant context for the signin request
+          setTenantContext(tenant.tenant_id, tenant.name);
+          console.log(`🔐 Signing in to tenant: ${tenant.tenant_id} (${tenant.name})`);
+        } else {
+          console.warn(`⚠️ Subdomain ${subdomain} not found, proceeding without tenant context`);
+        }
+      } catch (error) {
+        console.warn('⚠️ Subdomain resolution failed, proceeding without tenant context:', error);
+      }
+    }
+
     const response = await api.post('/auth/signin', {
       email,
       password,
@@ -155,6 +175,10 @@ export const signIn = async (
 
     if (err.response?.data?.error) {
       errorMessage = err.response.data.error;
+    } else if (err.response?.data?.message) {
+      errorMessage = err.response.data.message;
+    } else if (err.response?.status === 403) {
+      errorMessage = 'Access denied. You do not have permission to access this hospital.';
     } else if (err.response?.status === 401) {
       errorMessage = 'Invalid email or password';
     } else if (err.response?.status === 404) {

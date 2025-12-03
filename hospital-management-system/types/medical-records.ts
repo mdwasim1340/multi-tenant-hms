@@ -13,32 +13,42 @@ export interface BaseRecord {
 
 // Lab Report Types
 export interface LabReport extends BaseRecord {
-  order_number: string;
+  order_number?: string;
   test_name: string;
   test_code?: string;
   panel_name?: string;
-  ordering_doctor_id: number;
+  panel_code?: string;
+  ordering_doctor_id?: number;
   ordering_doctor_name?: string;
+  ordering_doctor?: string; // Doctor key/name from form
+  performing_lab?: string;
   lab_name?: string;
-  collection_date: string;
+  collection_date?: string;
   report_date: string;
-  status: 'pending' | 'preliminary' | 'final' | 'corrected' | 'cancelled';
+  status: 'pending' | 'preliminary' | 'final' | 'corrected' | 'cancelled' | 'amended';
+  result_status?: string; // Result status from form
   visit_type?: 'OPD' | 'IPD' | 'ER';
   department?: string;
+  sample_type?: string; // Sample type (blood, urine, etc.)
   results: LabTestResult[];
   has_abnormal: boolean;
   attachment_url?: string;
+  attachment_file_id?: string;
+  attachment_filename?: string;
   notes?: string;
 }
 
 export interface LabTestResult {
-  id: number;
+  id?: number;
   test_name: string;
-  result_value: string | number;
+  result_value?: string | number;
+  value?: string | number; // Alias for result_value
   result_unit?: string;
+  unit?: string; // Alias for result_unit
   reference_range?: string;
   is_abnormal: boolean;
   abnormal_flag?: 'H' | 'L' | 'HH' | 'LL' | 'A';
+  flag?: string; // Alias for abnormal_flag
   interpretation?: string;
 }
 

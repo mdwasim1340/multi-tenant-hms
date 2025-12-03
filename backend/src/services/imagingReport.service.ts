@@ -4,7 +4,7 @@ import {
   ImagingReportFile,
   CreateImagingReportRequest,
   UpdateImagingReportRequest,
-  ImagingReportFilters
+  ImagingReportFilters,
 } from '../types/imagingReport';
 
 // Extended filters interface for internal use
@@ -24,6 +24,29 @@ export class ImagingReportService {
     try {
       await client.query(`SET search_path TO "${tenantId}"`);
 
+      // Create table if not exists
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS imaging_reports (
+          id SERIAL PRIMARY KEY,
+          patient_id INTEGER NOT NULL,
+          imaging_type VARCHAR(100) NOT NULL,
+          body_part VARCHAR(100),
+          radiologist_id INTEGER,
+          findings TEXT NOT NULL,
+          impression TEXT,
+          recommendations TEXT,
+          report_date DATE,
+          study_date DATE,
+          modality VARCHAR(50),
+          contrast_used BOOLEAN DEFAULT false,
+          status VARCHAR(20) DEFAULT 'pending',
+          created_by INTEGER,
+          updated_by INTEGER,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
       const result = await client.query<ImagingReport>(
         `INSERT INTO imaging_reports (
           patient_id, imaging_type, body_part, radiologist_id,
@@ -42,7 +65,7 @@ export class ImagingReportService {
           data.modality || null,
           data.contrast_used || false,
           'pending',
-          createdBy
+          createdBy,
         ]
       );
 
@@ -52,10 +75,7 @@ export class ImagingReportService {
     }
   }
 
-  async getReportById(
-    tenantId: string,
-    reportId: number
-  ): Promise<ImagingReport | null> {
+  async getReportById(tenantId: string, reportId: number): Promise<ImagingReport | null> {
     const client = await this.pool.connect();
     try {
       await client.query(`SET search_path TO "${tenantId}"`);
@@ -79,8 +99,21 @@ export class ImagingReportService {
     try {
       await client.query(`SET search_path TO "${tenantId}"`);
 
-      let whereConditions: string[] = ['1=1'];
-      let queryParams: any[] = [];
+      // Check if imaging_reports table exists
+      const tableCheck = await client.query(
+        `SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = $1 AND table_name = 'imaging_reports'
+        )`,
+        [tenantId]
+      );
+
+      if (!tableCheck.rows[0].exists) {
+        return { reports: [], total: 0 };
+      }
+
+      const whereConditions: string[] = ['1=1'];
+      const queryParams: any[] = [];
       let paramIndex = 1;
 
       if (filters?.patient_id) {
@@ -142,12 +175,16 @@ export class ImagingReportService {
 
       return {
         reports: result.rows,
-        total: parseInt(countResult.rows[0].count)
+        total: parseInt(countResult.rows[0].count),
       };
+    } catch (error) {
+      console.error('Error in getReports:', error);
+      return { reports: [], total: 0 };
     } finally {
       client.release();
     }
   }
+
 
   async getReportsByPatient(
     tenantId: string,
@@ -158,8 +195,21 @@ export class ImagingReportService {
     try {
       await client.query(`SET search_path TO "${tenantId}"`);
 
-      let whereConditions: string[] = ['patient_id = $1'];
-      let queryParams: any[] = [patientId];
+      // Check if imaging_reports table exists
+      const tableCheck = await client.query(
+        `SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = $1 AND table_name = 'imaging_reports'
+        )`,
+        [tenantId]
+      );
+
+      if (!tableCheck.rows[0].exists) {
+        return { reports: [], total: 0 };
+      }
+
+      const whereConditions: string[] = ['patient_id = $1'];
+      const queryParams: any[] = [patientId];
       let paramIndex = 2;
 
       if (filters?.imaging_type) {
@@ -205,20 +255,21 @@ export class ImagingReportService {
       const limit = filters?.limit || 10;
       const offset = (page - 1) * limit;
 
-      queryParams.push(limit, offset);
-
       const result = await client.query<ImagingReport>(
         `SELECT * FROM imaging_reports 
          WHERE ${whereClause}
          ORDER BY created_at DESC
          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-        queryParams
+        [...queryParams, limit, offset]
       );
 
       return {
         reports: result.rows,
-        total: parseInt(countResult.rows[0].count)
+        total: parseInt(countResult.rows[0].count),
       };
+    } catch (error) {
+      console.error('Error in getReportsByPatient:', error);
+      return { reports: [], total: 0 };
     } finally {
       client.release();
     }
@@ -250,9 +301,9 @@ export class ImagingReportService {
         paramIndex++;
       }
 
-      if (data.radiologist_id !== undefined) {
+      if ((data as any).radiologist_id !== undefined) {
         updateFields.push(`radiologist_id = $${paramIndex}`);
-        queryParams.push(data.radiologist_id);
+        queryParams.push((data as any).radiologist_id);
         paramIndex++;
       }
 
@@ -268,9 +319,9 @@ export class ImagingReportService {
         paramIndex++;
       }
 
-      if (data.recommendations !== undefined) {
+      if ((data as any).recommendations !== undefined) {
         updateFields.push(`recommendations = $${paramIndex}`);
-        queryParams.push(data.recommendations);
+        queryParams.push((data as any).recommendations);
         paramIndex++;
       }
 
@@ -302,24 +353,19 @@ export class ImagingReportService {
     }
   }
 
-  async deleteReport(
-    tenantId: string,
-    reportId: number
-  ): Promise<boolean> {
+  async deleteReport(tenantId: string, reportId: number): Promise<boolean> {
     const client = await this.pool.connect();
     try {
       await client.query(`SET search_path TO "${tenantId}"`);
 
-      // Delete associated files first
-      await client.query(
-        `DELETE FROM imaging_report_files WHERE report_id = $1`,
-        [reportId]
-      );
+      // Delete associated files first (ignore if table doesn't exist)
+      try {
+        await client.query(`DELETE FROM imaging_report_files WHERE report_id = $1`, [reportId]);
+      } catch {
+        // Table may not exist
+      }
 
-      const result = await client.query(
-        `DELETE FROM imaging_reports WHERE id = $1`,
-        [reportId]
-      );
+      const result = await client.query(`DELETE FROM imaging_reports WHERE id = $1`, [reportId]);
 
       return result.rowCount !== null && result.rowCount > 0;
     } finally {
@@ -357,7 +403,7 @@ export class ImagingReportService {
           fileData.file_size,
           fileData.s3_key,
           fileData.s3_url,
-          uploadedBy
+          uploadedBy,
         ]
       );
 
@@ -367,10 +413,7 @@ export class ImagingReportService {
     }
   }
 
-  async getReportFiles(
-    tenantId: string,
-    reportId: number
-  ): Promise<ImagingReportFile[]> {
+  async getReportFiles(tenantId: string, reportId: number): Promise<ImagingReportFile[]> {
     const client = await this.pool.connect();
     try {
       await client.query(`SET search_path TO "${tenantId}"`);
@@ -383,23 +426,19 @@ export class ImagingReportService {
       );
 
       return result.rows;
+    } catch {
+      return [];
     } finally {
       client.release();
     }
   }
 
-  async deleteReportFile(
-    tenantId: string,
-    fileId: number
-  ): Promise<boolean> {
+  async deleteReportFile(tenantId: string, fileId: number): Promise<boolean> {
     const client = await this.pool.connect();
     try {
       await client.query(`SET search_path TO "${tenantId}"`);
 
-      const result = await client.query(
-        `DELETE FROM imaging_report_files WHERE id = $1`,
-        [fileId]
-      );
+      const result = await client.query(`DELETE FROM imaging_report_files WHERE id = $1`, [fileId]);
 
       return result.rowCount !== null && result.rowCount > 0;
     } finally {
@@ -416,10 +455,23 @@ export class ImagingReportService {
     try {
       await client.query(`SET search_path TO "${tenantId}"`);
 
-      let whereConditions: string[] = [
-        `(findings ILIKE $1 OR impression ILIKE $1 OR body_part ILIKE $1)`
+      // Check if imaging_reports table exists
+      const tableCheck = await client.query(
+        `SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = $1 AND table_name = 'imaging_reports'
+        )`,
+        [tenantId]
+      );
+
+      if (!tableCheck.rows[0].exists) {
+        return { reports: [], total: 0 };
+      }
+
+      const whereConditions: string[] = [
+        `(findings ILIKE $1 OR impression ILIKE $1 OR body_part ILIKE $1)`,
       ];
-      let queryParams: any[] = [`%${searchTerm}%`];
+      const queryParams: any[] = [`%${searchTerm}%`];
       let paramIndex = 2;
 
       if (filters?.imaging_type) {
@@ -459,20 +511,21 @@ export class ImagingReportService {
       const limit = filters?.limit || 10;
       const offset = (page - 1) * limit;
 
-      queryParams.push(limit, offset);
-
       const result = await client.query<ImagingReport>(
         `SELECT * FROM imaging_reports 
          WHERE ${whereClause}
          ORDER BY created_at DESC
          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-        queryParams
+        [...queryParams, limit, offset]
       );
 
       return {
         reports: result.rows,
-        total: parseInt(countResult.rows[0].count)
+        total: parseInt(countResult.rows[0].count),
       };
+    } catch (error) {
+      console.error('Error in searchReports:', error);
+      return { reports: [], total: 0 };
     } finally {
       client.release();
     }

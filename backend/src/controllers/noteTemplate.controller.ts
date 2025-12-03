@@ -54,7 +54,7 @@ export class NoteTemplateController {
         res.status(400).json({
           success: false,
           error: 'Validation error',
-          details: error.errors
+          details: error.issues
         });
         return;
       }
@@ -257,7 +257,7 @@ export class NoteTemplateController {
         res.status(400).json({
           success: false,
           error: 'Validation error',
-          details: error.errors
+          details: error.issues
         });
         return;
       }
@@ -371,7 +371,7 @@ export class NoteTemplateController {
         res.status(400).json({
           success: false,
           error: 'Validation error',
-          details: error.errors
+          details: error.issues
         });
         return;
       }

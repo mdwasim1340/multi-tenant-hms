@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
@@ -21,10 +21,15 @@ import {
   Shield,
   AlertCircle,
   Loader2,
+  FileText,
+  Eye,
+  ChevronRight,
 } from "lucide-react"
 import { usePatient } from "@/hooks/usePatient"
+import { usePatientContext } from "@/hooks/usePatientContext"
 import { formatPatientName, formatPhoneNumber, calculateAge } from "@/lib/patients"
 import { useToast } from "@/hooks/use-toast"
+import { getMedicalRecords, type MedicalRecord } from "@/lib/api/medical-records"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,11 +48,33 @@ export default function PatientDetailsPage() {
   const { toast } = useToast()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([])
+  const [loadingRecords, setLoadingRecords] = useState(false)
+  const { setSelectedPatient } = usePatientContext()
 
   const patientId = parseInt(params.id as string)
 
   // Use the patient hook to fetch patient data
   const { patient, loading, error, deletePatient, isDeleting } = usePatient(patientId)
+
+  // Fetch medical records for this patient
+  useEffect(() => {
+    async function fetchMedicalRecords() {
+      if (!patientId) return
+      setLoadingRecords(true)
+      try {
+        const response = await getMedicalRecords({ patient_id: patientId, limit: 3 })
+        const records = response.data?.records || response.records || []
+        setMedicalRecords(records)
+      } catch (err) {
+        console.error('Error fetching medical records:', err)
+        setMedicalRecords([])
+      } finally {
+        setLoadingRecords(false)
+      }
+    }
+    fetchMedicalRecords()
+  }, [patientId])
 
   // Handle delete confirmation
   const handleDelete = async () => {
@@ -61,6 +88,39 @@ export default function PatientDetailsPage() {
     } catch (error) {
       // Error toast is already shown by the hook
       setShowDeleteDialog(false)
+    }
+  }
+
+  // Handle view all medical records
+  const handleViewMedicalRecords = () => {
+    if (patient) {
+      setSelectedPatient({
+        id: patient.id,
+        patient_number: patient.patient_number,
+        first_name: patient.first_name,
+        last_name: patient.last_name,
+        date_of_birth: patient.date_of_birth,
+        email: patient.email || undefined,
+        phone: patient.phone || undefined,
+        blood_type: patient.blood_type || undefined,
+        status: patient.status,
+        gender: patient.gender || undefined,
+      })
+      router.push('/patient-records')
+    }
+  }
+
+  // Format date for display
+  const formatRecordDate = (dateString?: string) => {
+    if (!dateString) return 'N/A'
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    } catch {
+      return dateString
     }
   }
 
@@ -378,52 +438,146 @@ export default function PatientDetailsPage() {
                 {/* Medical Information */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Heart className="w-5 h-5" />
-                      Medical Information
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <Heart className="w-5 h-5" />
+                        Medical Information
+                      </CardTitle>
+                      <Button variant="outline" size="sm" onClick={handleViewMedicalRecords}>
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Records
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-6">
-                      {patient.blood_type && (
-                        <div>
-                          <p className="text-sm text-muted-foreground">Blood Type</p>
-                          <Badge variant="outline" className="mt-1">
-                            {patient.blood_type}
-                          </Badge>
-                        </div>
-                      )}
-                      {patient.allergies && (
-                        <div>
-                          <p className="text-sm text-muted-foreground">Allergies</p>
-                          <p className="text-foreground mt-1 whitespace-pre-wrap">{patient.allergies}</p>
-                        </div>
-                      )}
+                      {/* Basic Medical Info */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {patient.blood_type && (
+                          <div>
+                            <p className="text-sm text-muted-foreground">Blood Type</p>
+                            <Badge variant="outline" className="mt-1">
+                              {patient.blood_type}
+                            </Badge>
+                          </div>
+                        )}
+                        {patient.allergies && (
+                          <div>
+                            <p className="text-sm text-muted-foreground">Allergies</p>
+                            <p className="text-foreground mt-1 whitespace-pre-wrap">{patient.allergies}</p>
+                          </div>
+                        )}
+                      </div>
+
                       {patient.current_medications && (
                         <div>
                           <p className="text-sm text-muted-foreground">Current Medications</p>
                           <p className="text-foreground mt-1 whitespace-pre-wrap">{patient.current_medications}</p>
                         </div>
                       )}
-                      {patient.medical_history && (
-                        <div>
-                          <p className="text-sm text-muted-foreground">Medical History</p>
-                          <p className="text-foreground mt-1 whitespace-pre-wrap">{patient.medical_history}</p>
+
+                      {/* Recent Medical Records */}
+                      <div className="border-t pt-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <p className="text-sm font-medium text-foreground">Recent Medical Records</p>
+                          {medicalRecords.length > 0 && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={handleViewMedicalRecords}
+                              className="text-primary"
+                            >
+                              View All
+                              <ChevronRight className="w-4 h-4 ml-1" />
+                            </Button>
+                          )}
+                        </div>
+                        
+                        {loadingRecords ? (
+                          <div className="space-y-3">
+                            <Skeleton className="h-16 w-full" />
+                            <Skeleton className="h-16 w-full" />
+                          </div>
+                        ) : medicalRecords.length > 0 ? (
+                          <div className="space-y-3">
+                            {medicalRecords.map((record) => (
+                              <div 
+                                key={record.id} 
+                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-primary/10 rounded-full">
+                                    <FileText className="w-4 h-4 text-primary" />
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-sm">
+                                      {record.chief_complaint || record.diagnosis || 'Medical Record'}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {formatRecordDate(record.visit_date || record.created_at)}
+                                      {record.status && (
+                                        <Badge 
+                                          variant={record.status === 'finalized' ? 'default' : 'secondary'}
+                                          className="ml-2 text-xs"
+                                        >
+                                          {record.status}
+                                        </Badge>
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={handleViewMedicalRecords}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-6 border rounded-lg bg-muted/30">
+                            <FileText className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                            <p className="text-sm text-muted-foreground">No medical records found</p>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="mt-3"
+                              onClick={handleViewMedicalRecords}
+                            >
+                              Add Medical Record
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Additional Medical History */}
+                      {(patient.medical_history || patient.family_medical_history) && (
+                        <div className="border-t pt-6 space-y-4">
+                          {patient.medical_history && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">Medical History Notes</p>
+                              <p className="text-foreground mt-1 whitespace-pre-wrap">{patient.medical_history}</p>
+                            </div>
+                          )}
+                          {patient.family_medical_history && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">Family Medical History</p>
+                              <p className="text-foreground mt-1 whitespace-pre-wrap">
+                                {patient.family_medical_history}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
-                      {patient.family_medical_history && (
-                        <div>
-                          <p className="text-sm text-muted-foreground">Family Medical History</p>
-                          <p className="text-foreground mt-1 whitespace-pre-wrap">
-                            {patient.family_medical_history}
-                          </p>
-                        </div>
-                      )}
+
                       {!patient.blood_type &&
                         !patient.allergies &&
                         !patient.current_medications &&
                         !patient.medical_history &&
-                        !patient.family_medical_history && (
+                        !patient.family_medical_history &&
+                        medicalRecords.length === 0 && (
                           <p className="text-sm text-muted-foreground">No medical information recorded</p>
                         )}
                     </div>

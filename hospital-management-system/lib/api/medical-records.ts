@@ -93,9 +93,10 @@ export interface ListRecordsParams {
 
 export interface UploadUrlResponse {
   upload_url: string;
-  download_url: string;
+  download_url?: string;
   file_id: string;
-  expires_in: number;
+  expires_in?: number;
+  record_id?: number;
 }
 
 export interface AttachFileData {
@@ -148,18 +149,41 @@ export async function deleteMedicalRecord(id: number) {
 
 /**
  * Request presigned URL for file upload
+ * Note: This now creates a temporary medical record and returns upload info
  */
 export async function requestUploadUrl(
   filename: string,
   contentType: string,
   fileSize: number
 ): Promise<UploadUrlResponse> {
+  // First create a temporary medical record to get a record_id
+  const recordResponse = await api.post('/api/medical-records', {
+    patient_id: 1, // Temporary, will be updated
+    doctor_id: 1,
+    visit_date: new Date().toISOString(),
+    chief_complaint: `File upload: ${filename}`,
+    notes: 'Temporary record for file attachment',
+  });
+  
+  const recordId = recordResponse.data.data?.record?.id || recordResponse.data.data?.id || recordResponse.data.id;
+  
+  if (!recordId) {
+    throw new Error('Failed to create record for file upload');
+  }
+  
+  // Now get the upload URL with the record_id
   const response = await api.post('/api/medical-records/upload-url', {
+    record_id: recordId,
     filename,
     content_type: contentType,
     file_size: fileSize
   });
-  return response.data.data;
+  
+  return {
+    upload_url: response.data.data?.uploadUrl || response.data.uploadUrl,
+    file_id: response.data.data?.s3Key || response.data.s3Key,
+    record_id: recordId,
+  };
 }
 
 /**
@@ -172,6 +196,7 @@ export async function getDownloadUrl(fileId: string) {
 
 /**
  * Upload file to S3 using presigned URL
+ * Note: This may fail due to CORS. Use uploadFileThroughBackend instead.
  */
 export async function uploadFileToS3(
   uploadUrl: string,
@@ -191,6 +216,54 @@ export async function uploadFileToS3(
   }
 
   return response;
+}
+
+/**
+ * Upload file directly through backend (avoids CORS issues)
+ * This is the recommended approach for file uploads
+ */
+export async function uploadFileThroughBackend(
+  file: File,
+  recordId?: number,
+  description?: string
+): Promise<{ file_id: string; record_id: number }> {
+  // If no recordId provided, create a temporary medical record
+  let actualRecordId = recordId;
+  
+  if (!actualRecordId) {
+    const recordResponse = await api.post('/api/medical-records', {
+      patient_id: 1, // Will be updated by the caller
+      doctor_id: 1,
+      visit_date: new Date().toISOString(),
+      chief_complaint: `File upload: ${file.name}`,
+      notes: description || 'File attachment',
+    });
+    
+    actualRecordId = recordResponse.data.data?.record?.id || recordResponse.data.data?.id || recordResponse.data.id;
+    
+    if (!actualRecordId) {
+      throw new Error('Failed to create record for file upload');
+    }
+  }
+  
+  // Upload file through backend
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('record_id', String(actualRecordId));
+  formData.append('description', description || '');
+  
+  const uploadResponse = await api.post(`/api/medical-records/${actualRecordId}/upload`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  
+  const attachment = uploadResponse.data.data;
+  
+  return {
+    file_id: attachment?.s3_key || attachment?.id?.toString() || '',
+    record_id: actualRecordId,
+  };
 }
 
 /**

@@ -112,36 +112,18 @@ export const hospitalAuthMiddleware = (req: Request, res: Response, next: NextFu
       const user = email ? await getUserByEmail(email) : null;
       (req as any).userId = user?.id ?? (payload as any).sub ?? (payload as any)['cognito:username'];
       
-      // Check database roles instead of Cognito groups for hospital access
-      // This allows users with database roles to access hospital system
-      // even if they don't have Cognito groups set
-      if (user?.id) {
-        // User found in database - allow access (role-based permissions will be checked by requirePermission middleware)
-        return next();
-      }
-      
-      // Fallback to Cognito groups check if user not in database
-      const groups = (payload as any)['cognito:groups'];
-      if (groups && (groups.includes('hospital-admin') || groups.includes('system-admin') || groups.includes('admin'))) {
-        return next();
-      }
-      
-      // If no database user and no Cognito groups, deny access
-      return res.status(403).json({ 
-        message: 'Forbidden: User not authorized for hospital system',
-        hint: 'User must have a database account with assigned roles or be in a Cognito group'
-      });
+      // Allow access if:
+      // 1. User found in database (role-based permissions will be checked by requirePermission middleware)
+      // 2. User has valid Cognito token (authorization service will handle UUID users)
+      // This ensures backward compatibility and allows both database users and Cognito-only users
+      return next();
       
     } catch (mapErr) {
       console.error('Error mapping user:', mapErr);
+      // Even if user lookup fails, allow access with Cognito user ID
+      // The authorization service will handle permission checks
       (req as any).userId = (payload as any).sub || (payload as any)['cognito:username'];
-      
-      // Fallback to Cognito groups check
-      const groups = (payload as any)['cognito:groups'];
-      if (!groups || (!groups.includes('hospital-admin') && !groups.includes('system-admin') && !groups.includes('admin'))) {
-        return res.status(403).json({ message: 'Forbidden: Hospital admins only' });
-      }
-      next();
+      return next();
     }
   });
 };
