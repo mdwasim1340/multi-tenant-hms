@@ -17,7 +17,7 @@ import {
  */
 export async function createAuditLog(
   data: CreateAuditLogDTO
-): Promise<AuditLog> {
+): Promise<AuditLog | null> {
   const {
     tenant_id,
     user_id,
@@ -28,6 +28,12 @@ export async function createAuditLog(
     ip_address,
     user_agent,
   } = data;
+
+  // Skip audit log if user_id is missing (required field)
+  if (!user_id) {
+    console.warn('Skipping audit log - user_id is required but was not provided');
+    return null;
+  }
 
   const query = `
     INSERT INTO public.audit_logs (

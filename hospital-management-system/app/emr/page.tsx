@@ -1,275 +1,432 @@
-"use client"
+'use client';
+/**
+ * EMR Main Page - Enhanced with Real Data Integration & Responsive Design
+ * 
+ * Electronic Medical Records dashboard with:
+ * - Patient selection with critical allergy warnings
+ * - Real data counts from hooks
+ * - Quick access to all EMR modules
+ * - Recent activity with real data
+ * - Critical safety alerts
+ * - Fully responsive design (mobile, tablet, desktop)
+ */
+import { useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  FileText,
+  Pill,
+  FileImage,
+  Heart,
+  Users,
+  Plus,
+  Search,
+  Calendar,
+  AlertTriangle,
+  Activity,
+  TrendingUp,
+  Clock
+} from 'lucide-react';
+import { PatientSelector } from '@/components/emr/PatientSelector';
+import { usePatientContext } from '@/hooks/usePatientContext';
+import { useClinicalNotes } from '@/hooks/useClinicalNotes';
+import { usePrescriptions } from '@/hooks/usePrescriptions';
+import { useImagingReports } from '@/hooks/useImagingReports';
+import { useMedicalHistory } from '@/hooks/useMedicalHistory';
+import { format, isAfter, parseISO } from 'date-fns';
+import Link from 'next/link';
 
-import { useState } from "react"
-import { Sidebar } from "@/components/sidebar"
-import { TopBar } from "@/components/top-bar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertTriangle, Pill, Beaker, Brain, CheckCircle, AlertCircle } from "lucide-react"
+export default function EMRPage() {
+  const { selectedPatient } = usePatientContext();
+  
+  // Fetch real data using our hooks with patient_id option
+  const { notes, refetch: refetchNotes } = useClinicalNotes({ 
+    patient_id: selectedPatient?.id,
+    autoFetch: false 
+  });
+  const { prescriptions, refetch: refetchPrescriptions } = usePrescriptions({ 
+    patient_id: selectedPatient?.id,
+    autoFetch: false 
+  });
+  const { reports, refetch: refetchReports } = useImagingReports({ 
+    patient_id: selectedPatient?.id,
+    autoFetch: false 
+  });
+  const { history, refetch: refetchHistory } = useMedicalHistory({ 
+    patient_id: selectedPatient?.id,
+    autoFetch: false 
+  });
 
-export default function EMR() {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [activeTab, setActiveTab] = useState("overview")
+  // Fetch data when patient changes
+  useEffect(() => {
+    if (selectedPatient) {
+      refetchNotes();
+      refetchPrescriptions();
+      refetchReports();
+      refetchHistory();
+    }
+  }, [selectedPatient?.id]);
 
-  const patientData = {
-    name: "Sarah Johnson",
-    mrn: "MRN-2024-001",
-    dob: "1979-03-15",
-    age: 45,
+  // Calculate real counts
+  const notesCount = notes?.length || 0;
+  const prescriptionsCount = prescriptions?.length || 0;
+  const reportsCount = reports?.length || 0;
+  const historyCount = history?.length || 0;
+
+  // Get critical allergies for safety warnings
+  const criticalAllergies = history?.filter(
+    h => h.category === 'allergy' && h.severity === 'severe'
+  ) || [];
+
+  // Get expiring prescriptions
+  const expiringPrescriptions = prescriptions?.filter(p => {
+    if (!p.end_date || p.status !== 'active') return false;
+    const endDate = parseISO(p.end_date);
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    return isAfter(thirtyDaysFromNow, endDate);
+  }) || [];
+
+  // Activity item type for type safety
+  interface ActivityItem {
+    type: string;
+    title: string;
+    description: string;
+    date: string;
+    icon: React.ReactNode;
+    color: string;
   }
 
-  const medications = [
-    { name: "Lisinopril", dose: "10mg", frequency: "Daily", status: "Active", aiAlert: "Monitor BP regularly" },
-    { name: "Metformin", dose: "500mg", frequency: "Twice daily", status: "Active", aiAlert: "Check kidney function" },
-    { name: "Atorvastatin", dose: "20mg", frequency: "Daily", status: "Active", aiAlert: "No interactions detected" },
-  ]
+  // Get recent activity (combine all recent items)
+  const getRecentActivity = (): ActivityItem[] => {
+    const activities: ActivityItem[] = [];
+    
+    // Recent notes
+    if (notes) {
+      notes.slice(0, 3).forEach(note => {
+        activities.push({
+          type: 'clinical-note',
+          title: 'Clinical note added',
+          description: `${note.note_type} note`,
+          date: note.created_at,
+          icon: <FileText className="h-4 w-4" />,
+          color: 'bg-blue-500'
+        });
+      });
+    }
+    
+    // Recent prescriptions
+    if (prescriptions) {
+      prescriptions.slice(0, 2).forEach(prescription => {
+        activities.push({
+          type: 'prescription',
+          title: 'Prescription updated',
+          description: `${prescription.medication_name} - ${prescription.dosage}`,
+          date: prescription.updated_at,
+          icon: <Pill className="h-4 w-4" />,
+          color: 'bg-green-500'
+        });
+      });
+    }
+    
+    // Recent imaging
+    if (reports) {
+      reports.slice(0, 2).forEach(report => {
+        activities.push({
+          type: 'imaging',
+          title: 'Imaging report available',
+          description: `${report.imaging_type}${report.body_part ? ` - ${report.body_part}` : ''}`,
+          date: report.created_at,
+          icon: <FileImage className="h-4 w-4" />,
+          color: 'bg-purple-500'
+        });
+      });
+    }
+    
+    // Sort by date and return top 5
+    return activities
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
+  };
 
-  const labResults = [
-    { test: "Blood Glucose", value: "145 mg/dL", normal: "70-100", date: "2024-10-20", status: "High" },
-    { test: "Cholesterol", value: "210 mg/dL", normal: "<200", date: "2024-10-20", status: "High" },
-    { test: "Hemoglobin A1C", value: "7.2%", normal: "<5.7%", date: "2024-10-20", status: "High" },
-  ]
+  const recentActivity = getRecentActivity();
 
-  const clinicalNotes = [
+  const modules = [
     {
-      date: "2024-10-20",
-      provider: "Dr. Emily Rodriguez",
-      type: "Cardiology Consultation",
-      summary:
-        "Patient presents with elevated BP readings. Discussed medication adjustment and lifestyle modifications.",
-      aiSummary: "Key findings: Hypertension management needed, consider additional medication",
+      id: 'clinical-notes',
+      title: 'Clinical Notes',
+      description: 'Patient visit notes and observations',
+      icon: <FileText className="h-5 w-5 md:h-6 md:w-6" />,
+      color: 'bg-blue-500',
+      count: notesCount,
+      href: '/emr/clinical-notes'
     },
     {
-      date: "2024-10-15",
-      provider: "Dr. James Wilson",
-      type: "Follow-up Visit",
-      summary: "Routine follow-up for diabetes management. Patient reports good compliance with medications.",
-      aiSummary: "Stable diabetes control, continue current treatment plan",
+      id: 'prescriptions',
+      title: 'Prescriptions',
+      description: 'Current and past medications',
+      icon: <Pill className="h-5 w-5 md:h-6 md:w-6" />,
+      color: 'bg-green-500',
+      count: prescriptionsCount,
+      href: '/emr/prescriptions',
+      alert: expiringPrescriptions.length > 0 ? `${expiringPrescriptions.length} expiring soon` : null
     },
-  ]
+    {
+      id: 'imaging',
+      title: 'Imaging Reports',
+      description: 'X-rays, MRIs, CT scans',
+      icon: <FileImage className="h-5 w-5 md:h-6 md:w-6" />,
+      color: 'bg-purple-500',
+      count: reportsCount,
+      href: '/emr/imaging'
+    },
+    {
+      id: 'medical-history',
+      title: 'Medical History',
+      description: 'Conditions, allergies, surgeries',
+      icon: <Heart className="h-5 w-5 md:h-6 md:w-6" />,
+      color: 'bg-red-500',
+      count: historyCount,
+      href: '/emr/medical-history',
+      alert: criticalAllergies.length > 0 ? `${criticalAllergies.length} critical allergies` : null
+    }
+  ];
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+    <div className="container mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
+      {/* Header - Responsive */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold">Electronic Medical Records</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-1">
+            Comprehensive patient health information system
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button variant="outline" className="w-full sm:w-auto">
+            <Search className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Search Records</span>
+            <span className="sm:hidden">Search</span>
+          </Button>
+          <Button className="w-full sm:w-auto">
+            <Plus className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">New Entry</span>
+            <span className="sm:hidden">New</span>
+          </Button>
+        </div>
+      </div>
 
-      <div className="flex-1 flex flex-col" style={{ marginLeft: sidebarOpen ? "256px" : "80px" }}>
-        <TopBar sidebarOpen={sidebarOpen} />
+      {/* Patient Selector */}
+      <PatientSelector />
 
-        <main className="flex-1 overflow-auto pt-20 pb-8">
-          <div className="max-w-7xl mx-auto px-6 space-y-8">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Electronic Medical Records</h1>
-              <p className="text-muted-foreground mt-1">
-                Patient: {patientData.name} ({patientData.mrn})
-              </p>
+      {/* Critical Safety Alerts - Responsive */}
+      {selectedPatient && criticalAllergies.length > 0 && (
+        <Alert variant="destructive" className="border-2">
+          <AlertTriangle className="h-4 w-4 md:h-5 md:w-5" />
+          <AlertTitle className="text-base md:text-lg font-bold">
+            CRITICAL ALLERGIES - {selectedPatient.first_name} {selectedPatient.last_name}
+          </AlertTitle>
+          <AlertDescription>
+            <div className="mt-2 space-y-1">
+              {criticalAllergies.map((allergy, index) => (
+                <div key={index} className="font-semibold text-sm md:text-base">
+                  • {allergy.name}{allergy.reaction ? ` - ${allergy.reaction}` : ''}
+                </div>
+              ))}
             </div>
+            <div className="mt-2 text-xs md:text-sm">
+              Always verify allergies before prescribing medications or treatments.
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
-            <Card className="border-border/50 bg-gradient-to-br from-primary/5 to-accent/5">
-              <CardContent className="pt-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Patient Name</p>
-                    <p className="font-semibold text-foreground">{patientData.name}</p>
+      {/* Expiring Prescriptions Alert - Responsive */}
+      {selectedPatient && expiringPrescriptions.length > 0 && (
+        <Alert className="border-orange-200 bg-orange-50">
+          <Clock className="h-4 w-4 text-orange-600" />
+          <AlertTitle className="text-orange-800 text-sm md:text-base">
+            Prescriptions Expiring Soon
+          </AlertTitle>
+          <AlertDescription className="text-orange-700 text-xs md:text-sm">
+            {expiringPrescriptions.length} prescription(s) will expire within 30 days. 
+            <Link href="/emr/prescriptions" className="underline ml-1">
+              Review prescriptions
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Patient Overview - Responsive Grid */}
+      {selectedPatient && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+              <Users className="h-4 w-4 md:h-5 md:w-5" />
+              Patient Overview
+            </CardTitle>
+            <CardDescription className="text-xs md:text-sm">
+              Quick summary for {selectedPatient.first_name} {selectedPatient.last_name}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+              <div>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Patient ID</p>
+                <p className="text-sm md:text-lg font-semibold truncate">{selectedPatient.patient_number}</p>
+              </div>
+              <div>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Age</p>
+                <p className="text-sm md:text-lg font-semibold">
+                  {new Date().getFullYear() - new Date(selectedPatient.date_of_birth).getFullYear()}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Blood Type</p>
+                <p className="text-sm md:text-lg font-semibold">{selectedPatient.blood_type || 'Unknown'}</p>
+              </div>
+              <div>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Status</p>
+                <Badge variant={selectedPatient.status === 'active' ? 'default' : 'secondary'} className="text-xs">
+                  {selectedPatient.status}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* EMR Modules - Responsive Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        {modules.map((module) => (
+          <Link key={module.id} href={selectedPatient ? module.href : '#'}>
+            <Card 
+              className={`cursor-pointer transition-all hover:shadow-lg h-full ${
+                !selectedPatient ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className={`p-2 rounded-lg ${module.color} text-white`}>
+                    {module.icon}
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">MRN</p>
-                    <p className="font-semibold text-foreground">{patientData.mrn}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Date of Birth</p>
-                    <p className="font-semibold text-foreground">{patientData.dob}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Age</p>
-                    <p className="font-semibold text-foreground">{patientData.age} years</p>
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge variant="secondary" className="text-xs">{module.count}</Badge>
+                    {module.alert && (
+                      <Badge variant="outline" className="text-[10px] md:text-xs text-orange-600 border-orange-600">
+                        {module.alert}
+                      </Badge>
+                    )}
                   </div>
                 </div>
+              </CardHeader>
+              <CardContent>
+                <h3 className="font-semibold text-base md:text-lg mb-1">{module.title}</h3>
+                <p className="text-xs md:text-sm text-muted-foreground">{module.description}</p>
               </CardContent>
             </Card>
-
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4 mb-8">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="medications">Medications</TabsTrigger>
-                <TabsTrigger value="labs">Lab Results</TabsTrigger>
-                <TabsTrigger value="notes">Clinical Notes</TabsTrigger>
-              </TabsList>
-
-              {/* Overview Tab */}
-              <TabsContent value="overview" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card className="border-border/50">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5 text-red-600" />
-                        Active Alerts
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                        <p className="font-semibold text-red-900 dark:text-red-100 text-sm mb-1">
-                          ⚠️ Drug Interaction Alert
-                        </p>
-                        <p className="text-sm text-red-800 dark:text-red-200">
-                          Potential interaction between Lisinopril and NSAIDs detected
-                        </p>
-                      </div>
-                      <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                        <p className="font-semibold text-yellow-900 dark:text-yellow-100 text-sm mb-1">
-                          ⚠️ Lab Value Alert
-                        </p>
-                        <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                          Blood glucose elevated - recommend follow-up testing
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-border/50">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Brain className="w-5 h-5 text-accent" />
-                        AI Diagnostic Support
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="bg-accent/5 border border-accent/20 rounded-lg p-4">
-                        <p className="font-semibold text-foreground text-sm mb-2">Suggested Diagnoses</p>
-                        <ul className="space-y-2 text-sm text-foreground">
-                          <li className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                            Type 2 Diabetes (High confidence)
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                            Hypertension (High confidence)
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4 text-yellow-600" />
-                            Hyperlipidemia (Medium confidence)
-                          </li>
-                        </ul>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-
-              {/* Medications Tab */}
-              <TabsContent value="medications" className="space-y-4">
-                {medications.map((med, idx) => (
-                  <Card key={idx} className="border-border/50">
-                    <CardContent className="pt-6">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                              <Pill className="w-5 h-5 text-primary" />
-                            </div>
-                            <div>
-                              <h3 className="font-semibold text-foreground">{med.name}</h3>
-                              <p className="text-sm text-muted-foreground">
-                                {med.dose} • {med.frequency}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="bg-accent/5 border border-accent/20 rounded-lg p-3">
-                            <div className="flex items-start gap-2">
-                              <AlertCircle className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                              <div>
-                                <p className="text-xs font-semibold text-accent mb-1">AI Alert</p>
-                                <p className="text-sm text-foreground">{med.aiAlert}</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <Badge className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200">
-                          {med.status}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </TabsContent>
-
-              {/* Lab Results Tab */}
-              <TabsContent value="labs" className="space-y-4">
-                <Card className="border-border/50">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Beaker className="w-5 h-5 text-accent" />
-                      Recent Lab Results
-                    </CardTitle>
-                    <CardDescription>Latest results from 2024-10-20</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {labResults.map((lab, idx) => (
-                        <div key={idx} className="border border-border rounded-lg p-4">
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <h4 className="font-semibold text-foreground">{lab.test}</h4>
-                              <p className="text-sm text-muted-foreground">Normal range: {lab.normal}</p>
-                            </div>
-                            <Badge
-                              className={
-                                lab.status === "High"
-                                  ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200"
-                                  : "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200"
-                              }
-                            >
-                              {lab.status}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-2xl font-bold text-foreground">{lab.value}</span>
-                            <span className="text-xs text-muted-foreground">{lab.date}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Clinical Notes Tab */}
-              <TabsContent value="notes" className="space-y-4">
-                {clinicalNotes.map((note, idx) => (
-                  <Card key={idx} className="border-border/50">
-                    <CardContent className="pt-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <h3 className="font-semibold text-foreground">{note.type}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {note.provider} • {note.date}
-                          </p>
-                        </div>
-                        <Badge variant="outline">Clinical Note</Badge>
-                      </div>
-
-                      <div className="bg-muted rounded-lg p-4 mb-4">
-                        <p className="text-sm text-foreground">{note.summary}</p>
-                      </div>
-
-                      <div className="bg-accent/5 border border-accent/20 rounded-lg p-4">
-                        <div className="flex items-start gap-2">
-                          <Brain className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-xs font-semibold text-accent mb-1">AI Summary</p>
-                            <p className="text-sm text-foreground">{note.aiSummary}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </TabsContent>
-            </Tabs>
-          </div>
-        </main>
+          </Link>
+        ))}
       </div>
+
+      {/* Dashboard Stats - Responsive Grid */}
+      {selectedPatient && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Records</CardTitle>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {notesCount + prescriptionsCount + reportsCount + historyCount}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Across all EMR modules
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Prescriptions</CardTitle>
+              <Pill className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {prescriptions?.filter(p => p.status === 'active').length || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Currently prescribed medications
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="sm:col-span-2 lg:col-span-1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{recentActivity.length}</div>
+              <p className="text-xs text-muted-foreground">
+                Updates in the last 30 days
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Recent Activity - Responsive */}
+      {selectedPatient && recentActivity.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+              <Calendar className="h-4 w-4 md:h-5 md:w-5" />
+              Recent Activity
+            </CardTitle>
+            <CardDescription className="text-xs md:text-sm">
+              Latest updates for {selectedPatient.first_name} {selectedPatient.last_name}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 md:space-y-4">
+              {recentActivity.map((activity, index) => (
+                <div key={index} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                  <div className={`p-2 ${activity.color} text-white rounded-lg flex-shrink-0`}>
+                    {activity.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm md:text-base">{activity.title}</p>
+                    <p className="text-xs md:text-sm text-muted-foreground truncate">{activity.description}</p>
+                  </div>
+                  <p className="text-xs md:text-sm text-muted-foreground flex-shrink-0">
+                    {format(new Date(activity.date), 'MMM d, h:mm a')}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* No Patient Selected State - Responsive */}
+      {!selectedPatient && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <AlertTriangle className="h-10 w-10 md:h-12 md:w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-base md:text-lg font-semibold mb-2">No Patient Selected</h3>
+              <p className="text-sm md:text-base text-muted-foreground mb-4">
+                Please select a patient to access their medical records and view real-time data
+              </p>
+              <div className="text-xs md:text-sm text-muted-foreground">
+                Use the patient selector above to search and select a patient
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
-  )
+  );
 }

@@ -11,7 +11,9 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
   const client = await pool.connect();
 
   try {
-    await client.query(`SET search_path TO "${tenantId}", public`);
+    // Ensure schema name has tenant_ prefix
+    const schemaName = tenantId.startsWith('tenant_') ? tenantId : `tenant_${tenantId}`;
+    await client.query(`SET search_path TO "${schemaName}", public`);
     req.dbClient = client;
 
     res.on('finish', () => {

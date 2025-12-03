@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Save, X, Activity } from 'lucide-react';
+import { DoctorSelect } from './DoctorSelect';
 
 interface MedicalRecordFormProps {
   patientId: number;
@@ -20,6 +21,7 @@ interface MedicalRecordFormProps {
 }
 
 interface FormData {
+  doctor_id: number;
   visit_date: string;
   chief_complaint: string;
   diagnosis: string;
@@ -47,9 +49,11 @@ export function MedicalRecordForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [doctorId, setDoctorId] = useState<number | undefined>(initialData?.doctor_id);
 
-  const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<FormData>({
     defaultValues: {
+      doctor_id: initialData?.doctor_id || 0,
       visit_date: initialData?.visit_date?.split('T')[0] || new Date().toISOString().split('T')[0],
       chief_complaint: initialData?.chief_complaint || '',
       diagnosis: initialData?.diagnosis || '',
@@ -69,11 +73,23 @@ export function MedicalRecordForm({
 
   const followUpRequired = watch('follow_up_required');
 
+  const handleDoctorChange = (id: number) => {
+    setDoctorId(id);
+    setValue('doctor_id', id);
+  };
+
   const onSubmit = async (data: FormData) => {
     try {
       setLoading(true);
       setError(null);
       setSuccess(false);
+
+      // Validate doctor selection
+      if (!doctorId || doctorId === 0) {
+        setError('Please select a doctor');
+        setLoading(false);
+        return;
+      }
 
       // Build vital signs object
       const vitalSigns: VitalSigns = {};
@@ -87,6 +103,7 @@ export function MedicalRecordForm({
 
       const recordData: CreateRecordData = {
         patient_id: patientId,
+        doctor_id: doctorId,
         visit_date: new Date(data.visit_date).toISOString(),
         chief_complaint: data.chief_complaint || undefined,
         diagnosis: data.diagnosis || undefined,
@@ -143,6 +160,14 @@ export function MedicalRecordForm({
           <CardTitle>Visit Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Doctor Selection */}
+          <DoctorSelect
+            value={doctorId}
+            onChange={handleDoctorChange}
+            required
+            error={!doctorId && error ? 'Doctor is required' : undefined}
+          />
+
           <div>
             <Label htmlFor="visit_date">Visit Date *</Label>
             <Input
