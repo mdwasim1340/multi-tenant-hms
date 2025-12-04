@@ -43,3 +43,31 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Environment files (NEVER commit these!)
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+*.env
+!.env.example
+
+# Sensitive files
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+google-services.json
+GoogleService-Info.plist
+*credentials*
+
+# API keys and secrets
+lib/core/config/api_keys.dart
+lib/core/config/secrets.dart
+
+# Temporary files
+temp/
+tmp/
+.cache/
