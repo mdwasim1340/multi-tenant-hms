@@ -42,6 +42,9 @@ export function ChatWidget() {
   const [isListening, setIsListening] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
+  
+  // Use environment variable for API URL
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -97,9 +100,13 @@ export function ChatWidget() {
 
     try {
       // Call backend n8n integration
-      const response = await fetch("http://localhost:3000/api/n8n/chat", {
+      const response = await fetch(`${API_URL}/api/n8n/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "X-App-ID": "hospital-management",
+          "X-API-Key": process.env.NEXT_PUBLIC_API_KEY || "hospital-dev-key-123"
+        },
         body: JSON.stringify({
           message: currentInput,
           sessionId: sessionId,
