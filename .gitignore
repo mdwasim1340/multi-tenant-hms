@@ -33,6 +33,7 @@ tmp/
 .idea/
 *.swp
 *.swo
+.trae/
 
 # Documentation and implementation directories
 docs/
