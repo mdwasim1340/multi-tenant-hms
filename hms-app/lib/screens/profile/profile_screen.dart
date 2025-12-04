@@ -3,6 +3,8 @@ import '../../chat_history.dart';
 import '../../main.dart' show themeProvider;
 import '../../theme/theme_provider.dart';
 import '../chat_history_screen.dart';
+import '../../core/storage/secure_storage.dart';
+import '../../features/auth/data/models/user_model.dart';
 
 /// ProfileScreen - A comprehensive, premium profile center for MedChat AI
 /// Now with full dark mode support
@@ -93,6 +95,65 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     _heroAnimController.forward();
     _historyManager.addListener(_onHistoryChanged);
     themeProvider.addListener(_onThemeChanged);
+    _loadProfileData(); // Load saved profile data
+  }
+  
+  /// Load profile data from secure storage
+  Future<void> _loadProfileData() async {
+    // First, load user data from login (auth user)
+    final authUser = await SecureStorage.getUser();
+    if (authUser != null && mounted) {
+      setState(() {
+        _userData['name'] = authUser.name;
+        _userData['email'] = authUser.email;
+      });
+    }
+    
+    // Then load saved profile data (overrides auth data if exists)
+    final savedData = await SecureStorage.getProfileData();
+    if (savedData != null && mounted) {
+      setState(() {
+        // Load user data
+        if (savedData['userData'] != null) {
+          final userData = savedData['userData'] as Map<String, dynamic>;
+          if (userData['name'] != null && userData['name'].toString().isNotEmpty) {
+            _userData['name'] = userData['name'];
+          }
+          if (userData['email'] != null && userData['email'].toString().isNotEmpty) {
+            _userData['email'] = userData['email'];
+          }
+          _userData['phone'] = userData['phone'] ?? _userData['phone'];
+          _userData['dob'] = userData['dob'] ?? _userData['dob'];
+          _userData['gender'] = userData['gender'] ?? _userData['gender'];
+          _userData['bio'] = userData['bio'] ?? _userData['bio'];
+        }
+        // Load medical info
+        if (savedData['medicalInfo'] != null) {
+          final medicalInfo = savedData['medicalInfo'] as Map<String, dynamic>;
+          _medicalInfo['bloodGroup'] = medicalInfo['bloodGroup'] ?? _medicalInfo['bloodGroup'];
+          _medicalInfo['allergies'] = medicalInfo['allergies'] ?? _medicalInfo['allergies'];
+          _medicalInfo['medications'] = medicalInfo['medications'] ?? _medicalInfo['medications'];
+          _medicalInfo['conditions'] = medicalInfo['conditions'] ?? _medicalInfo['conditions'];
+        }
+        // Load emergency contact
+        if (savedData['emergencyContact'] != null) {
+          final emergencyContact = savedData['emergencyContact'] as Map<String, dynamic>;
+          _emergencyContact['name'] = emergencyContact['name'] ?? _emergencyContact['name'];
+          _emergencyContact['phone'] = emergencyContact['phone'] ?? _emergencyContact['phone'];
+          _emergencyContact['relation'] = emergencyContact['relation'] ?? _emergencyContact['relation'];
+        }
+      });
+    }
+  }
+  
+  /// Save profile data to secure storage
+  Future<void> _saveProfileData() async {
+    final profileData = {
+      'userData': Map<String, String>.from(_userData),
+      'medicalInfo': Map<String, String>.from(_medicalInfo),
+      'emergencyContact': Map<String, String>.from(_emergencyContact),
+    };
+    await SecureStorage.saveProfileData(profileData);
   }
 
   void _onHistoryChanged() => setState(() {});
@@ -616,7 +677,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                 TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: TextStyle(color: textSecondary))),
                 Text('Edit Profile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: textPrimary)),
                 TextButton(
-                  onPressed: () {
+                  onPressed: () async {
                     setState(() {
                       _userData['name'] = nameController.text;
                       _userData['bio'] = bioController.text;
@@ -624,6 +685,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                       _userData['gender'] = selectedGender;
                       _userData['dob'] = selectedDob;
                     });
+                    await _saveProfileData(); // Persist to storage
                     Navigator.pop(context);
                     _showSnackBar('Profile updated successfully');
                   },

@@ -43,6 +43,7 @@ class _SideBarDrawerState extends State<SideBarDrawer> {
   }
 
   Future<void> _loadUserData() async {
+    // First load from auth user (login data)
     final user = await SecureStorage.getUser();
     if (user != null && mounted) {
       setState(() {
@@ -50,6 +51,24 @@ class _SideBarDrawerState extends State<SideBarDrawer> {
         _userName = user.name;
         _userEmail = user.email;
       });
+    }
+    
+    // Then check if profile data has been updated (overrides login data)
+    final profileData = await SecureStorage.getProfileData();
+    if (profileData != null && mounted) {
+      final userData = profileData['userData'] as Map<String, dynamic>?;
+      if (userData != null) {
+        setState(() {
+          // Use profile name if available, otherwise keep login name
+          if (userData['name'] != null && userData['name'].toString().isNotEmpty) {
+            _userName = userData['name'];
+          }
+          // Use profile email if available, otherwise keep login email
+          if (userData['email'] != null && userData['email'].toString().isNotEmpty) {
+            _userEmail = userData['email'];
+          }
+        });
+      }
     }
   }
 

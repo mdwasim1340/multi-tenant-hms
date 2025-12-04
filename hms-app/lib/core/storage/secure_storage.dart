@@ -24,6 +24,7 @@ class SecureStorage {
   static const _refreshTokenKey = 'medchat_refresh_token';
   static const _userKey = 'medchat_user_data';
   static const _tenantKey = 'medchat_tenant_id';
+  static const _profileKey = 'medchat_profile_data';
   
   // ============================================================
   // Token Operations
@@ -130,5 +131,35 @@ class SecureStorage {
     // return !JwtDecoder.isExpired(token);
     
     return true;
+  }
+  
+  // ============================================================
+  // Profile Data Operations
+  // ============================================================
+  
+  /// Save profile data (personal info, medical info, etc.)
+  static Future<void> saveProfileData(Map<String, dynamic> profileData) async {
+    final jsonString = jsonEncode(profileData);
+    await _storage.write(key: _profileKey, value: jsonString);
+  }
+  
+  /// Get profile data
+  static Future<Map<String, dynamic>?> getProfileData() async {
+    final jsonString = await _storage.read(key: _profileKey);
+    if (jsonString != null && jsonString.isNotEmpty) {
+      try {
+        return jsonDecode(jsonString) as Map<String, dynamic>;
+      } catch (e) {
+        // Invalid JSON, clear it
+        await _storage.delete(key: _profileKey);
+        return null;
+      }
+    }
+    return null;
+  }
+  
+  /// Delete profile data
+  static Future<void> deleteProfileData() async {
+    await _storage.delete(key: _profileKey);
   }
 }

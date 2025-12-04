@@ -15,11 +15,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   final List<bool> _faqExpanded = [false, false, false];
 
   // MedChat subscription pricing (in INR)
-  static const double _basicMonthly = 0.0; // Free
+  static const double _basicMonthly = 999.0;
   static const double _advanceMonthly = 2999.0;
   static const double _premiumMonthly = 9999.0;
 
-  double get _basicPrice => 0.0; // Always free
+  double get _basicPrice => _isYearly ? (_basicMonthly * 12 * 0.8) : _basicMonthly;
   double get _advancePrice => _isYearly ? (_advanceMonthly * 12 * 0.8) : _advanceMonthly;
   double get _premiumPrice => _isYearly ? (_premiumMonthly * 12 * 0.8) : _premiumMonthly;
   String get _billingPeriod => _isYearly ? '/yr' : '/mo';
@@ -130,13 +130,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             const Icon(Icons.star, color: AppColors.tealPrimary, size: 24),
             const SizedBox(width: 12),
             Expanded(
-                child: Text('Start 7-day free trial on Advance',
+                child: Text('Start 7-day free trial on any plan',
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                         color: textPrimary))),
             TextButton(
-                onPressed: () => _confirm('Advance', _advancePrice, trial: true),
+                onPressed: () => _confirm(_selectedPlan, 
+                    _selectedPlan == 'Basic' ? _basicPrice : 
+                    _selectedPlan == 'Advance' ? _advancePrice : _premiumPrice, 
+                    trial: true),
                 child: const Text('Start trial')),
             IconButton(
                 icon: Icon(Icons.close, size: 20, color: textSecondary),
@@ -205,7 +208,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          _card('Basic', _basicPrice, 'Free', [
+          _card('Basic', _basicPrice, '₹${_basicPrice.toStringAsFixed(0)}$_billingPeriod', [
             'Chat support with healthcare professionals',
             'Appointment booking',
             'Prescription access and management',
@@ -312,10 +315,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () {
-                      if (name == 'Basic' && price == 0) {
-                        setState(() => _selectedPlan = name);
-                        _snack('Basic plan activated!');
-                      } else if (isSelected) {
+                      if (isSelected) {
                         _confirm(name, price);
                       } else {
                         setState(() => _selectedPlan = name);
@@ -335,9 +335,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                           borderRadius: BorderRadius.circular(12)),
                     ),
                     child: Text(
-                        name == 'Basic' 
-                            ? (isSelected ? 'Current Plan' : 'Select Basic')
-                            : (isSelected ? 'Continue' : 'Select $name'),
+                        isSelected ? 'Continue' : 'Select $name',
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
@@ -594,10 +592,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               _mrow(
                   'Price',
                   trial
-                      ? 'Free for 7 days, then ₹${_advancePrice.toStringAsFixed(0)}$_billingPeriod'
-                      : (price == 0
-                          ? 'Free'
-                          : '₹${price.toStringAsFixed(0)}$_billingPeriod'),
+                      ? 'Free for 7 days, then ₹${price.toStringAsFixed(0)}$_billingPeriod'
+                      : '₹${price.toStringAsFixed(0)}$_billingPeriod',
                   textPrimary,
                   textSecondary),
               const SizedBox(height: 8),

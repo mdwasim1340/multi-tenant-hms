@@ -2,6 +2,21 @@
 
 **Consolidates**: Global_Rules.md, anti-duplication-guidelines.md, testing.md
 
+## 🚨 CRITICAL: File Organization Policy
+
+**BEFORE creating ANY file, read**: [FILE_ORGANIZATION_POLICY.md](FILE_ORGANIZATION_POLICY.md)
+
+### Golden Rules:
+- ❌ **NEVER** create files in root directory (except approved list)
+- ✅ Documentation → `backend/docs/` or `hospital-management-system/docs/`
+- ✅ Tests → `backend/tests/` or `hospital-management-system/__tests__/`
+- ✅ Scripts → `backend/scripts/` or `hospital-management-system/scripts/`
+- ✅ Configs → service root or `/config` directory
+
+**Violation of file organization policy will result in immediate rejection.**
+
+---
+
 ## 🚨 CRITICAL: Anti-Duplication Rules
 
 ### Before Creating ANYTHING

@@ -1,27 +1,30 @@
 # AI Agent Steering Guidelines - Consolidated
 
-**Last Updated**: November 26, 2025  
-**Consolidation**: Reduced from 18 files to 6 core documents
+**Last Updated**: December 4, 2025  
+**Consolidation**: Reduced from 18 files to 7 core documents + file organization policy
 
 ## 📚 Steering Documents Overview
 
-This directory contains **6 consolidated steering documents** that provide comprehensive guidelines for AI agents working on the multi-tenant hospital management system.
+This directory contains **7 consolidated steering documents + 1 mandatory policy** that provide comprehensive guidelines for AI agents working on the multi-tenant hospital management system.
 
 ### Quick Navigation
 
 1. **[00-QUICK-START.md](00-QUICK-START.md)** - Start here! Essential quick reference
-2. **[core-architecture.md](core-architecture.md)** - System architecture & technology stack
-3. **[development-rules.md](development-rules.md)** - Development guidelines & best practices
-4. **[multi-tenant-security.md](multi-tenant-security.md)** - Security & database management
-5. **[api-integration.md](api-integration.md)** - API development & frontend-backend integration
-6. **[team-missions.md](team-missions.md)** - Phase 2 tasks & team coordination
+2. **[FILE_ORGANIZATION_POLICY.md](FILE_ORGANIZATION_POLICY.md)** - 🚨 MANDATORY file organization rules
+3. **[core-architecture.md](core-architecture.md)** - System architecture & technology stack
+4. **[development-rules.md](development-rules.md)** - Development guidelines & best practices
+5. **[multi-tenant-security.md](multi-tenant-security.md)** - Security & database management
+6. **[api-integration.md](api-integration.md)** - API development & frontend-backend integration
+7. **[team-missions.md](team-missions.md)** - Phase 2 tasks & team coordination
+8. **[PRODUCTION_ENVIRONMENT.md](PRODUCTION_ENVIRONMENT.md)** - Production deployment & operations
 
 ## 🎯 How to Use These Guidelines
 
 ### For New AI Agents
 1. **Start with**: `00-QUICK-START.md` - Get essential information fast
-2. **Then read**: The specific document for your task area
-3. **Reference**: Other documents as needed during development
+2. **READ IMMEDIATELY**: `FILE_ORGANIZATION_POLICY.md` - 🚨 MANDATORY file placement rules
+3. **Then read**: The specific document for your task area
+4. **Reference**: Other documents as needed during development
 
 ### For Specific Tasks
 
@@ -66,13 +69,23 @@ This directory contains **6 consolidated steering documents** that provide compr
 
 ## 🚨 Critical Rules (Quick Reference)
 
-### 1. Anti-Duplication
+### 1. File Organization (MANDATORY)
+```bash
+# ❌ NEVER create files in root directory
+# ✅ ALWAYS use proper directories:
+#   - Documentation → backend/docs/ or hospital-management-system/docs/
+#   - Tests → backend/tests/ or hospital-management-system/__tests__/
+#   - Scripts → backend/scripts/ or hospital-management-system/scripts/
+# See FILE_ORGANIZATION_POLICY.md for complete rules
+```
+
+### 2. Anti-Duplication
 ```bash
 # ALWAYS search before creating
 find . -name "*component-name*" -type f
 ```
 
-### 2. Multi-Tenant Headers (MANDATORY)
+### 3. Multi-Tenant Headers (MANDATORY)
 ```typescript
 headers: {
   'Authorization': 'Bearer jwt_token',
@@ -82,13 +95,13 @@ headers: {
 }
 ```
 
-### 3. Database Verification
+### 4. Database Verification
 ```bash
 # ALWAYS verify before database operations
 docker exec -it backend-postgres-1 psql -U postgres -d multitenant_db -c "\dt"
 ```
 
-### 4. Security
+### 5. Security
 - ❌ NEVER create Next.js API proxies
 - ✅ ALWAYS call backend directly
 - ✅ ALWAYS validate tenant context

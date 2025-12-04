@@ -23,7 +23,25 @@
 
 ## 🚨 CRITICAL RULES (Read First!)
 
-### 1. Multi-Tenant Headers (MANDATORY)
+### 1. File Organization (MANDATORY - READ IMMEDIATELY)
+
+**NEVER create files in root directory!**
+
+```bash
+# ❌ WRONG - Files in root directory
+/SOME_DOCUMENTATION.md
+/test-api.js
+/deploy.sh
+
+# ✅ CORRECT - Proper organization
+backend/docs/SOME_DOCUMENTATION.md
+backend/tests/integration/test-api.js
+backend/scripts/deployment/deploy.sh
+```
+
+**See [FILE_ORGANIZATION_POLICY.md](.kiro/steering/FILE_ORGANIZATION_POLICY.md) for complete rules.**
+
+### 2. Multi-Tenant Headers (MANDATORY)
 ```typescript
 headers: {
   'Authorization': 'Bearer jwt_token',
@@ -33,7 +51,7 @@ headers: {
 }
 ```
 
-### 2. Schema Naming Convention
+### 3. Schema Naming Convention
 - ✅ **CORRECT**: Use tenant ID directly as schema name
   - `sunrise_medical_center`
   - `aajmin_polyclinic`
@@ -41,7 +59,7 @@ headers: {
 - ❌ **WRONG**: Do NOT add `tenant_` prefix
   - ~~`tenant_sunrise_medical_center`~~
 
-### 3. Database Operations
+### 4. Database Operations
 ```bash
 # Production (via SSH)
 ssh -i ~/.ssh/LightsailDefaultKey-ap-south-1.pem bitnami@65.0.78.75
@@ -51,7 +69,7 @@ sudo -u postgres psql -d hospital_management
 docker exec -it backend-postgres-1 psql -U postgres -d multitenant_db
 ```
 
-### 4. Security
+### 5. Security
 - ❌ NEVER create Next.js API proxies
 - ✅ ALWAYS call backend directly
 - ✅ ALWAYS validate tenant context
