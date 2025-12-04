@@ -18,19 +18,17 @@
 
 ## 🚀 Live Demo Credentials
 
-### Aajmin Polyclinic
-**URL**: https://aajmin.aajminpolyclinic.com.np
-- Admin: `mdwasimkrm13@gmail.com` / `Advanture101$`
-- Hospital Admin: `admin@aajmin.hospital` / `Aspiration101$`
-- Doctor: `doctor@aajmin.hospital` / `Aspiration101$`
+### Valley Health Clinic
+**URL**: https://valley.aajminpolyclinic.com.np
+- Hospital Admin: `admin@valley.hospital` / `ValleyAdmin@2024`
 
 ### Sunrise Medical Center
 **URL**: https://sunrise.aajminpolyclinic.com.np
-- Hospital Admin: `admin@sunrise.hospital` / `Aspiration101$`
+- Hospital Admin: `admin@sunrise.hospital` / `SunriseAdmin@2024`
 
 ### City General Hospital
 **URL**: https://citygeneral.aajminpolyclinic.com.np
-- Hospital Admin: `admin@citygeneral.hospital` / `Aspiration101$`
+- Hospital Admin: `admin@citygeneral.hospital` / `CitygeneralAdmin@2024`
 
 ## 🏗️ The Frankenstein Challenge
 

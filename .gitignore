@@ -60,5 +60,5 @@ production-data/
 *credentials*
 !.aws/credentials.example
 
-# Kiroween hackathon submission (private - not for GitHub)
+# Kiroween hackathon submission (internal planning - not required by project)
 kiroween-submission/
