@@ -41,7 +41,8 @@ n8n/
 implementation-plans/
 docs-backup-dec-4-2025/
 e2e-tests/
-
+temp_backup/
+production-data/
 
 # Database
 *.sql
