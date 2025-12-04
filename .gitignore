@@ -40,6 +40,8 @@ e2e-tests/
 n8n/
 implementation-plans/
 docs-backup-dec-4-2025/
+e2e-tests/
+
 
 # Database
 *.sql
@@ -55,3 +57,6 @@ docs-backup-dec-4-2025/
 # AWS and cloud credentials
 *credentials*
 !.aws/credentials.example
+
+# Kiroween hackathon submission (private - not for GitHub)
+kiroween-submission/
